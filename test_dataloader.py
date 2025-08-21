@@ -158,11 +158,15 @@ def plot_batch_overview(batch: dict, save_dir: Optional[str] = None):
     fig, axes = plt.subplots(rows, cols, figsize=(3 * cols, 3 * rows))
     fig.suptitle("Batch Overview - First Frame of Each Video", fontsize=16, fontweight='bold')
     
-    # Handle single row case
-    if rows == 1 and batch_size > 1:
-        axes = axes.reshape(1, -1)
-    elif batch_size == 1:
+    # Handle different subplot layouts
+    if batch_size == 1:
         axes = [axes]
+    elif rows == 1 and cols > 1:
+        # axes is already a 1D array
+        pass
+    elif rows > 1 and cols > 1:
+        # axes is a 2D array, flatten it for easier indexing
+        axes = axes.flatten()
     
     for i in range(batch_size):
         # Get first frame of video i
@@ -170,15 +174,8 @@ def plot_batch_overview(batch: dict, save_dir: Optional[str] = None):
         first_frame = tensor_to_numpy_frames(video)[0]  # Shape: (H, W, C)
         text = texts[i]
         
-        # Calculate subplot position
-        if batch_size == 1:
-            ax = axes[0] if isinstance(axes, list) else axes
-        elif rows == 1:
-            ax = axes[i]
-        else:
-            row = i // cols
-            col = i % cols
-            ax = axes[row, col]
+        # Get the axis for this sample
+        ax = axes[i]
         
         # Show frame
         ax.imshow(first_frame)
@@ -188,19 +185,14 @@ def plot_batch_overview(batch: dict, save_dir: Optional[str] = None):
     # Hide unused subplots
     total_subplots = rows * cols
     for i in range(batch_size, total_subplots):
-        if rows == 1:
-            if batch_size > 1:
-                axes[i].axis('off')
-        else:
-            row = i // cols
-            col = i % cols
-            axes[row, col].axis('off')
+        if i < len(axes):
+            axes[i].axis('off')
     
     plt.tight_layout()
     
     if save_dir:
         save_path = Path(save_dir) / "batch_overview.png"
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(str(save_path), dpi=150, bbox_inches='tight')
         print(f"Saved batch overview to: {save_path}")
     
     plt.show()
@@ -297,7 +289,7 @@ def test_dataloader_visualization(data_dir: str, batch_size: int = 4, num_sample
         print(f"✅ Successfully sampled batch")
         
         # Plot batch overview
-        plot_batch_overview(batch, save_dir=output_dir)
+        plot_batch_overview(batch, save_dir=str(output_dir))
         
         # Visualize individual samples in detail
         videos = batch['videos']
@@ -317,12 +309,12 @@ def test_dataloader_visualization(data_dir: str, batch_size: int = 4, num_sample
             
             # Create frame grid plot
             frame_plot_path = output_dir / f"sample_{i+1}_frames.png"
-            plot_video_frames(video, text, save_path=frame_plot_path)
+            plot_video_frames(video, text, save_path=str(frame_plot_path))
             
             # Create animation
             anim_path = output_dir / f"sample_{i+1}_animation.gif"
             try:
-                anim = create_video_animation(video, text, save_path=anim_path)
+                anim = create_video_animation(video, text, save_path=str(anim_path))
                 # Close the animation to free memory
                 plt.close()
             except Exception as e:
