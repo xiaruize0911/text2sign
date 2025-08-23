@@ -1,771 +1,448 @@
+"""
+Training utilities and functions
+"""
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import torchvision
 import os
-import json
-import argparse
-from pathlib import Path
-from tqdm import tqdm
-from typing import Dict, Any, Optional, List
+import time
+import pickle
+from typing import Optional, Dict, Any
 import numpy as np
+import imageio
+from tqdm import tqdm
+from config import Config
+from dataset import create_dataloader
+from diffusion import create_diffusion_model
+import logging
 
-try:
-    import wandb
-    WANDB_AVAILABLE = True
-except ImportError:
-    WANDB_AVAILABLE = False
-    wandb = None
-
-from src.models.pipeline import create_pipeline, Text2SignDiffusionPipeline
-from src.data.dataset import create_dataloader
-from src.models.text_encoder import SimpleTextEncoder
-
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Trainer:
     """
-    Trainer class for the text-to-sign language diffusion model.
+    Trainer class for the diffusion model
+    
+    Args:
+        config: Configuration object containing all hyperparameters
+        model: Diffusion model to train
+        dataloader: DataLoader for training data
+        optimizer: Optimizer for training
+        scheduler: Learning rate scheduler (optional)
     """
     
     def __init__(
         self,
-        pipeline: Text2SignDiffusionPipeline,
-        train_dataloader: DataLoader,
-        val_dataloader: Optional[DataLoader] = None,
-        learning_rate: float = 1e-4,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        save_dir: str = "./checkpoints",
-        use_wandb: bool = False,
-        use_tensorboard: bool = True,
-        project_name: str = "text2sign-diffusion"
+        config,
+        model: nn.Module,
+        dataloader,
+        optimizer: optim.Optimizer,
+        scheduler: Optional[Any] = None
     ):
+        self.config = config
+        self.model = model
+        self.dataloader = dataloader
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.device = config.DEVICE
+        
+        # Create directories
+        os.makedirs(config.LOG_DIR, exist_ok=True)
+        os.makedirs(config.CHECKPOINT_DIR, exist_ok=True)
+        os.makedirs(config.SAMPLES_DIR, exist_ok=True)  # Create samples directory
+        
+        # Initialize tensorboard writer
+        self.writer = SummaryWriter(log_dir=config.LOG_DIR)
+        
+        # Training state
+        self.global_step = 0
+        self.epoch = 0
+        
+        # Log model structure to tensorboard
+        self.log_model_structure()
+        
+    def log_model_structure(self):
+        """Log the model structure to tensorboard"""
+        try:
+            # Create a dummy input for the model graph
+            dummy_input = torch.randn(1, *self.config.INPUT_SHAPE).to(self.device)
+            dummy_time = torch.randint(0, self.config.TIMESTEPS, (1,)).to(self.device)
+            
+            # Log the model graph
+            self.writer.add_graph(self.model.model, (dummy_input, dummy_time))
+            logger.info("Model structure logged to tensorboard")
+        except Exception as e:
+            logger.warning(f"Could not log model structure: {e}")
+    
+    def save_checkpoint(self, filename: str):
         """
-        Initialize the trainer.
+        Save model checkpoint
         
         Args:
-            pipeline: Diffusion pipeline
-            train_dataloader: Training data loader
-            val_dataloader: Validation data loader
-            learning_rate: Learning rate
-            device: Device to train on
-            save_dir: Directory to save checkpoints
-            use_wandb: Whether to use Weights & Biases
-            use_tensorboard: Whether to use TensorBoard
-            project_name: W&B project name
+            filename (str): Filename for the checkpoint
         """
-        self.pipeline = pipeline
-        self.train_dataloader = train_dataloader
-        self.val_dataloader = val_dataloader
-        self.device = device
-        self.save_dir = Path(save_dir)
-        self.save_dir.mkdir(parents=True, exist_ok=True)
+        # Convert config to a serializable dictionary
+        config_dict = {}
+        if hasattr(self.config, '__dict__'):
+            for key, value in self.config.__dict__.items():
+                # Only save basic types and skip problematic attributes
+                if not key.startswith('_') and not callable(value):
+                    if isinstance(value, (int, float, str, bool, list, tuple, torch.device)):
+                        config_dict[key] = str(value) if isinstance(value, torch.device) else value
+                    else:
+                        logger.debug(f"Skipping config item: {key} (type: {type(value)})")
         
-        # TensorBoard setup
-        self.use_tensorboard = use_tensorboard
-        if self.use_tensorboard:
-            self.tb_writer = SummaryWriter(log_dir=str(self.save_dir / "tensorboard_logs"))
-            print(f"TensorBoard logs will be saved to: {self.save_dir / 'tensorboard_logs'}")
-        else:
-            self.tb_writer = None
+        checkpoint = {
+            'epoch': self.epoch,
+            'global_step': self.global_step,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'config': config_dict
+        }
         
-        # Optimizer
-        self.optimizer = optim.AdamW(
-            self.pipeline.parameters(),
-            lr=learning_rate,
-            weight_decay=0.01
-        )
+        if self.scheduler is not None:
+            checkpoint['scheduler_state_dict'] = self.scheduler.state_dict()
         
-        # Learning rate scheduler
-        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            self.optimizer, T_max=1000, eta_min=1e-6
-        )
-        
-        # Tracking
-        self.step = 0
-        self.epoch = 0
-        self.best_loss = float('inf')
-        self.best_train_loss = float('inf')
-        self.loss_history = []
-        self.lr_history = []
-        
-        # Checkpoint settings
-        self.checkpoint_every_steps = 500  # Save checkpoint every N steps
-        self.log_every_steps = 10  # Log metrics every N steps
-        self.generate_samples_every_steps = 1000  # Generate samples every N steps
-        self.detailed_log_every_steps = 100  # Detailed logging every N steps
-        
-        # Weights & Biases
-        if use_wandb and WANDB_AVAILABLE:
-            wandb.init(project=project_name)
-            wandb.watch(self.pipeline.unet)
-        
-        # Log network architecture and initial metrics to TensorBoard
-        if self.use_tensorboard and self.tb_writer is not None:
-            self._log_model_graph()
-            self._log_model_parameters()
-            self._log_hyperparameters(learning_rate)
+        filepath = os.path.join(self.config.CHECKPOINT_DIR, filename)
+        torch.save(checkpoint, filepath)
+        logger.info(f"Checkpoint saved: {filepath}")
     
-    def _log_model_graph(self):
-        """Log the model architecture to TensorBoard."""
-        try:
-            # Create dummy input for graph logging (updated for new dimensions)
-            dummy_video = torch.randn(1, 3, 28, 128, 128).to(self.device)
-            dummy_timestep = torch.randint(0, 1000, (1,)).to(self.device)
-            dummy_text_embeds = torch.randn(1, 256).to(self.device)  # Updated for smaller embedding
-            
-            # Log UNet architecture
-            self.tb_writer.add_graph(
-                self.pipeline.unet, 
-                (dummy_video, dummy_timestep, dummy_text_embeds)
-            )
-            print("✅ Model architecture logged to TensorBoard")
-        except Exception as e:
-            print(f"⚠️ Could not log model graph to TensorBoard: {e}")
-    
-    def _log_model_parameters(self):
-        """Log model parameter statistics to TensorBoard."""
-        if not self.use_tensorboard or self.tb_writer is None:
+    def load_checkpoint(self, filename: str):
+        """
+        Load model checkpoint
+        
+        Args:
+            filename (str): Filename of the checkpoint to load
+        """
+        filepath = os.path.join(self.config.CHECKPOINT_DIR, filename)
+        
+        if not os.path.exists(filepath):
+            logger.warning(f"Checkpoint not found: {filepath}")
             return
         
-        try:
-            # Count parameters
-            unet_params = sum(p.numel() for p in self.pipeline.unet.parameters())
-            text_params = sum(p.numel() for p in self.pipeline.text_encoder.parameters())
-            total_params = unet_params + text_params
-            
-            # Log parameter counts
-            self.tb_writer.add_scalar('Model/UNet_Parameters', unet_params, 0)
-            self.tb_writer.add_scalar('Model/TextEncoder_Parameters', text_params, 0)
-            self.tb_writer.add_scalar('Model/Total_Parameters', total_params, 0)
-            
-            # Log parameter distributions
-            for name, param in self.pipeline.unet.named_parameters():
-                if param.requires_grad:
-                    self.tb_writer.add_histogram(f'UNet_Params/{name}', param, 0)
-            
-            print(f"✅ Model parameters logged: UNet={unet_params:,}, Text={text_params:,}, Total={total_params:,}")
-        except Exception as e:
-            print(f"⚠️ Could not log model parameters: {e}")
-    
-    def _log_hyperparameters(self, learning_rate: float):
-        """Log hyperparameters to TensorBoard."""
-        if not self.use_tensorboard or self.tb_writer is None:
-            return
+        checkpoint = torch.load(filepath, map_location=self.device)
         
-        try:
-            # Create hyperparameter dict
-            hparams = {
-                'learning_rate': learning_rate,
-                'batch_size': len(next(iter(self.train_dataloader))['videos']),
-                'model_channels': getattr(self.pipeline.unet, 'model_channels', 'unknown'),
-                'num_res_blocks': getattr(self.pipeline.unet, 'num_res_blocks', 'unknown'),
-                'num_heads': getattr(self.pipeline.unet, 'num_heads', 'unknown'),
-            }
-            
-            # Log hyperparameters
-            self.tb_writer.add_hparams(
-                hparams, 
-                {'hparam/train_loss': 0.0}  # Will be updated during training
-            )
-            
-            print("✅ Hyperparameters logged to TensorBoard")
-        except Exception as e:
-            print(f"⚠️ Could not log hyperparameters: {e}")
-    
-    def _log_memory_usage(self, step: int):
-        """Log memory usage statistics."""
-        if not self.use_tensorboard or self.tb_writer is None:
-            return
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.epoch = checkpoint['epoch']
+        self.global_step = checkpoint['global_step']
         
-        try:
-            if torch.cuda.is_available():
-                # CUDA memory
-                allocated = torch.cuda.memory_allocated() / 1024**3  # GB
-                reserved = torch.cuda.memory_reserved() / 1024**3   # GB
-                self.tb_writer.add_scalar('Memory/CUDA_Allocated_GB', allocated, step)
-                self.tb_writer.add_scalar('Memory/CUDA_Reserved_GB', reserved, step)
-            elif torch.backends.mps.is_available():
-                # MPS memory (approximation)
-                allocated = torch.mps.current_allocated_memory() / 1024**3  # GB
-                self.tb_writer.add_scalar('Memory/MPS_Allocated_GB', allocated, step)
-        except Exception as e:
-            pass  # Memory logging is optional
-    
-    def _log_samples_to_tensorboard(self, videos: torch.Tensor, texts: List[str], tag: str, step: int):
-        """Log video samples to TensorBoard."""
-        if not self.use_tensorboard or self.tb_writer is None:
-            return
+        if self.scheduler is not None and 'scheduler_state_dict' in checkpoint:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         
-        try:
-            # Take first few samples from batch
-            num_samples = min(4, videos.size(0))
-            sample_videos = videos[:num_samples]
-            sample_texts = texts[:num_samples]
+        logger.info(f"Checkpoint loaded: {filepath}")
+    
+    def generate_samples(self, num_samples: Optional[int] = None) -> torch.Tensor:
+        """
+        Generate samples for logging
+        
+        Args:
+            num_samples (int): Number of samples to generate
             
-            # Convert videos to format suitable for TensorBoard
-            # Expected shape: (N, T, C, H, W) -> (N, C, T, H, W)
-            if sample_videos.dim() == 5:
-                sample_videos = sample_videos.permute(0, 2, 1, 3, 4)
+        Returns:
+            torch.Tensor: Generated samples
+        """
+        if num_samples is None:
+            num_samples = self.config.NUM_SAMPLES
+        
+        self.model.eval()
+        with torch.no_grad():
+            shape = (num_samples, *self.config.INPUT_SHAPE)
+            # Generate samples with progress tracking
+            logger.info(f"🎬 Generating {num_samples} video samples...")
+            samples = self.model.p_sample(shape)
+            # Clamp to [0, 1] range
+            samples = torch.clamp(samples, 0, 1)
+            logger.info(f"✅ Generated {num_samples} samples successfully")
+        self.model.train()
+        
+        return samples
+    
+    def save_samples_as_gifs(self, samples: torch.Tensor, step: int):
+        """
+        Save generated samples as GIF files
+        
+        Args:
+            samples (torch.Tensor): Generated samples with shape (batch_size, channels, frames, height, width)
+            step (int): Current training step for filename
+        """
+        batch_size, channels, frames, height, width = samples.shape
+        
+        # Convert samples to numpy and process for GIF saving
+        samples_np = samples.detach().cpu().numpy()
+        
+        for sample_idx in range(batch_size):
+            sample = samples_np[sample_idx]  # (channels, frames, height, width)
             
-            # Normalize to [0, 1] range
-            sample_videos = torch.clamp(sample_videos, 0, 1)
+            # Convert from CHW to HWC format and scale to [0, 255]
+            video_frames = []
+            for frame_idx in range(frames):
+                frame = sample[:, frame_idx]  # (channels, height, width)
+                frame = np.transpose(frame, (1, 2, 0))  # Convert to (height, width, channels)
+                frame = np.clip(frame * 255, 0, 255).astype(np.uint8)  # Scale to [0, 255]
+                video_frames.append(frame)
             
-            # Log videos
-            for i, (video, text) in enumerate(zip(sample_videos, sample_texts)):
-                self.tb_writer.add_video(
-                    f"{tag}/sample_{i}", 
-                    video.unsqueeze(0),  # Add batch dimension
-                    global_step=step,
-                    fps=5
+            # Save as GIF
+            gif_filename = f"sample_step_{step}_idx_{sample_idx}.gif"
+            gif_path = os.path.join(self.config.SAMPLES_DIR, gif_filename)
+            
+            # Save with imageio
+            imageio.mimsave(gif_path, video_frames, fps=8, loop=0)
+            logger.info(f"💾 Saved GIF: {gif_path}")
+    
+    def log_samples(self, samples: torch.Tensor, step: int):
+        """
+        Log samples to tensorboard and save as GIF files
+        
+        Args:
+            samples (torch.Tensor): Generated samples
+            step (int): Current training step
+        """
+        # Save samples as GIF files first
+        self.save_samples_as_gifs(samples, step)
+        
+        # Log the first few frames of each sample as images to tensorboard
+        batch_size, channels, frames, height, width = samples.shape
+        
+        # Take every 4th frame to show progression
+        frame_indices = list(range(0, frames, max(1, frames // 7)))[:7]
+        
+        for sample_idx in range(min(batch_size, 4)):  # Log up to 4 samples
+            sample = samples[sample_idx]  # (channels, frames, height, width)
+            
+            # Create a grid of frames
+            frame_grid = []
+            for frame_idx in frame_indices:
+                frame = sample[:, frame_idx]  # (channels, height, width)
+                # Convert to HWC format for tensorboard
+                frame = frame.permute(1, 2, 0)  # (height, width, channels)
+                frame_grid.append(frame)
+            
+            # Concatenate frames horizontally
+            if frame_grid:
+                frames_concat = torch.cat(frame_grid, dim=1)  # (height, width*num_frames, channels)
+                # Log to tensorboard
+                self.writer.add_image(
+                    f'generated_samples/sample_{sample_idx}',
+                    frames_concat,
+                    step,
+                    dataformats='HWC'
                 )
-                self.tb_writer.add_text(
-                    f"{tag}/text_{i}", 
-                    text, 
-                    global_step=step
-                )
-        except Exception as e:
-            print(f"⚠️ Could not log samples to TensorBoard: {e}")
-    
-    def _log_generated_samples_to_tensorboard(self, generated_videos: torch.Tensor, prompts: List[str], step: int):
-        """Log generated samples to TensorBoard."""
-        if not self.use_tensorboard or self.tb_writer is None:
-            return
-        
-        try:
-            # Convert generated videos for logging
-            if generated_videos.dim() == 5:
-                generated_videos = generated_videos.permute(0, 2, 1, 3, 4)
-            
-            generated_videos = torch.clamp(generated_videos, 0, 1)
-            
-            for i, (video, prompt) in enumerate(zip(generated_videos, prompts)):
-                self.tb_writer.add_video(
-                    f"generated/sample_{i}", 
-                    video.unsqueeze(0),
-                    global_step=step,
-                    fps=5
-                )
-                self.tb_writer.add_text(
-                    f"generated/prompt_{i}", 
-                    prompt, 
-                    global_step=step
-                )
-        except Exception as e:
-            print(f"⚠️ Could not log generated samples to TensorBoard: {e}")
     
     def train_epoch(self) -> Dict[str, float]:
-        """Train for one epoch."""
-        self.pipeline.train()
-        total_loss = 0.0
+        """
+        Train for one epoch
+        
+        Returns:
+            dict: Training metrics
+        """
+        self.model.train()
+        epoch_loss = 0.0
         num_batches = 0
         
-        progress_bar = tqdm(self.train_dataloader, desc=f"Epoch {self.epoch}")
+        # Create progress bar for training batches
+        progress_bar = tqdm(
+            self.dataloader, 
+            desc=f"Epoch {self.epoch}", 
+            leave=False,
+            unit="batch"
+        )
         
-        for batch in progress_bar:
+        for batch_idx, (videos, texts) in enumerate(progress_bar):
+            # Move data to device
+            videos = videos.to(self.device)
+            
+            # Zero gradients
             self.optimizer.zero_grad()
             
-            # Move data to device
-            videos = batch['videos'].to(self.device)
-            texts = batch['texts']
-            
-            # Build vocabulary for simple text encoder if needed
-            if isinstance(self.pipeline.text_encoder, SimpleTextEncoder):
-                self.pipeline.text_encoder.build_vocab(texts)
-            
             # Forward pass
-            loss = self.pipeline.train_step(videos, texts)
+            loss, _, _ = self.model(videos)
             
             # Backward pass
             loss.backward()
             
             # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.pipeline.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
             
+            # Optimizer step
             self.optimizer.step()
             
-            # Update metrics
-            total_loss += loss.item()
-            num_batches += 1
-            self.step += 1
+            # Update learning rate
+            if self.scheduler is not None:
+                self.scheduler.step()
             
-            # Track loss history
-            self.loss_history.append(loss.item())
-            self.lr_history.append(self.optimizer.param_groups[0]['lr'])
+            # Accumulate metrics
+            epoch_loss += loss.item()
+            num_batches += 1
             
             # Update progress bar
             progress_bar.set_postfix({
-                'loss': loss.item(),
-                'avg_loss': total_loss / num_batches,
-                'lr': self.optimizer.param_groups[0]['lr'],
-                'step': self.step
+                'loss': f"{loss.item():.4f}",
+                'avg_loss': f"{epoch_loss/num_batches:.4f}",
+                'lr': f"{self.optimizer.param_groups[0]['lr']:.6f}"
             })
             
-            # Regular logging to TensorBoard
-            if self.use_tensorboard and self.tb_writer is not None and self.step % self.log_every_steps == 0:
-                self.tb_writer.add_scalar('Loss/Train_Step', loss.item(), self.step)
-                self.tb_writer.add_scalar('Learning_Rate', self.optimizer.param_groups[0]['lr'], self.step)
-                
-                # Log moving averages
-                if len(self.loss_history) >= 10:
-                    recent_loss = np.mean(self.loss_history[-10:])
-                    self.tb_writer.add_scalar('Loss/Train_Moving_Avg_10', recent_loss, self.step)
-                
-                if len(self.loss_history) >= 100:
-                    recent_loss = np.mean(self.loss_history[-100:])
-                    self.tb_writer.add_scalar('Loss/Train_Moving_Avg_100', recent_loss, self.step)
+            # Logging
+            if self.global_step % self.config.LOG_EVERY == 0:
+                self.writer.add_scalar('train/loss', loss.item(), self.global_step)
+                self.writer.add_scalar('train/learning_rate', self.optimizer.param_groups[0]['lr'], self.global_step)
+                logger.info(
+                    f"Epoch {self.epoch}, Step {self.global_step}, "
+                    f"Loss: {loss.item():.4f}, LR: {self.optimizer.param_groups[0]['lr']:.6f}"
+                )
             
-            # Detailed logging (gradients, memory, etc.)
-            if self.use_tensorboard and self.tb_writer is not None and self.step % self.detailed_log_every_steps == 0:
-                # Log gradient norms
-                total_norm = 0
-                param_count = 0
-                for name, p in self.pipeline.named_parameters():
-                    if p.grad is not None:
-                        param_norm = p.grad.data.norm(2)
-                        total_norm += param_norm.item() ** 2
-                        param_count += 1
-                        
-                        # Log individual parameter gradient norms
-                        if 'unet' in name:
-                            self.tb_writer.add_scalar(f'Gradients/UNet/{name.replace(".", "_")}', param_norm.item(), self.step)
-                        elif 'text_encoder' in name:
-                            self.tb_writer.add_scalar(f'Gradients/TextEncoder/{name.replace(".", "_")}', param_norm.item(), self.step)
-                
-                total_norm = total_norm ** (1. / 2)
-                self.tb_writer.add_scalar('Gradients/Total_Norm', total_norm, self.step)
-                self.tb_writer.add_scalar('Gradients/Average_Norm', total_norm / max(param_count, 1), self.step)
-                
-                # Log memory usage
-                self._log_memory_usage(self.step)
-                
-                # Log training samples
-                self._log_samples_to_tensorboard(videos, texts, "training", self.step)
-                
-                # Log parameter updates (weights)
-                for name, param in self.pipeline.unet.named_parameters():
-                    if param.requires_grad and 'weight' in name:
-                        self.tb_writer.add_histogram(f'Weights/UNet/{name.replace(".", "_")}', param, self.step)
+            # Generate and log samples
+            if self.global_step % self.config.SAMPLE_EVERY == 0 and self.global_step > 0:
+                progress_bar.set_description(f"Epoch {self.epoch} - Generating samples...")
+                samples = self.generate_samples()
+                self.log_samples(samples, self.global_step)
+                progress_bar.set_description(f"Epoch {self.epoch}")
+                logger.info("Samples logged to tensorboard and saved as GIFs")
+
             
-            # Save checkpoint every N steps
-            if self.step % self.checkpoint_every_steps == 0:
-                checkpoint_name = f"checkpoint_step_{self.step}.pt"
-                self.save_checkpoint(checkpoint_name)
-                print(f"💾 Checkpoint saved at step {self.step}")
-                
-                # Keep only last 5 step checkpoints to save space
-                self._cleanup_step_checkpoints()
+            # Save checkpoint
+            if self.global_step % self.config.SAVE_EVERY == 0 and self.global_step > 0:
+                progress_bar.set_description(f"Epoch {self.epoch} - Saving checkpoint...")
+                self.save_checkpoint(f'checkpoint_step_{self.global_step}.pt')
+                progress_bar.set_description(f"Epoch {self.epoch}")
             
-            # Generate samples occasionally
-            if self.step % self.generate_samples_every_steps == 0:
-                try:
-                    sample_prompts = ["Hello", "How are you?", "Thank you", "Good morning"]
-                    print(f"🎨 Generating samples at step {self.step}...")
-                    samples = self.generate_samples(
-                        sample_prompts, 
-                        save_path=str(self.save_dir / f"samples_step_{self.step}.pt")
-                    )
-                    print(f"✅ Generated samples saved for step {self.step}")
-                except Exception as e:
-                    print(f"⚠️ Failed to generate samples at step {self.step}: {e}")
-            
-            # Update best training loss
-            if loss.item() < self.best_train_loss:
-                self.best_train_loss = loss.item()
-                if self.use_tensorboard and self.tb_writer is not None:
-                    self.tb_writer.add_scalar('Loss/Best_Train_Loss', self.best_train_loss, self.step)
-            
-            # Log to wandb
-            if WANDB_AVAILABLE and wandb is not None and hasattr(wandb, 'run') and wandb.run is not None:
-                wandb.log({
-                    'train/loss': loss.item(),
-                    'train/lr': self.optimizer.param_groups[0]['lr'],
-                    'step': self.step
-                })
+            self.global_step += 1
         
-        avg_loss = total_loss / num_batches
-        return {'train_loss': avg_loss}
+        avg_loss = epoch_loss / num_batches if num_batches > 0 else 0.0
+        return {'loss': avg_loss}
     
-    @torch.no_grad()
-    def validate(self) -> Dict[str, float]:
-        """Validate the model."""
-        if self.val_dataloader is None:
-            return {}
+    def train(self):
+        """Main training loop"""
+        logger.info("Starting training...")
+        logger.info(f"Device: {self.device}")
+        logger.info(f"Total epochs: {self.config.NUM_EPOCHS}")
+        logger.info(f"Batch size: {self.config.BATCH_SIZE}")
         
-        self.pipeline.eval()
-        total_loss = 0.0
-        num_batches = 0
+        # Log configuration
+        config_text = "\n".join([f"{k}: {v}" for k, v in self.config.__dict__.items() if not k.startswith('_')])
+        self.writer.add_text('config', config_text, 0)
         
-        # Store samples for logging
-        sample_videos = None
-        sample_texts = None
-        
-        for batch in tqdm(self.val_dataloader, desc="Validating"):
-            videos = batch['videos'].to(self.device)
-            texts = batch['texts']
-            
-            # Store first batch for logging
-            if sample_videos is None:
-                sample_videos = videos
-                sample_texts = texts
-            
-            # Build vocabulary for simple text encoder if needed
-            if isinstance(self.pipeline.text_encoder, SimpleTextEncoder):
-                self.pipeline.text_encoder.build_vocab(texts)
-            
-            loss = self.pipeline.train_step(videos, texts)
-            
-            total_loss += loss.item()
-            num_batches += 1
-        
-        avg_loss = total_loss / num_batches
-        
-        # Log validation metrics to TensorBoard
-        if self.use_tensorboard and self.tb_writer is not None:
-            self.tb_writer.add_scalar('Loss/Validation', avg_loss, self.step)
-            
-            # Log validation samples
-            if sample_videos is not None and sample_texts is not None:
-                self._log_samples_to_tensorboard(sample_videos, sample_texts, "validation", self.step)
-        
-        return {'val_loss': avg_loss}
-    
-    def save_checkpoint(self, filename: Optional[str] = None):
-        """Save model checkpoint with enhanced metadata."""
-        if filename is None:
-            filename = f"checkpoint_epoch_{self.epoch}_step_{self.step}.pt"
-        
-        filepath = self.save_dir / filename
-        
-        checkpoint = {
-            'epoch': self.epoch,
-            'step': self.step,
-            'model_state_dict': self.pipeline.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-            'best_loss': self.best_loss,
-            'best_train_loss': self.best_train_loss,
-            'loss_history': self.loss_history[-1000:],  # Keep last 1000 losses
-            'lr_history': self.lr_history[-1000:],      # Keep last 1000 learning rates
-            'training_config': {
-                'model_channels': getattr(self.pipeline.unet, 'model_channels', None),
-                'num_res_blocks': getattr(self.pipeline.unet, 'num_res_blocks', None),
-                'num_heads': getattr(self.pipeline.unet, 'num_heads', None),
-                'device': self.device,
-            }
-        }
-        
-        torch.save(checkpoint, filepath)
-        print(f"💾 Checkpoint saved to {filepath}")
-        
-        # Log checkpoint event to TensorBoard
-        if self.use_tensorboard and self.tb_writer is not None:
-            self.tb_writer.add_scalar('Checkpoints/Saved', 1, self.step)
-    
-    def _cleanup_step_checkpoints(self):
-        """Keep only the most recent step checkpoints to save disk space."""
         try:
-            # Find all step checkpoints
-            step_checkpoints = list(self.save_dir.glob("checkpoint_step_*.pt"))
-            
-            # Sort by step number
-            step_checkpoints.sort(key=lambda x: int(x.stem.split('_')[-1]))
-            
-            # Keep only the last 5 checkpoints
-            if len(step_checkpoints) > 5:
-                for checkpoint in step_checkpoints[:-5]:
-                    checkpoint.unlink()
-                    print(f"🗑️ Removed old checkpoint: {checkpoint.name}")
-        except Exception as e:
-            print(f"⚠️ Failed to cleanup checkpoints: {e}")
-    
-    def save_epoch_checkpoint(self):
-        """Save a special epoch checkpoint."""
-        filename = f"checkpoint_epoch_{self.epoch}.pt"
-        self.save_checkpoint(filename)
-        
-        # Also save as latest.pt for easy resuming
-        latest_path = self.save_dir / "latest.pt"
-        checkpoint_path = self.save_dir / filename
-        try:
-            import shutil
-            shutil.copy2(checkpoint_path, latest_path)
-            print(f"📋 Latest checkpoint updated: {latest_path}")
-        except Exception as e:
-            print(f"⚠️ Failed to update latest checkpoint: {e}")
-    
-    def load_checkpoint(self, filepath: str):
-        """Load model checkpoint."""
-        checkpoint = torch.load(filepath, map_location=self.device)
-        
-        self.pipeline.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        self.epoch = checkpoint['epoch']
-        self.step = checkpoint['step']
-        self.best_loss = checkpoint['best_loss']
-        
-        print(f"Checkpoint loaded from {filepath}")
-    
-    def generate_samples(self, prompts: List[str], save_path: Optional[str] = None):
-        """Generate sample videos."""
-        self.pipeline.eval()
-        
-        with torch.no_grad():
-            generated = self.pipeline(
-                prompts=prompts,
-                num_frames=16,
-                height=64,
-                width=64,
-                num_inference_steps=50
+            # Create progress bar for epochs
+            epoch_progress = tqdm(
+                range(self.epoch, self.config.NUM_EPOCHS),
+                desc="Training",
+                unit="epoch",
+                initial=self.epoch,
+                total=self.config.NUM_EPOCHS
             )
-        
-        # Log to TensorBoard
-        if self.use_tensorboard and self.tb_writer is not None and isinstance(generated, torch.Tensor):
-            self._log_generated_samples_to_tensorboard(generated, prompts, self.step)
-        
-        if save_path:
-            torch.save(generated, save_path)
-        
-        return generated
-    
-    def close_tensorboard(self):
-        """Close TensorBoard writer."""
-        if self.tb_writer is not None:
-            self.tb_writer.close()
-            print("TensorBoard writer closed.")
-    
-    def train(self, num_epochs: int, save_every: int = 5, validate_every: int = 5):
-        """Main training loop with enhanced checkpointing and logging."""
-        print(f"🚀 Starting training for {num_epochs} epochs")
-        print(f"📊 Enhanced TensorBoard logging enabled")
-        print(f"💾 Checkpoints: Every {save_every} epochs + every {self.checkpoint_every_steps} steps")
-        print(f"🎨 Sample generation: Every {self.generate_samples_every_steps} steps")
-        print(f"📈 Detailed logging: Every {self.detailed_log_every_steps} steps")
-        print(f"Device: {self.device}")
-        
-        try:
-            dataset_len = len(self.train_dataloader.dataset)  # type: ignore
-            print(f"Training samples: {dataset_len}")
-            print(f"Batches per epoch: {len(self.train_dataloader)}")
-        except:
-            print("Training samples: Unknown")
             
-        if self.val_dataloader:
-            try:
-                val_dataset_len = len(self.val_dataloader.dataset)  # type: ignore
-                print(f"Validation samples: {val_dataset_len}")
-            except:
-                print("Validation samples: Unknown")
-        
-        # Log initial state
-        if self.use_tensorboard and self.tb_writer is not None:
-            self.tb_writer.add_scalar('Training/Epochs_Total', num_epochs, 0)
-            self.tb_writer.add_scalar('Training/Started', 1, 0)
-        
-        for epoch in range(num_epochs):
-            self.epoch = epoch
-            epoch_start_step = self.step
-            
-            print(f"\n{'='*60}")
-            print(f"📅 Epoch {epoch + 1}/{num_epochs}")
-            print(f"{'='*60}")
-            
-            # Train
-            train_metrics = self.train_epoch()
-            
-            # Log epoch metrics
-            if self.use_tensorboard and self.tb_writer is not None:
-                self.tb_writer.add_scalar('Loss/Train_Epoch', train_metrics['train_loss'], epoch)
-                self.tb_writer.add_scalar('Training/Epoch_Progress', epoch / num_epochs, epoch)
+            for epoch in epoch_progress:
+                self.epoch = epoch
+                start_time = time.time()
                 
-                # Log steps per epoch
-                steps_this_epoch = self.step - epoch_start_step
-                self.tb_writer.add_scalar('Training/Steps_Per_Epoch', steps_this_epoch, epoch)
-            
-            # Validate
-            if self.val_dataloader and epoch % validate_every == 0:
-                print(f"🔍 Running validation...")
-                val_metrics = self.validate()
+                # Update epoch progress description
+                epoch_progress.set_description(f"Training - Epoch {epoch+1}/{self.config.NUM_EPOCHS}")
                 
-                # Check if best model
-                if val_metrics['val_loss'] < self.best_loss:
-                    self.best_loss = val_metrics['val_loss']
-                    self.save_checkpoint("best_model.pt")
-                    print(f"🏆 New best validation loss: {self.best_loss:.4f}")
-                    
-                    if self.use_tensorboard and self.tb_writer is not None:
-                        self.tb_writer.add_scalar('Loss/Best_Validation_Loss', self.best_loss, self.step)
+                # Train for one epoch
+                metrics = self.train_epoch()
                 
-                print(f"📊 Epoch {epoch}: Train Loss: {train_metrics['train_loss']:.4f}, "
-                      f"Val Loss: {val_metrics['val_loss']:.4f}")
+                epoch_time = time.time() - start_time
                 
-                # Log to wandb
-                if WANDB_AVAILABLE and wandb is not None and hasattr(wandb, 'run') and wandb.run is not None:
-                    wandb.log({
-                        'val/loss': val_metrics['val_loss'],
-                        'epoch': epoch
-                    })
+                # Update epoch progress with metrics
+                epoch_progress.set_postfix({
+                    'loss': f"{metrics['loss']:.4f}",
+                    'time': f"{epoch_time:.1f}s"
+                })
                 
-                # Log epoch metrics to TensorBoard
-                if self.use_tensorboard and self.tb_writer is not None:
-                    self.tb_writer.add_scalars('Loss/Epoch_Comparison', {
-                        'train': train_metrics['train_loss'],
-                        'validation': val_metrics['val_loss']
-                    }, epoch)
-                    self.tb_writer.add_scalar('Loss/Val_Epoch', val_metrics['val_loss'], epoch)
-            else:
-                print(f"📊 Epoch {epoch}: Train Loss: {train_metrics['train_loss']:.4f}")
+                # Log epoch metrics
+                self.writer.add_scalar('epoch/loss', metrics['loss'], epoch)
+                self.writer.add_scalar('epoch/time', epoch_time, epoch)
                 
-                # Log only training metrics to TensorBoard
-                if self.use_tensorboard and self.tb_writer is not None:
-                    self.tb_writer.add_scalar('Loss/Train_Epoch_Only', train_metrics['train_loss'], epoch)
-            
-            # Save epoch checkpoint
-            if epoch % save_every == 0:
-                self.save_epoch_checkpoint()
-            
-            # Update learning rate
-            old_lr = self.optimizer.param_groups[0]['lr']
-            self.scheduler.step()
-            new_lr = self.optimizer.param_groups[0]['lr']
-            
-            if self.use_tensorboard and self.tb_writer is not None:
-                self.tb_writer.add_scalar('Learning_Rate_Epoch', new_lr, epoch)
-            
-            if old_lr != new_lr:
-                print(f"📉 Learning rate updated: {old_lr:.2e} → {new_lr:.2e}")
-            
-            # Generate samples at epoch milestones
-            if epoch % (save_every * 2) == 0:
-                try:
-                    sample_prompts = [
-                        "Hello", "How are you?", "Thank you", "Good morning",
-                        "The aileron is controlled by lateral movement",
-                        "Sign language is beautiful"
-                    ]
-                    print(f"🎨 Generating epoch samples...")
-                    samples = self.generate_samples(
-                        sample_prompts, 
-                        save_path=str(self.save_dir / f"samples_epoch_{epoch}.pt")
-                    )
-                    print(f"✅ Generated samples saved for epoch {epoch}")
-                except Exception as e:
-                    print(f"⚠️ Failed to generate samples: {e}")
-            
-            # Flush TensorBoard logs
-            if self.use_tensorboard and self.tb_writer is not None:
-                self.tb_writer.flush()
+                logger.info(
+                    f"Epoch {epoch} completed in {epoch_time:.2f}s, "
+                    f"Average loss: {metrics['loss']:.4f}"
+                )
+                
+                # Save epoch checkpoint
+                self.save_checkpoint(f'checkpoint_epoch_{epoch}.pt')
+                self.save_checkpoint('latest_checkpoint.pt')  # Always keep latest
         
-        # Save final model
-        print(f"\n🏁 Training completed!")
-        self.save_checkpoint("final_model.pt")
+        except KeyboardInterrupt:
+            logger.info("Training interrupted by user")
+            self.save_checkpoint('interrupted_checkpoint.pt')
         
-        # Log training completion
-        if self.use_tensorboard and self.tb_writer is not None:
-            self.tb_writer.add_scalar('Training/Completed', 1, self.step)
-            self.tb_writer.add_text('Training/Summary', 
-                f'Training completed after {num_epochs} epochs and {self.step} steps. '
-                f'Best validation loss: {self.best_loss:.4f}', self.step)
+        except Exception as e:
+            logger.error(f"Training failed with error: {e}")
+            self.save_checkpoint('error_checkpoint.pt')
+            raise
         
-        # Close TensorBoard writer
-        self.close_tensorboard()
-        
-        print(f"📊 TensorBoard logs saved to: {self.save_dir / 'tensorboard_logs'}")
-        print(f"💾 Checkpoints saved to: {self.save_dir}")
-        print("To view TensorBoard, run: tensorboard --logdir=./checkpoints/tensorboard_logs")
-        print("\n🎉 Training session complete!")
+        finally:
+            self.writer.close()
+            logger.info("Training completed")
 
-
-def main():
-    """Main training function."""
-    parser = argparse.ArgumentParser(description="Train Text-to-Sign Language Diffusion Model")
-    parser.add_argument("--data_dir", type=str, required=True, help="Path to training data")
-    parser.add_argument("--batch_size", type=int, default=2, help="Batch size")
-    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs")
-    parser.add_argument("--max_frames", type=int, default=28, help="Maximum frames per video")
-    parser.add_argument("--frame_size", type=int, default=128, help="Frame size (height and width)")
-    parser.add_argument("--model_channels", type=int, default=32, help="Base model channels")
-    parser.add_argument("--num_workers", type=int, default=4, help="Number of data loader workers")
-    parser.add_argument("--save_dir", type=str, default="./checkpoints", help="Checkpoint save directory")
-    parser.add_argument("--use_wandb", action="store_true", help="Use Weights & Biases")
-    parser.add_argument("--use_tensorboard", action="store_true", default=True, help="Use TensorBoard (default: True)")
-    parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint")
-    parser.add_argument("--text_encoder", type=str, default="simple", choices=["simple", "clip", "t5"])
-    parser.add_argument("--scheduler", type=str, default="ddpm", choices=["ddpm", "ddim"])
+def setup_training(config) -> Trainer:
+    """
+    Setup training components
     
-    # Enhanced checkpoint and logging arguments
-    parser.add_argument("--save_every", type=int, default=5, help="Save checkpoint every N epochs")
-    parser.add_argument("--validate_every", type=int, default=5, help="Run validation every N epochs")
-    parser.add_argument("--checkpoint_every_steps", type=int, default=500, help="Save checkpoint every N steps")
-    parser.add_argument("--log_every_steps", type=int, default=10, help="Log metrics every N steps")
-    parser.add_argument("--generate_samples_every_steps", type=int, default=1000, help="Generate samples every N steps")
-    parser.add_argument("--detailed_log_every_steps", type=int, default=100, help="Detailed logging every N steps")
+    Args:
+        config: Configuration object
+        
+    Returns:
+        Trainer: Configured trainer
+    """
+    # Print configuration
+    config.print_config()
     
-    args = parser.parse_args()
+    # Create dataloader with progress indication
+    print("📊 Setting up data loader...")
+    dataloader = create_dataloader(
+        data_root=config.DATA_ROOT,
+        batch_size=config.BATCH_SIZE,
+        num_workers=config.NUM_WORKERS,
+        shuffle=True
+    )
+    print(f"✅ Data loader ready: {len(dataloader)} batches")
     
-    # Set device
-    device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
+    # Create model with progress indication
+    print("🤖 Creating diffusion model...")
+    model = create_diffusion_model(config)
+    model.to(config.DEVICE)
+    print(f"✅ Model created and moved to {config.DEVICE}")
     
-    # Create data loaders
-    print("Creating data loaders...")
-    train_dataloader = create_dataloader(
-        data_dir=args.data_dir,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        shuffle=True,
-        max_frames=args.max_frames,
-        frame_size=(args.frame_size, args.frame_size)
+    # Count parameters
+    from model import count_parameters
+    num_params = count_parameters(model)
+    logger.info(f"Model parameters: {num_params:,}")
+    
+    # Create optimizer
+    print("⚙️  Setting up optimizer and scheduler...")
+    optimizer = optim.AdamW(
+        model.parameters(),
+        lr=config.LEARNING_RATE,
+        weight_decay=1e-4
     )
     
-    # Create pipeline
-    print("Creating pipeline...")
-    pipeline = create_pipeline(
-        model_channels=args.model_channels,
-        text_encoder_type=args.text_encoder,
-        scheduler_type=args.scheduler,
-        device=device
+    # Create learning rate scheduler
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=config.NUM_EPOCHS * len(dataloader),
+        eta_min=config.LEARNING_RATE * 0.1
     )
+    print("✅ Optimizer and scheduler ready")
     
     # Create trainer
+    print("🚀 Creating trainer...")
     trainer = Trainer(
-        pipeline=pipeline,
-        train_dataloader=train_dataloader,
-        learning_rate=args.learning_rate,
-        device=device,
-        save_dir=args.save_dir,
-        use_wandb=args.use_wandb,
-        use_tensorboard=args.use_tensorboard
+        config=config,
+        model=model,
+        dataloader=dataloader,
+        optimizer=optimizer,
+        scheduler=scheduler
     )
+    print("✅ Training setup complete!")
     
-    # Update checkpoint and logging frequencies
-    trainer.checkpoint_every_steps = args.checkpoint_every_steps
-    trainer.log_every_steps = args.log_every_steps
-    trainer.generate_samples_every_steps = args.generate_samples_every_steps
-    trainer.detailed_log_every_steps = args.detailed_log_every_steps
-    
-    print(f"📊 Logging configuration:")
-    print(f"   - Regular metrics every {args.log_every_steps} steps")
-    print(f"   - Detailed logging every {args.detailed_log_every_steps} steps")
-    print(f"   - Checkpoints every {args.checkpoint_every_steps} steps")
-    print(f"   - Sample generation every {args.generate_samples_every_steps} steps")
-    print(f"   - Epoch checkpoints every {args.save_every} epochs")
-    print(f"   - Validation every {args.validate_every} epochs")
-    
-    # Resume from checkpoint if specified
-    if args.resume:
-        trainer.load_checkpoint(args.resume)
-    
-    # Start training
-    trainer.train(
-        num_epochs=args.num_epochs,
-        save_every=args.save_every,
-        validate_every=args.validate_every
-    )
-
+    return trainer
 
 if __name__ == "__main__":
-    main()
+    # Setup and start training
+    trainer = setup_training(Config)
+    trainer.train()

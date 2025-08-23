@@ -1,261 +1,210 @@
-# Text-to-Sign Language Diffusion Model
+# Text2Sign Diffusion Model
 
-A PyTorch implementation of a diffusion model for generating sign language videos from English text descriptions.
+A PyTorch implementation of a 3D UNet-based diffusion model for generating sign language videos from text descriptions.
 
 ## Features
 
-- **3D UNet Architecture**: Custom 3D UNet with spatial-temporal attention for video generation
-- **Multiple Text Encoders**: Support for CLIP, T5, and simple LSTM-based text encoders
-- **Flexible Schedulers**: DDPM and DDIM schedulers for training and inference
-- **Complete Pipeline**: End-to-end training and inference pipeline
-- **Video Processing**: Automatic GIF loading and processing for training data
+- **3D UNet Architecture**: Specifically designed for video generation with temporal consistency
+- **Diffusion Model**: DDPM-style training and sampling for high-quality video generation
+- **MacBook M4 Optimized**: Smaller model size and optimized settings for Apple Silicon
+- **Cross-Platform**: Supports both CUDA and MPS (Apple Silicon) devices
+- **Comprehensive Logging**: TensorBoard integration for monitoring training and visualizing results
+- **Modular Design**: Clean, well-documented code structure for easy modification
 
 ## Project Structure
 
 ```
 text2sign/
-├── src/
-│   ├── models/
-│   │   ├── unet3d.py          # 3D UNet implementation
-│   │   ├── scheduler.py       # DDPM/DDIM schedulers
-│   │   ├── text_encoder.py    # Text encoding models
-│   │   └── pipeline.py        # Complete diffusion pipeline
-│   ├── data/
-│   │   └── dataset.py         # Dataset and data loading utilities
-│   └── training/
-├── training_data/             # Your GIF and text files
-├── train.py                   # Training script
-├── inference.py              # Inference script
-├── requirements.txt          # Python dependencies
-└── README.md                # This file
+├── config.py          # Configuration and hyperparameters
+├── dataset.py         # Data loading and preprocessing
+├── model.py           # 3D UNet architecture
+├── diffusion.py       # Diffusion model implementation
+├── train.py           # Training utilities and main training loop
+├── utils.py           # Utility functions
+├── main.py            # Command-line interface
+├── requirements.txt   # Python dependencies
+├── training_data/     # Training data (GIF files and text descriptions)
+├── logs/              # TensorBoard logs (created during training)
+└── checkpoints/       # Model checkpoints (created during training)
 ```
 
-## Installation
+## Setup
 
-1. **Clone or download the project files to your workspace**
+### Prerequisites
 
-2. **Install dependencies:**
+- Python 3.8+
+- Conda environment named `text2sign` (already created)
+- PyTorch 2.0+ with appropriate device support (CUDA/MPS)
+
+### Installation
+
+1. Activate the conda environment:
+```bash
+conda activate text2sign
+```
+
+2. Install required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Prepare your data:**
-   - Ensure your training data is in the `training_data/` directory
-   - Each GIF should have a corresponding TXT file with the same name
-   - Example: `video_001.gif` and `video_001.txt`
+Or use the built-in installer:
+```bash
+python main.py install
+```
 
-## Quick Start
+## Usage
+
+### Command Line Interface
+
+The project provides a comprehensive CLI through `main.py`:
+
+```bash
+# Show all available commands
+python main.py --help
+
+# Show current configuration
+python main.py config
+
+# Test all components
+python main.py test
+
+# Train the model
+python main.py train
+
+# Generate samples
+python main.py sample --checkpoint checkpoints/latest_checkpoint.pt --num_samples 8
+
+# Visualize model architecture
+python main.py visualize
+```
 
 ### Training
 
-Basic training with default settings:
+To start training:
+
 ```bash
-python train.py --data_dir ./training_data --batch_size 4 --num_epochs 50
+python main.py train
 ```
 
-Advanced training options:
+Training features:
+- Automatic checkpoint saving
+- TensorBoard logging
+- Sample generation during training
+- Resume from checkpoint support
+- Gradient clipping and learning rate scheduling
+
+Monitor training with TensorBoard:
 ```bash
-python train.py \
-    --data_dir ./training_data \
-    --batch_size 8 \
-    --learning_rate 1e-4 \
-    --num_epochs 100 \
-    --max_frames 16 \
-    --frame_size 64 \
-    --model_channels 128 \
-    --text_encoder simple \
-    --scheduler ddpm \
-    --save_dir ./checkpoints \
-    --use_wandb
+tensorboard --logdir logs
 ```
 
-### Inference
+### Configuration
 
-Generate videos from text prompts:
-```bash
-python inference.py \
-    --checkpoint ./checkpoints/best_model.pt \
-    --prompts "Hello" "How are you?" "Thank you" \
-    --output_dir ./outputs \
-    --num_frames 16 \
-    --steps 50
-```
+All hyperparameters are centralized in `config.py`. Key settings:
+
+- **Model Size**: Optimized for MacBook M4 with smaller dimensions
+- **Batch Size**: Set to 2 for memory efficiency
+- **Device**: Automatically detects and uses MPS/CUDA/CPU
+- **Logging**: Configurable sample and checkpoint intervals
+
+### Data Format
+
+The model expects:
+- **Input**: GIF files (28 frames, 180x320 pixels, RGB)
+- **Text**: Corresponding .txt files with descriptions
+- **Processing**: Automatic center cropping to 128x128 pixels
 
 ## Model Architecture
 
-### 3D UNet
-- **Input/Output**: 3-channel RGB videos
-- **Architecture**: Encoder-decoder with skip connections
-- **Attention**: Spatial-temporal attention at multiple resolutions
-- **Conditioning**: Text embeddings injected via cross-attention and time embedding
+### 3D UNet Features
 
-### Text Encoders
-1. **Simple Encoder**: LSTM-based with learnable vocabulary
-2. **CLIP**: Pre-trained CLIP text encoder (frozen)
-3. **T5**: Pre-trained T5 encoder (frozen)
+- **Encoder-Decoder Structure**: Multi-scale feature processing
+- **Residual Blocks**: 3D convolutions with time conditioning
+- **Attention Mechanisms**: Self-attention for improved quality
+- **Skip Connections**: Preserves fine details across scales
 
-### Schedulers
-1. **DDPM**: Standard denoising diffusion process
-2. **DDIM**: Deterministic sampling for faster inference
+### Diffusion Process
 
-## Training Configuration
+- **Forward Process**: Gradual noise addition over 1000 timesteps
+- **Reverse Process**: Learned denoising for sample generation
+- **Time Embedding**: Sinusoidal position encoding for timesteps
+- **Noise Schedule**: Linear beta schedule for stable training
 
-Key hyperparameters:
+## Monitoring and Visualization
 
-- **Learning Rate**: 1e-4 (with cosine annealing)
-- **Batch Size**: 4-8 (depending on GPU memory)
-- **Max Frames**: 16 frames per video
-- **Frame Size**: 64x64 pixels
-- **Timesteps**: 1000 (training), 50 (inference)
-- **Model Channels**: 128 (base channels, scaled with channel_mult)
+### TensorBoard Logs
 
-## Data Format
+The training process logs:
+- Loss curves and learning rates
+- Generated sample videos (every 100 steps)
+- Model architecture graph
+- Training configuration
+- Device and system information
 
-Your training data should follow this structure:
+### Sample Generation
 
-```
-training_data/
-├── video_001.gif    # Sign language video
-├── video_001.txt    # "Hello, how are you?"
-├── video_002.gif
-├── video_002.txt    # "I am fine, thank you"
-└── ...
-```
+During training, the model generates sample videos to monitor progress:
+- Samples saved as frame sequences in TensorBoard
+- Checkpoint-based sample generation available
+- Configurable number of samples and output formats
 
-**Requirements:**
-- GIF files containing sign language demonstrations
-- Corresponding text files with English descriptions
-- Consistent naming (same filename, different extensions)
+## Performance Optimization
 
-## Inference Options
+### MacBook M4 Specific
 
-The inference script supports various output formats:
+- **Model Size**: Reduced from typical diffusion models
+- **Batch Size**: Small batches for memory efficiency
+- **MPS Backend**: Optimized for Apple Silicon
+- **Memory Management**: Efficient tensor operations
 
-- **GIF**: Animated GIF files (default)
-- **Frames**: Individual PNG frames
-- **Both**: Both GIF and frame outputs
+### Cross-Platform Support
 
-Additional options:
-- Custom resolution (height/width)
-- Number of inference steps (speed vs quality trade-off)
-- Classifier-free guidance scale
-- Random seed for reproducibility
-
-## Performance Tips
-
-### Training
-- Use GPU for faster training (`CUDA_VISIBLE_DEVICES=0`)
-- Reduce batch size if you encounter memory issues
-- Use mixed precision training for better memory efficiency
-- Monitor training with Weights & Biases (`--use_wandb`)
-
-### Inference
-- Use DDIM scheduler for faster sampling
-- Reduce inference steps for speed (at cost of quality)
-- Lower resolution for faster generation
-- Use CPU if GPU memory is limited
+- **Device Detection**: Automatic CUDA/MPS/CPU selection
+- **Memory Monitoring**: Adaptive batch sizing
+- **Gradient Accumulation**: Effective batch size scaling
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **CUDA Out of Memory**
-   - Reduce batch size (`--batch_size 2`)
-   - Reduce model size (`--model_channels 64`)
-   - Reduce frame size (`--frame_size 32`)
+1. **Memory Errors**: Reduce batch size in `config.py`
+2. **Slow Training**: Check device utilization and reduce model dimensions
+3. **Import Errors**: Ensure all dependencies are installed in the correct environment
 
-2. **Slow Training**
-   - Reduce number of workers if I/O bound
-   - Use SSD storage for training data
-   - Enable mixed precision training
+### Performance Tips
 
-3. **Poor Generation Quality**
-   - Train for more epochs
-   - Increase model capacity
-   - Use better text encoder (CLIP/T5)
-   - Increase inference steps
+1. **Monitor GPU/MPS Usage**: Use Activity Monitor (macOS) or nvidia-smi (CUDA)
+2. **Adjust Learning Rate**: Based on loss curves in TensorBoard
+3. **Sample Quality**: Increase model dimensions if memory allows
 
-### Dependencies Issues
+## Development
 
-If you encounter import errors:
+### Adding Features
+
+1. **New Architectures**: Modify `model.py`
+2. **Loss Functions**: Update `diffusion.py`
+3. **Data Processing**: Extend `dataset.py`
+4. **Hyperparameters**: Add to `config.py`
+
+### Testing
+
 ```bash
-# For transformers-related errors
-pip install transformers>=4.21.0
+# Test individual components
+python dataset.py
+python model.py
+python diffusion.py
 
-# For image processing
-pip install Pillow>=9.0.0
-
-# For optional dependencies
-pip install wandb  # For experiment tracking
-pip install matplotlib  # For visualization
+# Full system test
+python main.py test
 ```
-
-## Model Checkpoints
-
-The training script saves:
-- `best_model.pt`: Best model based on validation loss
-- `final_model.pt`: Final model after training
-- `checkpoint_epoch_X_step_Y.pt`: Regular checkpoints
-
-Checkpoint contents:
-- Model state dict
-- Optimizer state
-- Scheduler state
-- Training metadata
-
-## Advanced Usage
-
-### Custom Text Encoder
-
-To use your own text encoder:
-
-```python
-from src.models.text_encoder import SimpleTextEncoder
-
-# Create custom encoder
-custom_encoder = SimpleTextEncoder(
-    vocab_size=20000,
-    embed_dim=512,
-    hidden_dim=1024
-)
-
-# Use in pipeline
-pipeline = create_pipeline(text_encoder=custom_encoder)
-```
-
-### Custom Training Loop
-
-```python
-from src.models.pipeline import create_pipeline
-from src.data.dataset import create_dataloader
-
-# Create components
-pipeline = create_pipeline()
-dataloader = create_dataloader("./training_data")
-
-# Custom training
-for batch in dataloader:
-    videos = batch['videos']
-    texts = batch['texts']
-    
-    loss = pipeline.train_step(videos, texts)
-    # Your custom training logic here
-```
-
-## Contributing
-
-This is a research implementation. Feel free to:
-- Experiment with different architectures
-- Add new text encoders
-- Improve the training process
-- Add evaluation metrics
 
 ## License
 
-This project is for educational and research purposes.
+This project is part of the Polygence research program.
 
 ## Acknowledgments
 
-- Based on DDPM and DDIM papers
-- Inspired by Stable Diffusion and video generation research
-- Uses Hugging Face Transformers for text encoding
+- PyTorch team for the deep learning framework
+- Diffusion model research community
+- Apple for MPS backend support
