@@ -73,6 +73,7 @@ class Trainer:
             
             # Log the model graph
             self.writer.add_graph(self.model.model, (dummy_input, dummy_time))
+            self.writer.flush()  # Flush model graph immediately
             logger.info("Model structure logged to tensorboard")
         except Exception as e:
             logger.warning(f"Could not log model structure: {e}")
@@ -123,7 +124,7 @@ class Trainer:
             logger.warning(f"Checkpoint not found: {filepath}")
             return
         
-        checkpoint = torch.load(filepath, map_location=self.device)
+        checkpoint = torch.load(filepath, map_location=self.device, weights_only=False)
         
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -231,6 +232,9 @@ class Trainer:
                     step,
                     dataformats='HWC'
                 )
+        
+        # Flush after logging all samples
+        self.writer.flush()
     
     def train_epoch(self) -> Dict[str, float]:
         """
@@ -289,6 +293,7 @@ class Trainer:
             if self.global_step % self.config.LOG_EVERY == 0:
                 self.writer.add_scalar('train/loss', loss.item(), self.global_step)
                 self.writer.add_scalar('train/learning_rate', self.optimizer.param_groups[0]['lr'], self.global_step)
+                self.writer.flush()  # Flush to TensorBoard immediately
                 logger.info(
                     f"Epoch {self.epoch}, Step {self.global_step}, "
                     f"Loss: {loss.item():.4f}, LR: {self.optimizer.param_groups[0]['lr']:.6f}"
@@ -309,6 +314,10 @@ class Trainer:
                 self.save_checkpoint(f'checkpoint_step_{self.global_step}.pt')
                 progress_bar.set_description(f"Epoch {self.epoch}")
             
+            # Flush TensorBoard regularly for real-time updates (every 3 steps)
+            if self.global_step % 3 == 0:
+                self.writer.flush()
+            
             self.global_step += 1
         
         avg_loss = epoch_loss / num_batches if num_batches > 0 else 0.0
@@ -324,6 +333,7 @@ class Trainer:
         # Log configuration
         config_text = "\n".join([f"{k}: {v}" for k, v in self.config.__dict__.items() if not k.startswith('_')])
         self.writer.add_text('config', config_text, 0)
+        self.writer.flush()  # Flush configuration immediately
         
         try:
             # Create progress bar for epochs
@@ -356,6 +366,7 @@ class Trainer:
                 # Log epoch metrics
                 self.writer.add_scalar('epoch/loss', metrics['loss'], epoch)
                 self.writer.add_scalar('epoch/time', epoch_time, epoch)
+                self.writer.flush()  # Flush epoch metrics immediately
                 
                 logger.info(
                     f"Epoch {epoch} completed in {epoch_time:.2f}s, "

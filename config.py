@@ -41,7 +41,7 @@ class Config:
     CHECKPOINT_DIR = "checkpoints"
     SAMPLES_DIR = "generated_samples"  # Directory to save generated GIF samples
     SAMPLE_EVERY = 1000  # Sample and log every N steps
-    LOG_EVERY = 10  # Log loss every N steps
+    LOG_EVERY = 5  # Log loss every N steps (reduced from 10 for more frequent updates)
     SAVE_EVERY = 100  # Save checkpoint every N steps
     
     # Sampling settings

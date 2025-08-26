@@ -27,15 +27,59 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def train_model():
-    """Train the diffusion model"""
+def train_model(resume=False):
+    """Train the diffusion model
+    
+    Args:
+        resume (bool): Whether to resume training from the latest checkpoint
+    """
     logger.info("Starting training...")
     
     # Setup training
     trainer = setup_training(Config)
     
+    # Resume from checkpoint if requested
+    if resume:
+        # Try to load the latest checkpoint
+        latest_checkpoint = os.path.join(Config.CHECKPOINT_DIR, "latest_checkpoint.pt")
+        if os.path.exists(latest_checkpoint):
+            logger.info(f"Resuming training from checkpoint: {latest_checkpoint}")
+            trainer.load_checkpoint("latest_checkpoint.pt")
+        else:
+            logger.warning(f"No checkpoint found at {latest_checkpoint}. Starting fresh training.")
+    
     # Start training
     trainer.train()
+
+def list_checkpoints():
+    """List available checkpoints for resuming training"""
+    checkpoint_dir = Config.CHECKPOINT_DIR
+    
+    if not os.path.exists(checkpoint_dir):
+        logger.info(f"No checkpoint directory found at: {checkpoint_dir}")
+        return
+    
+    checkpoint_files = [f for f in os.listdir(checkpoint_dir) 
+                       if f.endswith('.pt') and not f.startswith('._')]
+    
+    if not checkpoint_files:
+        logger.info(f"No checkpoint files found in: {checkpoint_dir}")
+        return
+    
+    logger.info(f"Available checkpoints in {checkpoint_dir}:")
+    for checkpoint in sorted(checkpoint_files):
+        checkpoint_path = os.path.join(checkpoint_dir, checkpoint)
+        file_size = os.path.getsize(checkpoint_path)
+        file_size_mb = file_size / (1024 * 1024)
+        
+        # Try to load checkpoint info
+        try:
+            checkpoint_data = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+            epoch = checkpoint_data.get('epoch', 'unknown')
+            step = checkpoint_data.get('global_step', 'unknown')
+            logger.info(f"  • {checkpoint} ({file_size_mb:.1f} MB) - Epoch: {epoch}, Step: {step}")
+        except Exception as e:
+            logger.info(f"  • {checkpoint} ({file_size_mb:.1f} MB) - Could not read info: {e}")
 
 def test_components():
     """Test all components of the system"""
@@ -80,9 +124,11 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
     
     # Load checkpoint
     if os.path.exists(checkpoint_path):
-        checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE)
+        checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE, weights_only=False)
         model.load_state_dict(checkpoint['model_state_dict'])
-        logger.info(f"Loaded checkpoint: {checkpoint_path}")
+        epoch = checkpoint.get('epoch', 'unknown')
+        step = checkpoint.get('global_step', 'unknown')
+        logger.info(f"Loaded checkpoint: {checkpoint_path} (Epoch: {epoch}, Step: {step})")
     else:
         logger.warning(f"Checkpoint not found: {checkpoint_path}. Using random weights.")
     
@@ -90,22 +136,37 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
     model.eval()
     with torch.no_grad():
         shape = (num_samples, *Config.INPUT_SHAPE)
+        logger.info("🎬 Generating samples...")
         samples = model.p_sample(shape)
         
         # Clamp to [0, 1] range
         samples = torch.clamp(samples, 0, 1)
+        logger.info(f"✅ Generated {num_samples} samples")
     
-    # Save samples
-    from utils import save_video_as_gif
-    for i, sample in enumerate(samples):
+    # Save samples as GIFs
+    import numpy as np
+    import imageio
+    
+    samples_np = samples.detach().cpu().numpy()
+    
+    for i, sample in enumerate(samples_np):
+        # Convert from CHW to HWC format and scale to [0, 255]
+        video_frames = []
+        for frame_idx in range(sample.shape[1]):  # frames dimension
+            frame = sample[:, frame_idx]  # (channels, height, width)
+            frame = np.transpose(frame, (1, 2, 0))  # Convert to (height, width, channels)
+            frame = np.clip(frame * 255, 0, 255).astype(np.uint8)  # Scale to [0, 255]
+            video_frames.append(frame)
+        
+        # Save as GIF
         output_path = os.path.join(output_dir, f"sample_{i:03d}.gif")
-        try:
-            save_video_as_gif(sample, output_path)
-            logger.info(f"Saved sample: {output_path}")
-        except Exception as e:
-            logger.error(f"Failed to save sample {i}: {e}")
+        imageio.mimsave(output_path, video_frames, fps=8, loop=0)
+        
+        file_size = os.path.getsize(output_path)
+        logger.info(f"💾 Saved sample {i}: {output_path} ({file_size:,} bytes)")
     
-    logger.info(f"Sample generation completed. Saved to: {output_dir}")
+    logger.info(f"✅ Sample generation completed. Saved to: {output_dir}")
+    logger.info(f"🌐 You can view the GIFs in any web browser or image viewer")
 
 def visualize_model():
     """Visualize the model architecture"""
@@ -163,6 +224,8 @@ def main():
     
     # Train command
     train_parser = subparsers.add_parser("train", help="Train the diffusion model")
+    train_parser.add_argument("--resume", action="store_true", 
+                             help="Resume training from the latest checkpoint")
     
     # Test command
     test_parser = subparsers.add_parser("test", help="Test all components")
@@ -185,10 +248,13 @@ def main():
     # Config command
     config_parser = subparsers.add_parser("config", help="Show configuration")
     
+    # Checkpoints command
+    checkpoints_parser = subparsers.add_parser("checkpoints", help="List available checkpoints")
+
     args = parser.parse_args()
     
     if args.command == "train":
-        train_model()
+        train_model(resume=args.resume)
     elif args.command == "test":
         test_components()
     elif args.command == "sample":
@@ -199,6 +265,8 @@ def main():
         install_requirements()
     elif args.command == "config":
         Config.print_config()
+    elif args.command == "checkpoints":
+        list_checkpoints()
     else:
         parser.print_help()
 
