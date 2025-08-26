@@ -14,9 +14,9 @@ import logging
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import Config
-from train import setup_training
+from methods import setup_training
 from dataset import test_dataloader
-from model import test_unet3d
+from models import test_unet3d
 from diffusion import test_diffusion
 from utils import get_device_info, print_model_summary
 

@@ -1,3 +1,37 @@
+# Project directories
 /logs
 /training_data
+/checkpoints
+/generated_samples
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# macOS files
 ._*
+.DS_Store
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# Model files
+*.pth
+*.pt
+*.ckpt
+
+# Expo (if accidentally added)
+.expo/
+
+# Logs
+*.log

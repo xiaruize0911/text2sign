@@ -40,7 +40,7 @@ def demo_training():
     model.to(Config.DEVICE)
     
     # Count parameters
-    from model import count_parameters
+    from models import count_parameters
     num_params = count_parameters(model)
     logger.info(f"Model parameters: {num_params:,}")
     
