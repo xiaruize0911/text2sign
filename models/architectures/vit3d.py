@@ -118,12 +118,11 @@ class FramePositionalEncoding(nn.Module):
 
 class ViT3D(nn.Module):
     """
-    Vision Transformer for 3D video diffusion using PyTorch's built-in ViT
+    Vision Transformer for 3D video diffusion using PyTorch's ViT-B/16
     
     Args:
         input_shape (tuple): Input shape (channels, frames, height, width)
-        vit_model (str): ViT model variant ('vit_b_16', 'vit_b_32', 'vit_l_16', etc.)
-        embed_dim (int): Embedding dimension
+        embed_dim (int): Embedding dimension (fixed at 768 for ViT-B/16)
         time_dim (int): Time embedding dimension
         freeze_backbone (bool): Whether to freeze ViT backbone
         image_size (int): Input image size for ViT
@@ -132,8 +131,7 @@ class ViT3D(nn.Module):
     def __init__(
         self,
         input_shape: Tuple[int, int, int, int] = (3, 28, 128, 128),
-        vit_model: str = "vit_b_16",
-        embed_dim: int = 768,  # ViT-B/16 default
+        embed_dim: int = 768,  # ViT-B/16 fixed dimension
         time_dim: int = 768,
         freeze_backbone: bool = False,
         image_size: int = 224,
@@ -150,35 +148,14 @@ class ViT3D(nn.Module):
         # Video preprocessing
         self.video_processor = Video3DToFrames(input_shape, image_size)
         
-        # Load pre-trained ViT from torchvision
+        # Load pre-trained ViT-B/16 from torchvision
         try:
-            if vit_model == "vit_b_16":
-                self.vit_backbone = vision_transformer.vit_b_16(weights='IMAGENET1K_V1')
-                self.embed_dim = 768
-            elif vit_model == "vit_b_32":
-                self.vit_backbone = vision_transformer.vit_b_32(weights='IMAGENET1K_V1')
-                self.embed_dim = 768
-            elif vit_model == "vit_l_16":
-                self.vit_backbone = vision_transformer.vit_l_16(weights='IMAGENET1K_V1')
-                self.embed_dim = 1024
-            else:
-                # Default to ViT-B/16
-                self.vit_backbone = vision_transformer.vit_b_16(weights='IMAGENET1K_V1')
-                self.embed_dim = 768
+            self.vit_backbone = vision_transformer.vit_b_16(weights='IMAGENET1K_V1')
+            self.embed_dim = 768  # ViT-B/16 embedding dimension
         except:
             # Fallback without pretrained weights
-            if vit_model == "vit_b_16":
-                self.vit_backbone = vision_transformer.vit_b_16()
-                self.embed_dim = 768
-            elif vit_model == "vit_b_32":
-                self.vit_backbone = vision_transformer.vit_b_32()
-                self.embed_dim = 768
-            elif vit_model == "vit_l_16":
-                self.vit_backbone = vision_transformer.vit_l_16()
-                self.embed_dim = 1024
-            else:
-                self.vit_backbone = vision_transformer.vit_b_16()
-                self.embed_dim = 768
+            self.vit_backbone = vision_transformer.vit_b_16()
+            self.embed_dim = 768
         
         # Remove the classification head and replace with identity
         self.vit_backbone.heads = nn.Sequential(nn.Identity())
@@ -217,7 +194,8 @@ class ViT3D(nn.Module):
         )
         
         # Output projection to reconstruct video
-        patch_size = 16 if "16" in vit_model else 32
+        # ViT-B/16 has patch size of 16
+        patch_size = 16
         num_patches_per_frame = (image_size // patch_size) ** 2
         
         self.output_projection = nn.Sequential(
@@ -344,8 +322,7 @@ def test_vit3d():
     # Create model with smaller dimensions for testing
     model = ViT3D(
         input_shape=input_shape,
-        vit_model="vit_b_16",  # Use standard ViT naming
-        embed_dim=768,  # Standard ViT-B embedding dimension
+        embed_dim=768,  # ViT-B/16 embedding dimension
         time_dim=768,
         image_size=224,  # Standard ViT input size
         dropout=0.1

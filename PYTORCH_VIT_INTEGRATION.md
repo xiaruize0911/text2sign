@@ -18,8 +18,8 @@
    - ✅ **Adaptive Resizing**: Handles different input/output dimensions
 
 3. **Configuration System**:
-   - ✅ Updated `config.py` with PyTorch ViT parameters
-   - ✅ Support for different ViT models (`vit_b_16`, `vit_b_32`, `vit_l_16`)
+   - ✅ Updated `config.py` with PyTorch ViT parameters  
+   - ✅ Simplified to use ViT-B/16 model only for consistency
    - ✅ Easy architecture switching between UNet3D and ViT3D
 
 ### 🏗️ **Architecture Overview**

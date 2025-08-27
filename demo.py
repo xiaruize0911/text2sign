@@ -16,6 +16,9 @@ from dataset import create_dataloader
 from diffusion import create_diffusion_model
 import logging
 
+# Import AMP for mixed precision
+from torch.cuda.amp import GradScaler, autocast
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,6 +50,10 @@ def demo_training():
     # Create optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=Config.LEARNING_RATE)
     
+    # Initialize AMP scaler if using AMP
+    use_amp = getattr(Config, 'USE_AMP', False) and torch.cuda.is_available()
+    scaler = GradScaler() if use_amp else None
+    
     # Run a few training steps
     model.train()
     total_loss = 0.0
@@ -64,14 +71,24 @@ def demo_training():
         # Zero gradients
         optimizer.zero_grad()
         
-        # Forward pass
-        loss, pred_noise, actual_noise = model(videos)
-        
-        # Backward pass
-        loss.backward()
-        
-        # Optimizer step
-        optimizer.step()
+        # Forward pass with AMP
+        if use_amp and scaler is not None:
+            with autocast():
+                loss, pred_noise, actual_noise = model(videos)
+            
+            # Backward pass with scaled gradients
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            # Regular forward pass
+            loss, pred_noise, actual_noise = model(videos)
+            
+            # Backward pass
+            loss.backward()
+            
+            # Optimizer step
+            optimizer.step()
         
         total_loss += loss.item()
         
@@ -96,7 +113,14 @@ def demo_training():
         # Run just 10 denoising steps for demo
         for i in range(min(10, Config.TIMESTEPS)):
             t = torch.full((1,), Config.TIMESTEPS - 1 - i, device=Config.DEVICE, dtype=torch.long)
-            x = model.p_sample_step(x, t)
+            
+            # Use AMP for inference if available
+            if use_amp:
+                with autocast():
+                    x = model.p_sample_step(x, t)
+            else:
+                x = model.p_sample_step(x, t)
+                
             if i % 3 == 0:
                 logger.info(f"  Denoising step {i+1}/10: output range [{x.min():.3f}, {x.max():.3f}]")
         

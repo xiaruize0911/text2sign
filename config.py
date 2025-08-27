@@ -25,9 +25,8 @@ class Config:
     UNET_CHANNELS = 3  # RGB channels
     UNET_TIME_DIM = 16  # Time embedding dimension (reduced)
     
-    # ViT architecture settings (PyTorch ViT-based)
-    VIT_MODEL = "vit_b_16"  # ViT model variant ('vit_b_16', 'vit_b_32', 'vit_l_16')
-    VIT_EMBED_DIM = 768  # Embedding dimension (ViT-B default)
+    # ViT architecture settings (ViT-B/16 only)
+    VIT_EMBED_DIM = 768  # Embedding dimension (ViT-B/16 fixed)
     VIT_TIME_DIM = 768  # Time embedding dimension
     VIT_IMAGE_SIZE = 224  # Input image size for ViT
     VIT_FREEZE_BACKBONE = False  # Whether to freeze ViT backbone
@@ -42,6 +41,10 @@ class Config:
     LEARNING_RATE = 1e-4
     NUM_EPOCHS = 100
     GRADIENT_CLIP = 1.0
+    
+    # AMP (Automatic Mixed Precision) settings
+    USE_AMP = True  # Enable mixed precision training
+    AMP_DTYPE = torch.float16  # Use float16 for AMP (can also be torch.bfloat16)
     
     # Device settings
     DEVICE = torch.device("mps" if torch.backends.mps.is_available() else 
@@ -83,7 +86,6 @@ class Config:
         elif cls.MODEL_ARCHITECTURE == "vit3d":
             return {
                 'input_shape': cls.INPUT_SHAPE,
-                'vit_model': cls.VIT_MODEL,
                 'embed_dim': cls.VIT_EMBED_DIM,
                 'time_dim': cls.VIT_TIME_DIM,
                 'image_size': cls.VIT_IMAGE_SIZE,

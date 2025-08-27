@@ -137,7 +137,14 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
     with torch.no_grad():
         shape = (num_samples, *Config.INPUT_SHAPE)
         logger.info("🎬 Generating samples...")
-        samples = model.p_sample(shape)
+        
+        # Use AMP if available and enabled
+        if getattr(Config, 'USE_AMP', False) and torch.cuda.is_available():
+            from torch.cuda.amp import autocast
+            with autocast():
+                samples = model.p_sample(shape)
+        else:
+            samples = model.p_sample(shape)
         
         # Clamp to [0, 1] range
         samples = torch.clamp(samples, 0, 1)

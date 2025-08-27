@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+from torch.cuda.amp import GradScaler, autocast
 import os
 import time
 import pickle
@@ -48,6 +49,13 @@ class Trainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = config.DEVICE
+        
+        # Initialize AMP scaler if using AMP
+        self.use_amp = getattr(config, 'USE_AMP', False)
+        self.scaler = GradScaler() if self.use_amp and torch.cuda.is_available() else None
+        
+        # AMP dtype
+        self.amp_dtype = getattr(config, 'AMP_DTYPE', torch.float16)
         
         # Create directories
         os.makedirs(config.LOG_DIR, exist_ok=True)
@@ -154,7 +162,14 @@ class Trainer:
             shape = (num_samples, *self.config.INPUT_SHAPE)
             # Generate samples with progress tracking
             logger.info(f"🎬 Generating {num_samples} video samples...")
-            samples = self.model.p_sample(shape)
+            
+            # Use AMP for inference if available and enabled
+            if self.use_amp and torch.cuda.is_available():
+                with autocast():
+                    samples = self.model.p_sample(shape)
+            else:
+                samples = self.model.p_sample(shape)
+                
             # Clamp to [0, 1] range
             samples = torch.clamp(samples, 0, 1)
             logger.info(f"✅ Generated {num_samples} samples successfully")
@@ -262,17 +277,33 @@ class Trainer:
             # Zero gradients
             self.optimizer.zero_grad()
             
-            # Forward pass
-            loss, _, _ = self.model(videos)
-            
-            # Backward pass
-            loss.backward()
-            
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
-            
-            # Optimizer step
-            self.optimizer.step()
+            # Forward pass with AMP
+            if self.use_amp and self.scaler is not None and torch.cuda.is_available():
+                with autocast():
+                    loss, _, _ = self.model(videos)
+                
+                # Backward pass with scaled gradients
+                self.scaler.scale(loss).backward()
+                
+                # Gradient clipping with scaled gradients
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
+                
+                # Optimizer step with scaler
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                # Regular forward pass (for MPS, CPU, or when AMP disabled)
+                loss, _, _ = self.model(videos)
+                
+                # Backward pass
+                loss.backward()
+                
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
+                
+                # Optimizer step
+                self.optimizer.step()
             
             # Update learning rate
             if self.scheduler is not None:
