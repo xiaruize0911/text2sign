@@ -10,9 +10,9 @@ class Config:
     
     # Data settings
     DATA_ROOT = "training_data"
-    BATCH_SIZE = 2  # Small batch size for MacBook M4
-    NUM_WORKERS = 2  # Reduced for MacBook
-    
+    BATCH_SIZE = 4
+    NUM_WORKERS = 4
+
     # Model dimensions
     INPUT_SHAPE = (3, 28, 128, 128)  # (channels, frames, height, width)
     
@@ -33,7 +33,7 @@ class Config:
     VIT_DROPOUT = 0.1  # Dropout rate
     
     # Diffusion process settings
-    TIMESTEPS = 100  # Number of diffusion timesteps
+    TIMESTEPS = 300  # Number of diffusion timesteps
     BETA_START = 0.0001  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
     
@@ -55,8 +55,9 @@ class Config:
     CHECKPOINT_DIR = "checkpoints"
     SAMPLES_DIR = "generated_samples"  # Directory to save generated GIF samples
     SAMPLE_EVERY = 1000  # Sample and log every N steps
-    LOG_EVERY = 5  # Log loss every N steps (reduced from 10 for more frequent updates)
-    SAVE_EVERY = 100  # Save checkpoint every N steps
+    LOG_EVERY = 10  # Log loss every N steps (reduced from 10 for more frequent updates)
+    SAVE_EVERY = 1000  # Save checkpoint every N steps
+    LOG_MODEL_GRAPH = False  # Disable model graph logging to avoid tracing issues
     
     # Sampling settings
     NUM_SAMPLES = 4  # Number of samples to generate for logging

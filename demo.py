@@ -17,7 +17,7 @@ from diffusion import create_diffusion_model
 import logging
 
 # Import AMP for mixed precision
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -52,7 +52,7 @@ def demo_training():
     
     # Initialize AMP scaler if using AMP
     use_amp = getattr(Config, 'USE_AMP', False) and torch.cuda.is_available()
-    scaler = GradScaler() if use_amp else None
+    scaler = GradScaler('cuda') if use_amp else None
     
     # Run a few training steps
     model.train()
@@ -73,7 +73,7 @@ def demo_training():
         
         # Forward pass with AMP
         if use_amp and scaler is not None:
-            with autocast():
+            with autocast('cuda'):
                 loss, pred_noise, actual_noise = model(videos)
             
             # Backward pass with scaled gradients
@@ -116,7 +116,7 @@ def demo_training():
             
             # Use AMP for inference if available
             if use_amp:
-                with autocast():
+                with autocast('cuda'):
                     x = model.p_sample_step(x, t)
             else:
                 x = model.p_sample_step(x, t)

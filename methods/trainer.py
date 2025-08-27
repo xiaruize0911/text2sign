@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 import os
 import time
 import pickle
@@ -52,7 +52,7 @@ class Trainer:
         
         # Initialize AMP scaler if using AMP
         self.use_amp = getattr(config, 'USE_AMP', False)
-        self.scaler = GradScaler() if self.use_amp and torch.cuda.is_available() else None
+        self.scaler = GradScaler('cuda') if self.use_amp and torch.cuda.is_available() else None
         
         # AMP dtype
         self.amp_dtype = getattr(config, 'AMP_DTYPE', torch.float16)
@@ -74,13 +74,19 @@ class Trainer:
         
     def log_model_structure(self):
         """Log the model structure to tensorboard"""
+        # Skip model graph logging if it causes issues
+        log_graph = getattr(self.config, 'LOG_MODEL_GRAPH', False)
+        if not log_graph:
+            logger.info("Model graph logging disabled")
+            return
+            
         try:
             # Create a dummy input for the model graph
             dummy_input = torch.randn(1, *self.config.INPUT_SHAPE).to(self.device)
             dummy_time = torch.randint(0, self.config.TIMESTEPS, (1,)).to(self.device)
             
-            # Log the model graph
-            self.writer.add_graph(self.model.model, (dummy_input, dummy_time))
+            # Log the model graph with strict=False to avoid tracing issues
+            self.writer.add_graph(self.model.model, (dummy_input, dummy_time), strict=False)
             self.writer.flush()  # Flush model graph immediately
             logger.info("Model structure logged to tensorboard")
         except Exception as e:
@@ -165,7 +171,7 @@ class Trainer:
             
             # Use AMP for inference if available and enabled
             if self.use_amp and torch.cuda.is_available():
-                with autocast():
+                with autocast('cuda'):
                     samples = self.model.p_sample(shape)
             else:
                 samples = self.model.p_sample(shape)
@@ -265,9 +271,10 @@ class Trainer:
         # Create progress bar for training batches
         progress_bar = tqdm(
             self.dataloader, 
-            desc=f"Epoch {self.epoch}", 
+            desc=f"Epoch {self.epoch}/{self.config.NUM_EPOCHS}", 
             leave=False,
-            unit="batch"
+            unit="batch",
+            ncols=120  # Wider display for more info
         )
         
         for batch_idx, (videos, texts) in enumerate(progress_bar):
@@ -279,7 +286,7 @@ class Trainer:
             
             # Forward pass with AMP
             if self.use_amp and self.scaler is not None and torch.cuda.is_available():
-                with autocast():
+                with autocast('cuda'):
                     loss, _, _ = self.model(videos)
                 
                 # Backward pass with scaled gradients
@@ -325,9 +332,10 @@ class Trainer:
                 self.writer.add_scalar('train/loss', loss.item(), self.global_step)
                 self.writer.add_scalar('train/learning_rate', self.optimizer.param_groups[0]['lr'], self.global_step)
                 self.writer.flush()  # Flush to TensorBoard immediately
-                logger.info(
-                    f"Epoch {self.epoch}, Step {self.global_step}, "
-                    f"Loss: {loss.item():.4f}, LR: {self.optimizer.param_groups[0]['lr']:.6f}"
+                # Update progress bar with detailed step info
+                progress_bar.set_description(
+                    f"Epoch {self.epoch} [Step {self.global_step}] - "
+                    f"Loss: {loss.item():.4f}"
                 )
             
             # Generate and log samples
@@ -336,7 +344,7 @@ class Trainer:
                 samples = self.generate_samples()
                 self.log_samples(samples, self.global_step)
                 progress_bar.set_description(f"Epoch {self.epoch}")
-                logger.info("Samples logged to tensorboard and saved as GIFs")
+                # Samples generated and logged to tensorboard
 
             
             # Save checkpoint
@@ -370,10 +378,11 @@ class Trainer:
             # Create progress bar for epochs
             epoch_progress = tqdm(
                 range(self.epoch, self.config.NUM_EPOCHS),
-                desc="Training",
+                desc="Training Progress",
                 unit="epoch",
                 initial=self.epoch,
-                total=self.config.NUM_EPOCHS
+                total=self.config.NUM_EPOCHS,
+                ncols=100  # Set width for better display
             )
             
             for epoch in epoch_progress:
@@ -399,10 +408,12 @@ class Trainer:
                 self.writer.add_scalar('epoch/time', epoch_time, epoch)
                 self.writer.flush()  # Flush epoch metrics immediately
                 
-                logger.info(
-                    f"Epoch {epoch} completed in {epoch_time:.2f}s, "
-                    f"Average loss: {metrics['loss']:.4f}"
-                )
+                # Update epoch progress bar with completion info
+                epoch_progress.set_postfix({
+                    'avg_loss': f"{metrics['loss']:.4f}",
+                    'time': f"{epoch_time:.1f}s",
+                    'step': self.global_step
+                })
                 
                 # Save epoch checkpoint
                 self.save_checkpoint(f'checkpoint_epoch_{epoch}.pt')

@@ -271,9 +271,8 @@ class ViT3D(nn.Module):
         patch_dim = frame_patches.shape[-1]
         channels = self.input_shape[0]
         
-        # Calculate target spatial size from patch_dim
-        total_pixels = patch_dim // channels
-        spatial_size = int(math.sqrt(total_pixels))
+        # Use the known patch size instead of calculating it dynamically
+        spatial_size = self.patch_size
         
         # Reshape to frame format
         reconstructed_frames = frame_patches.view(

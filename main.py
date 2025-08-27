@@ -140,8 +140,8 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
         
         # Use AMP if available and enabled
         if getattr(Config, 'USE_AMP', False) and torch.cuda.is_available():
-            from torch.cuda.amp import autocast
-            with autocast():
+            from torch.amp import autocast
+            with autocast('cuda'):
                 samples = model.p_sample(shape)
         else:
             samples = model.p_sample(shape)
