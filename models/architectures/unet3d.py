@@ -120,6 +120,22 @@ class ResBlock3D(nn.Module):
         x = self.activation(x)
         
         return x
+    
+    def _initialize_weights(self):
+        """Initialize model weights deterministically"""
+        torch.manual_seed(42)
+        for module in self.modules():
+            if isinstance(module, nn.Conv3d):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, nn.GroupNorm):
+                nn.init.constant_(module.bias, 0)
+                nn.init.constant_(module.weight, 1.0)
 
 class AttentionBlock3D(nn.Module):
     """
@@ -253,6 +269,10 @@ class UNet3D(nn.Module):
         while dim % final_groups != 0 and final_groups > 1:
             final_groups -= 1
             
+        
+        # Initialize weights deterministically
+        self._initialize_weights()
+        
         self.final_conv = nn.Sequential(
             nn.GroupNorm(final_groups, dim),
             nn.SiLU(),
@@ -307,6 +327,22 @@ class UNet3D(nn.Module):
         x = self.final_conv(x)
         
         return x
+    
+    def _initialize_weights(self):
+        """Initialize model weights deterministically"""
+        torch.manual_seed(42)
+        for module in self.modules():
+            if isinstance(module, nn.Conv3d):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, nn.GroupNorm):
+                nn.init.constant_(module.bias, 0)
+                nn.init.constant_(module.weight, 1.0)
 
 def count_parameters(model: nn.Module) -> int:
     """Count the number of trainable parameters in a model"""

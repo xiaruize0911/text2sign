@@ -28,7 +28,7 @@ class Config:
     # ViT architecture settings (ViT-B/16 only)
     VIT_EMBED_DIM = 768  # Embedding dimension (ViT-B/16 fixed)
     VIT_TIME_DIM = 768  # Time embedding dimension
-    VIT_IMAGE_SIZE = 224  # Input image size for ViT
+    VIT_IMAGE_SIZE = 224  # Keep at 224 for pre-trained ViT compatibility
     VIT_FREEZE_BACKBONE = False  # Whether to freeze ViT backbone
     VIT_DROPOUT = 0.1  # Dropout rate
     
@@ -38,7 +38,7 @@ class Config:
     BETA_END = 0.02  # End of noise schedule
     
     # Training settings
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 1e-4  # Keep reduced learning rate for stability
     NUM_EPOCHS = 100
     GRADIENT_CLIP = 1.0
     
@@ -57,8 +57,8 @@ class Config:
     SAMPLE_EVERY = 1000  # Sample and log every N steps
     LOG_EVERY = 10  # Log loss every N steps (reduced from 10 for more frequent updates)
     SAVE_EVERY = 1000  # Save checkpoint every N steps
-    LOG_MODEL_GRAPH = False  # Disable model graph logging to avoid tracing issues
-    
+    LOG_MODEL_GRAPH = True  # Enable model graph logging to aid debugging
+
     # Sampling settings
     NUM_SAMPLES = 4  # Number of samples to generate for logging
     
@@ -86,11 +86,13 @@ class Config:
             }
         elif cls.MODEL_ARCHITECTURE == "vit3d":
             return {
-                'input_shape': cls.INPUT_SHAPE,
+                'in_channels': cls.UNET_CHANNELS,  # Reuse UNET_CHANNELS for consistency
+                'out_channels': cls.UNET_CHANNELS,
                 'embed_dim': cls.VIT_EMBED_DIM,
                 'time_dim': cls.VIT_TIME_DIM,
-                'image_size': cls.VIT_IMAGE_SIZE,
-                'freeze_backbone': cls.VIT_FREEZE_BACKBONE,
+                'num_layers': 6,  # Smaller number for MacBook M4
+                'num_heads': 8,
+                'mlp_dim': cls.VIT_EMBED_DIM * 4,
                 'dropout': cls.VIT_DROPOUT
             }
         else:

@@ -172,7 +172,10 @@ def create_dataloader(data_root: str, batch_size: int, num_workers: int = 2, shu
     # Create dataset
     dataset = SignLanguageDataset(data_root=data_root, transform=transform)
     
-    # Create dataloader
+    # Create dataloader with deterministic behavior
+    if shuffle:
+        # Use a fixed seed for shuffling to ensure reproducibility
+        torch.manual_seed(42)
     dataloader = DataLoader(
         dataset=dataset,
         batch_size=batch_size,

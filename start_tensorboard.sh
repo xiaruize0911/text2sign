@@ -56,20 +56,20 @@ echo -e "${GREEN}🚀 Starting TensorBoard for Text2Sign Diffusion Model${NC}"
 echo -e "${BLUE}================================================================${NC}"
 
 # Check if conda environment is activated
-if [[ "$CONDA_DEFAULT_ENV" == "text2sign" ]]; then
-    echo -e "${GREEN}✅ Conda environment 'text2sign' is active${NC}"
-else
-    echo -e "${YELLOW}⚠️  Activating conda environment 'text2sign'...${NC}"
-    eval "$(conda shell.bash hook)"
-    conda activate text2sign
-    if [[ "$CONDA_DEFAULT_ENV" == "text2sign" ]]; then
-        echo -e "${GREEN}✅ Successfully activated 'text2sign' environment${NC}"
-    else
-        echo -e "${RED}❌ Failed to activate 'text2sign' environment${NC}"
-        echo -e "${YELLOW}   Please run: conda activate text2sign${NC}"
-        exit 1
-    fi
-fi
+# if [[ "$CONDA_DEFAULT_ENV" == "text2sign" ]]; then
+#     echo -e "${GREEN}✅ Conda environment 'text2sign' is active${NC}"
+# else
+#     echo -e "${YELLOW}⚠️  Activating conda environment 'text2sign'...${NC}"
+#     eval "$(conda shell.bash hook)"
+#     conda activate text2sign
+#     if [[ "$CONDA_DEFAULT_ENV" == "text2sign" ]]; then
+#         echo -e "${GREEN}✅ Successfully activated 'text2sign' environment${NC}"
+#     else
+#         echo -e "${RED}❌ Failed to activate 'text2sign' environment${NC}"
+#         echo -e "${YELLOW}   Please run: conda activate text2sign${NC}"
+#         exit 1
+#     fi
+# fi
 
 # Check if log directory exists
 if [[ ! -d "$LOGDIR" ]]; then

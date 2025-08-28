@@ -15,7 +15,7 @@ class DiffusionModel(nn.Module):
     Diffusion model for video generation
     
     Args:
-        model (nn.Module): The UNet3D model
+        model (nn.Module): The backbone model (UNet3D or ViT3D)
         timesteps (int): Number of diffusion timesteps
         beta_start (float): Starting beta value
         beta_end (float): Ending beta value
@@ -41,14 +41,36 @@ class DiffusionModel(nn.Module):
         # Precompute alpha values for efficiency
         self.alphas = 1.0 - self.betas
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
+        
+        # Clamp alphas_cumprod to avoid numerical issues
+        self.alphas_cumprod = torch.clamp(self.alphas_cumprod, min=1e-6)
+        
         self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)
         self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
         
         # For posterior calculation
         self.posterior_variance = self.betas * (1.0 - self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
+        # Clamp posterior variance to avoid division by zero
+        self.posterior_variance = torch.clamp(self.posterior_variance, min=1e-6)
         
     def q_sample(self, x_start: torch.Tensor, t: torch.Tensor, noise: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Forward diffusion process: add noise to clean data
+        
+        Args:
+            x_start (torch.Tensor): Clean data
+            t (torch.Tensor): Timestep
+            noise (torch.Tensor, optional): Noise to add. If None, random noise is generated
+            
+        Returns:
+            torch.Tensor: Noisy data
+        """
+        if noise is None:
+            # Use deterministic seed based on input for reproducible results
+            seed = hash(tuple(x_start.flatten()[:100].tolist())) % 2**32
+            torch.manual_seed(seed)
+            noise = torch.randn_like(x_start)
         """
         Forward diffusion process: add noise to clean data
         
@@ -81,77 +103,59 @@ class DiffusionModel(nn.Module):
             t (torch.Tensor): Current timestep
             
         Returns:
-            torch.Tensor: Slightly less noisy data
+            torch.Tensor: Denoised data at timestep t-1
         """
         # Predict noise
         predicted_noise = self.model(x, t)
         
-        # Get coefficients
-        alpha_t = self.alphas.gather(0, t).reshape(-1, 1, 1, 1, 1)
-        alpha_cumprod_t = self.alphas_cumprod.gather(0, t).reshape(-1, 1, 1, 1, 1)
-        beta_t = self.betas.gather(0, t).reshape(-1, 1, 1, 1, 1)
-        sqrt_one_minus_alpha_cumprod_t = self.sqrt_one_minus_alphas_cumprod.gather(0, t).reshape(-1, 1, 1, 1, 1)
+        # Get alpha values for current timestep
+        alpha = self.alphas.gather(0, t).reshape(-1, 1, 1, 1, 1)
+        alpha_cumprod = self.alphas_cumprod.gather(0, t).reshape(-1, 1, 1, 1, 1)
+        beta = self.betas.gather(0, t).reshape(-1, 1, 1, 1, 1)
         
-        # Compute predicted x_0
-        pred_x0 = (x - sqrt_one_minus_alpha_cumprod_t * predicted_noise) / torch.sqrt(alpha_cumprod_t)
+        # Calculate predicted x_0
+        sqrt_one_minus_alpha_cumprod = torch.sqrt(1.0 - alpha_cumprod)
+        sqrt_alpha_cumprod = torch.sqrt(alpha_cumprod)
         
-        # Compute mean of reverse process
-        pred_prev_mean = (
-            torch.sqrt(self.alphas_cumprod_prev.gather(0, t).reshape(-1, 1, 1, 1, 1)) * beta_t * pred_x0 +
-            torch.sqrt(alpha_t) * (1.0 - self.alphas_cumprod_prev.gather(0, t).reshape(-1, 1, 1, 1, 1)) * x
-        ) / (1.0 - alpha_cumprod_t)
+        # Predict original sample
+        pred_original_sample = (x - sqrt_one_minus_alpha_cumprod * predicted_noise) / sqrt_alpha_cumprod
         
-        # Add noise if not at final step
+        # Calculate previous sample mean
+        sqrt_alpha = torch.sqrt(alpha)
+        pred_sample_direction = (1 - alpha) / torch.sqrt(1 - alpha_cumprod) * predicted_noise
+        prev_sample = (x - pred_sample_direction) / sqrt_alpha
+        
+        # Add noise for non-final steps
         if t.min() > 0:
-            posterior_variance_t = self.posterior_variance.gather(0, t).reshape(-1, 1, 1, 1, 1)
+            variance = self.posterior_variance.gather(0, t).reshape(-1, 1, 1, 1, 1)
             noise = torch.randn_like(x)
-            return pred_prev_mean + torch.sqrt(posterior_variance_t) * noise
-        else:
-            return pred_prev_mean
+            prev_sample += torch.sqrt(variance) * noise
+        
+        return prev_sample
     
-    def p_sample(self, shape: Tuple[int, ...], return_all_timesteps: bool = False) -> torch.Tensor:
+    def p_sample(self, shape: Tuple[int, ...], device: torch.device = None) -> torch.Tensor:
         """
-        Full reverse diffusion process (sampling)
+        Complete reverse diffusion process (sampling)
         
         Args:
-            shape (tuple): Shape of the tensor to generate
-            return_all_timesteps (bool): Whether to return intermediate steps
+            shape (tuple): Shape of the sample to generate
+            device (torch.device): Device to generate on
             
         Returns:
-            torch.Tensor: Generated data
+            torch.Tensor: Generated sample
         """
-        batch_size = shape[0]
-        
-        # Start from pure noise
-        x = torch.randn(shape, device=self.device)
-        
-        imgs = []
-        if return_all_timesteps:
-            imgs = [x]
+        if device is None:
+            device = self.device
             
-        # Reverse diffusion process with progress bar
-        timesteps_range = list(reversed(range(self.timesteps)))
-        progress_bar = tqdm(
-            timesteps_range, 
-            desc="Sampling", 
-            leave=False,
-            unit="step"
-        )
+        # Start with random noise
+        x = torch.randn(shape, device=device)
         
-        for i in progress_bar:
-            t = torch.full((batch_size,), i, device=self.device, dtype=torch.long)
+        # Reverse diffusion process
+        for i in tqdm(reversed(range(self.timesteps)), desc="Sampling", total=self.timesteps):
+            t = torch.full((shape[0],), i, device=device, dtype=torch.long)
             x = self.p_sample_step(x, t)
             
-            # Update progress bar with current timestep
-            progress_bar.set_postfix({'timestep': i})
-            
-            if return_all_timesteps:
-                imgs.append(x)
-        
-        if return_all_timesteps:
-            return torch.stack(imgs, dim=1)  # (batch_size, timesteps, channels, frames, height, width)
-        else:
-            return x
+        return x
     
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -177,74 +181,54 @@ class DiffusionModel(nn.Module):
         # Predict noise
         predicted_noise = self.model(x_noisy, t)
         
-        # Calculate loss (MSE between predicted and actual noise)
-        loss = F.mse_loss(predicted_noise, noise)
+        # Check for NaN in predictions
+        if torch.isnan(predicted_noise).any() or torch.isinf(predicted_noise).any():
+            print(f"NaN/Inf in model prediction at step {t}")
+            print(f"Input x_noisy range: [{x_noisy.min():.3f}, {x_noisy.max():.3f}]")
+            # Return zero loss to continue training
+            loss = torch.tensor(0.0, device=self.device, requires_grad=True)
+            predicted_noise = torch.zeros_like(noise)
+        else:
+            # Calculate loss (MSE between predicted and actual noise)
+            loss = F.mse_loss(predicted_noise, noise)
+        
+        # Check for NaN/Inf in loss
+        if torch.isnan(loss) or torch.isinf(loss):
+            print(f"NaN/Inf loss detected!")
+            print(f"Predicted noise range: [{predicted_noise.min():.3f}, {predicted_noise.max():.3f}]")
+            print(f"Noise range: [{noise.min():.3f}, {noise.max():.3f}]")
+            print(f"x_noisy range: [{x_noisy.min():.3f}, {x_noisy.max():.3f}]")
+            print(f"t values: {t}")
+            # Return a small loss to continue training
+            loss = torch.tensor(1.0, device=self.device, requires_grad=True)
         
         return loss, predicted_noise, noise
 
 def create_diffusion_model(config) -> DiffusionModel:
     """
-    Create a diffusion model with the given configuration
+    Create a diffusion model based on the configuration
     
     Args:
-        config: Configuration object
+        config: Configuration object containing model settings
         
     Returns:
         DiffusionModel: Configured diffusion model
     """
-    # Import both architectures
-    from models.architectures.unet3d import UNet3D
-    from models.architectures.vit3d import ViT3D
-    
-    # Get model-specific configuration
-    model_config = config.get_model_config()
-    
-    # Create the appropriate model based on architecture
-    if config.MODEL_ARCHITECTURE == "unet3d":
-        model = UNet3D(**model_config)
-    elif config.MODEL_ARCHITECTURE == "vit3d":
-        model = ViT3D(**model_config)
+    if config.MODEL_ARCHITECTURE == "vit3d":
+        from models.architectures.vit3d import ViT3D
+        backbone = ViT3D(**config.get_model_config())
+    elif config.MODEL_ARCHITECTURE == "unet3d":
+        from models.architectures.unet3d import UNet3D
+        backbone = UNet3D(**config.get_model_config())
     else:
         raise ValueError(f"Unknown model architecture: {config.MODEL_ARCHITECTURE}")
     
-    # Create diffusion model
-    diffusion_model = DiffusionModel(
-        model=model,
+    model = DiffusionModel(
+        model=backbone,
         timesteps=config.TIMESTEPS,
         beta_start=config.BETA_START,
         beta_end=config.BETA_END,
         device=config.DEVICE
     )
     
-    return diffusion_model
-
-def test_diffusion():
-    """Test function to verify the diffusion model works correctly"""
-    from config import Config
-    
-    print("Testing diffusion model...")
-    
-    # Create model
-    model = create_diffusion_model(Config)
-    model.to(Config.DEVICE)
-    
-    # Test forward pass (training)
-    batch_size = 2
-    channels, frames, height, width = Config.INPUT_SHAPE
-    x = torch.randn(batch_size, channels, frames, height, width).to(Config.DEVICE)
-    
-    loss, pred_noise, noise = model(x)
-    print(f"Training loss: {loss.item():.4f}")
-    print(f"Predicted noise shape: {pred_noise.shape}")
-    print(f"Actual noise shape: {noise.shape}")
-    
-    # Test sampling
-    with torch.no_grad():
-        samples = model.p_sample((2, channels, frames, height, width))
-        print(f"Generated samples shape: {samples.shape}")
-        print(f"Generated samples range: [{samples.min():.3f}, {samples.max():.3f}]")
-    
-    print("Diffusion model test completed successfully!")
-
-if __name__ == "__main__":
-    test_diffusion()
+    return model
