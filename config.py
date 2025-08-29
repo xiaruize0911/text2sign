@@ -33,18 +33,23 @@ class Config:
     VIT_DROPOUT = 0.1  # Dropout rate
     
     # Diffusion process settings
-    TIMESTEPS = 300  # Number of diffusion timesteps
+    TIMESTEPS = 1000  # Number of diffusion timesteps
     BETA_START = 0.0001  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
     
+    # Noise scheduler settings
+    NOISE_SCHEDULER = "cosine"  # Options: "linear", "cosine", "quadratic", "sigmoid"
+    COSINE_S = 0.008  # Small offset for cosine scheduler to prevent β from being too small near t=0
+    COSINE_MAX_BETA = 0.999  # Maximum beta value for cosine scheduler
+    
     # Training settings
-    LEARNING_RATE = 1e-4  # Keep reduced learning rate for stability
-    NUM_EPOCHS = 100
+    LEARNING_RATE = 0.0001  # Keep reduced learning rate for stability
+    NUM_EPOCHS = 1000
     GRADIENT_CLIP = 1.0
     
     # AMP (Automatic Mixed Precision) settings
-    USE_AMP = True  # Enable mixed precision training
-    AMP_DTYPE = torch.float16  # Use float16 for AMP (can also be torch.bfloat16)
+    USE_AMP = True  # Only enable AMP if CUDA is available
+    AMP_DTYPE = torch.bfloat16  # Use float16 for AMP (can also be torch.bfloat16)
     
     # Device settings
     DEVICE = torch.device("mps" if torch.backends.mps.is_available() else 
@@ -54,9 +59,9 @@ class Config:
     LOG_DIR = "logs"
     CHECKPOINT_DIR = "checkpoints"
     SAMPLES_DIR = "generated_samples"  # Directory to save generated GIF samples
-    SAMPLE_EVERY = 1000  # Sample and log every N steps
-    LOG_EVERY = 10  # Log loss every N steps (reduced from 10 for more frequent updates)
-    SAVE_EVERY = 1000  # Save checkpoint every N steps
+    SAMPLE_EVERY = 1020  # Sample and log every N steps (once per epoch, ~4082 samples / 4 batch size)
+    LOG_EVERY = 1020  # Log loss every N steps (once per epoch)
+    SAVE_EVERY = 2040  # Save checkpoint every N steps (every two epochs)
     LOG_MODEL_GRAPH = True  # Enable model graph logging to aid debugging
 
     # Sampling settings

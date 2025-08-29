@@ -62,7 +62,14 @@ class Trainer:
         
         # Log AMP status
         if getattr(config, 'USE_AMP', False) and not torch.cuda.is_available():
-            logger.info("AMP requested but CUDA not available - disabling AMP")
+            if torch.backends.mps.is_available():
+                logger.info("AMP requested but using MPS device - disabling AMP (MPS doesn't support AMP)")
+            else:
+                logger.info("AMP requested but CUDA not available - disabling AMP")
+        elif self.use_amp:
+            logger.info("AMP enabled with CUDA")
+        else:
+            logger.info("AMP disabled")
         
         # AMP dtype
         self.amp_dtype = getattr(config, 'AMP_DTYPE', torch.float16)
@@ -137,7 +144,7 @@ class Trainer:
         torch.save(checkpoint, filepath)
         logger.info(f"Checkpoint saved: {filepath}")
     
-    def load_checkpoint(self, filename: str):
+    def load_checkpoint(self, filename: str, override_lr: float = Config.LEARNING_RATE):
         """
         Load model checkpoint
         
@@ -151,15 +158,28 @@ class Trainer:
             return
         
         checkpoint = torch.load(filepath, map_location=self.device, weights_only=False)
-        
+
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.epoch = checkpoint['epoch']
         self.global_step = checkpoint['global_step']
-        
+
+        # Optionally override the resumed optimizer learning rate
+        # By default we keep the learning rate saved in the checkpoint. Passing
+        # a numeric value to `override_lr` will set that LR across all param groups
+        # after the optimizer state is restored.
+        if override_lr is not None:
+            for i, pg in enumerate(self.optimizer.param_groups):
+                old_lr = pg.get('lr', None)
+                pg['lr'] = float(override_lr)
+                logger.info(f"Overrode param_group[{i}] lr: {old_lr} -> {pg['lr']}")
+
         if self.scheduler is not None and 'scheduler_state_dict' in checkpoint:
-            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        
+            try:
+                self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            except Exception as e:
+                logger.warning(f"Could not load scheduler state: {e}")
+
         logger.info(f"Checkpoint loaded: {filepath}")
     
     def generate_samples(self, num_samples: Optional[int] = None) -> torch.Tensor:
@@ -183,7 +203,7 @@ class Trainer:
             
             # Use AMP for inference if available and enabled
             if self.use_amp and self.scaler is not None:
-                with autocast('cuda'):
+                with autocast(device_type='cuda', dtype=self.amp_dtype):
                     samples = self.model.p_sample(shape)
             else:
                 samples = self.model.p_sample(shape)
@@ -394,40 +414,51 @@ class Trainer:
             
             # Forward pass with AMP
             if self.use_amp and self.scaler is not None:
-                with autocast('cuda'):
-                    loss, predicted_noise, noise = self.model(videos)
-                
-                # Check for NaN in loss
-                if torch.isnan(loss) or torch.isinf(loss):
-                    print(f"NaN/Inf detected at step {self.global_step}")
-                    print(f"Input videos shape: {videos.shape}")
-                    print(f"Input videos range: [{videos.min():.3f}, {videos.max():.3f}]")
-                    print(f"Input has NaN: {torch.isnan(videos).any()}")
-                    print(f"Predicted noise has NaN: {torch.isnan(predicted_noise).any()}")
-                    print(f"Noise has NaN: {torch.isnan(noise).any()}")
-                    # Replace NaN loss with small constant to continue training
-                    loss = torch.tensor(1.0, device=self.device, requires_grad=True)
-                
-                # Backward pass with scaled gradients
-                self.scaler.scale(loss).backward()
-                
-                # Gradient clipping with scaled gradients
-                self.scaler.unscale_(self.optimizer)
-                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
-                
-                # Check for NaN gradients
-                if torch.isnan(grad_norm) or torch.isinf(grad_norm):
-                    print(f"NaN/Inf gradient norm detected at step {self.global_step}, zeroing gradients")
-                    self.optimizer.zero_grad()
-                    # Still need to complete the scaler cycle
+                try:
+                    with autocast(device_type='cuda', dtype=self.amp_dtype):
+                        loss, predicted_noise, noise = self.model(videos)
+                    
+                    # Check for NaN in loss
+                    if torch.isnan(loss) or torch.isinf(loss):
+                        print(f"NaN/Inf detected at step {self.global_step}")
+                        print(f"Input videos shape: {videos.shape}")
+                        print(f"Input videos range: [{videos.min():.3f}, {videos.max():.3f}]")
+                        print(f"Input has NaN: {torch.isnan(videos).any()}")
+                        print(f"Predicted noise has NaN: {torch.isnan(predicted_noise).any()}")
+                        print(f"Noise has NaN: {torch.isnan(noise).any()}")
+                        # Skip this batch entirely but update scaler to maintain state
+                        print("Skipping batch due to NaN loss")
+                        self.scaler.update()  # IMPORTANT: Update scaler state even when skipping
+                        continue
+                    
+                    # Backward pass with scaled gradients
+                    self.scaler.scale(loss).backward()
+                    
+                    # Always unscale before checking gradients or stepping
+                    self.scaler.unscale_(self.optimizer)
+                    grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
+                    
+                    # Check for NaN gradients after unscaling
+                    if torch.isnan(grad_norm) or torch.isinf(grad_norm):
+                        print(f"NaN/Inf gradient norm detected at step {self.global_step}, skipping optimizer step")
+                        # Just update scaler and continue - this properly handles the scaler state
+                        self.scaler.update()
+                        continue
+                    
+                    # Optimizer step with scaler - simplified error handling
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
-                    continue
                 
-                # Optimizer step with scaler
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
+                except Exception as e:
+                    print(f"AMP training error at step {self.global_step}: {e}")
+                    print("Falling back to non-AMP training for this step")
+                    # Disable AMP and fall back to regular training
+                    self.use_amp = False
+                    self.scaler = None
+                    # Continue to regular training path below
+            
+            # Regular training path (non-AMP or fallback from AMP)
+            if not self.use_amp or self.scaler is None:
                 # Regular forward pass (for MPS, CPU, or when AMP disabled)
                 loss, predicted_noise, noise = self.model(videos)
                 
@@ -439,8 +470,9 @@ class Trainer:
                     print(f"Input has NaN: {torch.isnan(videos).any()}")
                     print(f"Predicted noise has NaN: {torch.isnan(predicted_noise).any()}")
                     print(f"Noise has NaN: {torch.isnan(noise).any()}")
-                    # Replace NaN loss with small constant to continue training
-                    loss = torch.tensor(1.0, device=self.device, requires_grad=True)
+                    # Skip this batch entirely
+                    print("Skipping batch due to NaN loss")
+                    continue
                 
                 # Backward pass
                 loss.backward()
@@ -473,33 +505,32 @@ class Trainer:
                 'lr': f"{self.optimizer.param_groups[0]['lr']:.6f}"
             })
             
-            # Logging
+            # Logging (now less frequent - once per epoch via config)
             if self.global_step % self.config.LOG_EVERY == 0:
                 self.writer.add_scalar('train/loss', loss.item(), self.global_step)
                 self.writer.add_scalar('train/learning_rate', self.optimizer.param_groups[0]['lr'], self.global_step)
                 self.writer.add_scalar('train/grad_norm', grad_norm.item(), self.global_step)
-                # Samples generated and logged to tensorboard
                 # Update progress bar with detailed step info
                 progress_bar.set_description(
                     f"Epoch {self.epoch} [Step {self.global_step}] - "
                     f"Loss: {loss.item():.4f}"
                 )
             
-            # Generate and log samples
+            # Generate and log samples (now less frequent - once per epoch via config)
             if self.global_step % self.config.SAMPLE_EVERY == 0 and self.global_step > 0:
                 progress_bar.set_description(f"Epoch {self.epoch} - Generating samples...")
                 samples = self.generate_samples()
                 self.log_samples(samples, self.global_step)
                 progress_bar.set_description(f"Epoch {self.epoch}")
             
-            # Save checkpoint
+            # Save checkpoint (now less frequent - every two epochs via config)
             if self.global_step % self.config.SAVE_EVERY == 0 and self.global_step > 0:
                 progress_bar.set_description(f"Epoch {self.epoch} - Saving checkpoint...")
                 self.save_checkpoint(f'checkpoint_step_{self.global_step}.pt')
                 progress_bar.set_description(f"Epoch {self.epoch}")
             
-            # Flush TensorBoard regularly for real-time updates (every 3 steps)
-            if self.global_step % 3 == 0:
+            # Flush TensorBoard less frequently now (every 100 steps instead of 3)
+            if self.global_step % 100 == 0:
                 self.writer.flush()
             
             self.global_step += 1
@@ -515,6 +546,9 @@ class Trainer:
         logger.info(f"Device: {self.device}")
         logger.info(f"Total epochs: {self.config.NUM_EPOCHS}")
         logger.info(f"Batch size: {self.config.BATCH_SIZE}")
+        logger.info(f"Logging frequency: every {self.config.LOG_EVERY} steps (~1 per epoch)")
+        logger.info(f"Sampling frequency: every {self.config.SAMPLE_EVERY} steps (~1 per epoch)")
+        logger.info(f"Checkpoint frequency: every {self.config.SAVE_EVERY} steps (~every 2 epochs)")
         
         # Log configuration
         config_text = "\n".join([f"{k}: {v}" for k, v in self.config.__dict__.items() if not k.startswith('_')])
@@ -559,6 +593,16 @@ class Trainer:
                 self.writer.add_scalar('epoch/grad_norm', metrics['grad_norm'], epoch)
                 self.writer.add_scalar('epoch/learning_rate', self.optimizer.param_groups[0]['lr'], epoch)
                 
+                # Also log step-based metrics at epoch end for consistency
+                self.writer.add_scalar('train/loss', metrics['loss'], self.global_step)
+                self.writer.add_scalar('train/learning_rate', self.optimizer.param_groups[0]['lr'], self.global_step)
+                self.writer.add_scalar('train/grad_norm', metrics['grad_norm'], self.global_step)
+                
+                # Generate and log samples at the end of each epoch
+                logger.info(f"🎬 Generating samples for epoch {epoch}...")
+                samples = self.generate_samples()
+                self.log_samples(samples, self.global_step)
+                
                 # Log training throughput
                 samples_processed = len(self.dataloader) * self.config.BATCH_SIZE
                 throughput = samples_processed / epoch_time  # samples per second
@@ -590,9 +634,13 @@ class Trainer:
                     'step': self.global_step
                 })
                 
-                # Save epoch checkpoint
-                self.save_checkpoint(f'checkpoint_epoch_{epoch}.pt')
-                self.save_checkpoint('latest_checkpoint.pt')  # Always keep latest
+                # Save epoch checkpoint every two epochs
+                if epoch % 2 == 0:
+                    self.save_checkpoint(f'checkpoint_epoch_{epoch}.pt')
+                    logger.info(f"💾 Saved checkpoint for epoch {epoch}")
+                
+                # Always save latest checkpoint
+                self.save_checkpoint('latest_checkpoint.pt')
         
         except KeyboardInterrupt:
             logger.info("Training interrupted by user")
