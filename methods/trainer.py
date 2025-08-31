@@ -4,9 +4,10 @@ Training utilities and functions
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-from torch.amp import GradScaler, autocast
+from torch.amp import autocast, GradScaler
 import os
 import time
 import pickle
@@ -18,6 +19,7 @@ from config import Config
 from dataset import create_dataloader
 from diffusion import create_diffusion_model
 import logging
+import utils.gif as gif_utils
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -58,26 +60,14 @@ class Trainer:
         
         # Initialize AMP scaler if using AMP and CUDA is available
         self.use_amp = getattr(config, 'USE_AMP', False) and torch.cuda.is_available()
-        self.scaler = GradScaler('cuda') if self.use_amp else None
-        
-        # Log AMP status
-        if getattr(config, 'USE_AMP', False) and not torch.cuda.is_available():
-            if torch.backends.mps.is_available():
-                logger.info("AMP requested but using MPS device - disabling AMP (MPS doesn't support AMP)")
-            else:
-                logger.info("AMP requested but CUDA not available - disabling AMP")
-        elif self.use_amp:
-            logger.info("AMP enabled with CUDA")
-        else:
-            logger.info("AMP disabled")
-        
-        # AMP dtype
-        self.amp_dtype = getattr(config, 'AMP_DTYPE', torch.float16)
+        self.scaler = GradScaler() if self.use_amp else None
+        self.amp_dtype = torch.float16 if self.use_amp else torch.float32
         
         # Create directories
         os.makedirs(config.LOG_DIR, exist_ok=True)
         os.makedirs(config.CHECKPOINT_DIR, exist_ok=True)
-        os.makedirs(config.SAMPLES_DIR, exist_ok=True)  # Create samples directory
+        os.makedirs(config.SAMPLES_DIR, exist_ok=True)
+        os.makedirs('./noise_display', exist_ok=True)  # Directory for noise display GIFs
         
         # Initialize tensorboard writer
         self.writer = SummaryWriter(log_dir=config.LOG_DIR)
@@ -208,8 +198,8 @@ class Trainer:
             else:
                 samples = self.model.p_sample(shape)
                 
-            # Clamp to [0, 1] range
-            samples = torch.clamp(samples, 0, 1)
+            # Note: For ε-parameterization, do NOT clamp samples during generation
+            # This allows the model to learn the proper data distribution naturally
             logger.info(f"✅ Generated {num_samples} samples successfully")
         self.model.train()
         
@@ -230,72 +220,25 @@ class Trainer:
         
         for sample_idx in range(batch_size):
             sample = samples_np[sample_idx]  # (channels, frames, height, width)
+            # Assert sample properties
+            assert sample.shape[0] == 3, f"Expected 3 channels, got {sample.shape[0]}"
+            assert sample.dtype == np.float32, f"Expected float32, got {sample.dtype}"
+            smin, smax = sample.min(), sample.max()
+            assert -1.0001 <= smin <= 1.0001 and -1.0001 <= smax <= 1.0001, \
+                f"Sample not in [-1,1]: min={smin}, max={smax}"
             
-            # Convert from CHW to HWC format and scale to [0, 255]
+            # Convert from CHW to HWC format and scale from [-1,1] to [0, 255]
             video_frames = []
             for frame_idx in range(frames):
                 frame = sample[:, frame_idx]  # (channels, height, width)
                 frame = np.transpose(frame, (1, 2, 0))  # Convert to (height, width, channels)
-                frame = np.clip(frame * 255, 0, 255).astype(np.uint8)  # Scale to [0, 255]
+                # Convert from [-1, 1] to [0, 255]
+                frame = np.clip((frame + 1) * 127.5, 0, 255).astype(np.uint8)
                 video_frames.append(frame)
-            
             # Save as GIF
             gif_filename = f"sample_step_{step}_idx_{sample_idx}.gif"
             gif_path = os.path.join(self.config.SAMPLES_DIR, gif_filename)
-            
-            # Save with imageio
-            imageio.mimsave(gif_path, video_frames, fps=8, loop=0)
-            logger.info(f"💾 Saved GIF: {gif_path}")
-    
-    def log_samples(self, samples: torch.Tensor, step: int):
-        """
-        Log samples to tensorboard and save as GIF files
-        
-        Args:
-            samples (torch.Tensor): Generated samples
-            step (int): Current training step
-        """
-        # Save samples as GIF files first
-        self.save_samples_as_gifs(samples, step)
-        
-        # Log the first few frames of each sample as images to tensorboard
-        batch_size, channels, frames, height, width = samples.shape
-        
-        # Take every 4th frame to show progression
-        frame_indices = list(range(0, frames, max(1, frames // 7)))[:7]
-        
-        for sample_idx in range(min(batch_size, 4)):  # Log up to 4 samples
-            sample = samples[sample_idx]  # (channels, frames, height, width)
-            
-            # Create a grid of frames
-            frame_grid = []
-            for frame_idx in frame_indices:
-                frame = sample[:, frame_idx]  # (channels, height, width)
-                # Convert to HWC format for tensorboard
-                frame = frame.permute(1, 2, 0)  # (height, width, channels)
-                frame_grid.append(frame)
-            
-            # Concatenate frames horizontally
-            if frame_grid:
-                frames_concat = torch.cat(frame_grid, dim=1)  # (height, width*num_frames, channels)
-                # Log to tensorboard
-                self.writer.add_image(
-                    f'generated_samples/sample_{sample_idx}',
-                    frames_concat,
-                    step,
-                    dataformats='HWC'
-                )
-        
-        # Flush after logging all samples
-        self.writer.flush()
-    
-    def log_training_stats(self, epoch: int):
-        """
-        Log comprehensive training statistics to TensorBoard
-        
-        Args:
-            epoch (int): Current epoch number
-        """
+            imageio.mimsave(gif_path, video_frames, duration=0.1)
         # Log model parameter statistics
         total_params = 0
         trainable_params = 0
@@ -306,23 +249,23 @@ class Trainer:
                 # Log parameter statistics
                 param_mean = param.data.mean().item()
                 param_std = param.data.std().item()
-                self.writer.add_scalar(f'param_stats/{name}_mean', param_mean, epoch)
-                self.writer.add_scalar(f'param_stats/{name}_std', param_std, epoch)
+                self.writer.add_scalar(f'param_stats/{name}_mean', param_mean, self.epoch)
+                self.writer.add_scalar(f'param_stats/{name}_std', param_std, self.epoch)
             total_params += param.numel()
-        
+
         # Log training configuration stats
-        self.writer.add_scalar('config/total_parameters', total_params, epoch)
-        self.writer.add_scalar('config/trainable_parameters', trainable_params, epoch)
-        self.writer.add_scalar('config/batch_size', self.config.BATCH_SIZE, epoch)
-        self.writer.add_scalar('config/learning_rate', self.config.LEARNING_RATE, epoch)
-        
+        self.writer.add_scalar('config/total_parameters', total_params, self.epoch)
+        self.writer.add_scalar('config/trainable_parameters', trainable_params, self.epoch)
+        self.writer.add_scalar('config/batch_size', self.config.BATCH_SIZE, self.epoch)
+        self.writer.add_scalar('config/learning_rate', self.config.LEARNING_RATE, self.epoch)
+
         # Log memory usage if available
         if torch.cuda.is_available():
             memory_allocated = torch.cuda.memory_allocated() / 1024**3  # GB
             memory_reserved = torch.cuda.memory_reserved() / 1024**3    # GB
-            self.writer.add_scalar('memory/allocated_gb', memory_allocated, epoch)
-            self.writer.add_scalar('memory/reserved_gb', memory_reserved, epoch)
-        
+            self.writer.add_scalar('memory/allocated_gb', memory_allocated, self.epoch)
+            self.writer.add_scalar('memory/reserved_gb', memory_reserved, self.epoch)
+
         self.writer.flush()
     
     def create_training_summary(self, epoch: int):
@@ -336,18 +279,15 @@ class Trainer:
         summary_text = f"""
         Epoch: {epoch}
         Global Step: {self.global_step}
-        Current Learning Rate: {self.optimizer.param_groups[0]['lr']:.6f}
+        Current Learning Rate: {(self.optimizer.param_groups[0]['lr']):.6f}
         Device: {self.device}
         Batch Size: {self.config.BATCH_SIZE}
         """
-        
         self.writer.add_text('training_summary', summary_text, epoch)
-        
         # Log training curves as custom plots (if we have enough data points)
         if epoch >= 5:
             # This would create comparison plots, but TensorBoard scalars already provide this
             pass
-        
         self.writer.flush()
     
     def log_lr_schedule(self):
@@ -401,93 +341,68 @@ class Trainer:
             self.dataloader, 
             desc=f"Epoch {self.epoch}/{self.config.NUM_EPOCHS}", 
             leave=False,
-            unit="batch",
-            ncols=120  # Wider display for more info
+            unit="batch"
         )
         
         for batch_idx, (videos, texts) in enumerate(progress_bar):
-            # Move data to device
+            # Move video data to device
             videos = videos.to(self.device)
-            
+            # Sanity check: input videos should be normalized to [-1,1]
+            vmin, vmax = videos.min().item(), videos.max().item()
+            assert -1.0001 <= vmin <= 1.0001 and -1.0001 <= vmax <= 1.0001, \
+                f"Input videos not normalized to [-1,1]: min={vmin}, max={vmax}"
+            # Texts is a list, do not move to device
             # Zero gradients
             self.optimizer.zero_grad()
             
-            # Forward pass with AMP
-            if self.use_amp and self.scaler is not None:
-                try:
-                    with autocast(device_type='cuda', dtype=self.amp_dtype):
-                        loss, predicted_noise, noise = self.model(videos)
-                    
-                    # Check for NaN in loss
-                    if torch.isnan(loss) or torch.isinf(loss):
-                        print(f"NaN/Inf detected at step {self.global_step}")
-                        print(f"Input videos shape: {videos.shape}")
-                        print(f"Input videos range: [{videos.min():.3f}, {videos.max():.3f}]")
-                        print(f"Input has NaN: {torch.isnan(videos).any()}")
-                        print(f"Predicted noise has NaN: {torch.isnan(predicted_noise).any()}")
-                        print(f"Noise has NaN: {torch.isnan(noise).any()}")
-                        # Skip this batch entirely but update scaler to maintain state
-                        print("Skipping batch due to NaN loss")
-                        self.scaler.update()  # IMPORTANT: Update scaler state even when skipping
-                        continue
-                    
-                    # Backward pass with scaled gradients
-                    self.scaler.scale(loss).backward()
-                    
-                    # Always unscale before checking gradients or stepping
-                    self.scaler.unscale_(self.optimizer)
-                    grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
-                    
-                    # Check for NaN gradients after unscaling
-                    if torch.isnan(grad_norm) or torch.isinf(grad_norm):
-                        print(f"NaN/Inf gradient norm detected at step {self.global_step}, skipping optimizer step")
-                        # Just update scaler and continue - this properly handles the scaler state
-                        self.scaler.update()
-                        continue
-                    
-                    # Optimizer step with scaler - simplified error handling
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                
-                except Exception as e:
-                    print(f"AMP training error at step {self.global_step}: {e}")
-                    print("Falling back to non-AMP training for this step")
-                    # Disable AMP and fall back to regular training
-                    self.use_amp = False
-                    self.scaler = None
-                    # Continue to regular training path below
+            loss, predicted_noise, noise = self.model(videos,texts)
             
-            # Regular training path (non-AMP or fallback from AMP)
-            if not self.use_amp or self.scaler is None:
-                # Regular forward pass (for MPS, CPU, or when AMP disabled)
-                loss, predicted_noise, noise = self.model(videos)
-                
-                # Check for NaN in loss
-                if torch.isnan(loss) or torch.isinf(loss):
-                    print(f"NaN/Inf detected at step {self.global_step}")
-                    print(f"Input videos shape: {videos.shape}")
-                    print(f"Input videos range: [{videos.min():.3f}, {videos.max():.3f}]")
-                    print(f"Input has NaN: {torch.isnan(videos).any()}")
-                    print(f"Predicted noise has NaN: {torch.isnan(predicted_noise).any()}")
-                    print(f"Noise has NaN: {torch.isnan(noise).any()}")
-                    # Skip this batch entirely
-                    print("Skipping batch due to NaN loss")
-                    continue
-                
-                # Backward pass
-                loss.backward()
-                
-                # Gradient clipping
-                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
-                
-                # Check for NaN gradients
-                if torch.isnan(grad_norm) or torch.isinf(grad_norm):
-                    print(f"NaN/Inf gradient norm detected at step {self.global_step}, zeroing gradients")
-                    self.optimizer.zero_grad()
-                    continue
-                
-                # Optimizer step
-                self.optimizer.step()
+            # Diagnostic logging for noise statistics (should be mean≈0, std≈1)
+            if self.global_step % 100 == 0:  # Log every 100 steps
+                with torch.no_grad():
+                    # Check input data range
+                    video_min, video_max = videos.min().item(), videos.max().item()
+                    video_mean, video_std = videos.mean().item(), videos.std().item()
+                    
+                    # Check noise statistics
+                    noise_mean, noise_std = noise.mean().item(), noise.std().item()
+                    pred_noise_mean, pred_noise_std = predicted_noise.mean().item(), predicted_noise.std().item()
+                    
+                    # CRITICAL: Check if model is predicting reasonable noise scale
+                    pred_noise_abs_max = predicted_noise.abs().max().item()
+                    actual_noise_abs_max = noise.abs().max().item()
+                    
+                    # Log to console and tensorboard
+                    print(f"[Step {self.global_step}] Diagnostics:")
+                    print(f"  Video: range=[{video_min:.3f}, {video_max:.3f}], mean={video_mean:.3f}, std={video_std:.3f}")
+                    print(f"  Real noise: mean={noise_mean:.3f}, std={noise_std:.3f}, abs_max={actual_noise_abs_max:.3f}")
+                    print(f"  Pred noise: mean={pred_noise_mean:.3f}, std={pred_noise_std:.3f}, abs_max={pred_noise_abs_max:.3f}")
+                    print(f"  Loss: {loss.item():.6f}")
+                    
+                    # TensorBoard logging
+                    self.writer.add_scalar('debug/video_range_min', video_min, self.global_step)
+                    self.writer.add_scalar('debug/video_range_max', video_max, self.global_step)
+                    self.writer.add_scalar('debug/video_mean', video_mean, self.global_step)
+                    self.writer.add_scalar('debug/video_std', video_std, self.global_step)
+                    self.writer.add_scalar('debug/noise_mean', noise_mean, self.global_step)
+                    self.writer.add_scalar('debug/noise_std', noise_std, self.global_step)
+                    self.writer.add_scalar('debug/pred_noise_mean', pred_noise_mean, self.global_step)
+                    self.writer.add_scalar('debug/pred_noise_std', pred_noise_std, self.global_step)
+               
+            # Backward pass
+            loss.backward()
+            
+            # Gradient clipping
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
+            
+            # Check for NaN gradients
+            if torch.isnan(grad_norm) or torch.isinf(grad_norm):
+                print(f"NaN/Inf gradient norm detected at step {self.global_step}, zeroing gradients")
+                self.optimizer.zero_grad()
+                continue
+            
+            # Optimizer step
+            self.optimizer.step()
             
             # Update learning rate
             if self.scheduler is not None:
@@ -510,18 +425,53 @@ class Trainer:
                 self.writer.add_scalar('train/loss', loss.item(), self.global_step)
                 self.writer.add_scalar('train/learning_rate', self.optimizer.param_groups[0]['lr'], self.global_step)
                 self.writer.add_scalar('train/grad_norm', grad_norm.item(), self.global_step)
+                
+                # Critical ε-parameterization diagnostics
+                with torch.no_grad():
+                    # Noise prediction quality metrics
+                    noise_mse = F.mse_loss(predicted_noise, noise, reduction='none').mean()
+                    self.writer.add_scalar('debug/noise_prediction_mse', noise_mse.item(), self.global_step)
+                    
+                    # Model output statistics (should be unbiased for ε-parameterization)
+                    self.writer.add_scalar('debug/predicted_noise_abs_mean', predicted_noise.abs().mean().item(), self.global_step)
+                    self.writer.add_scalar('debug/actual_noise_abs_mean', noise.abs().mean().item(), self.global_step)
+
                 # Update progress bar with detailed step info
                 progress_bar.set_description(
                     f"Epoch {self.epoch} [Step {self.global_step}] - "
-                    f"Loss: {loss.item():.4f}"
+                    f"Loss: {loss.item():.4f}, Noise MSE: {noise_mse.item():.4f}"
                 )
-            
+    
+
             # Generate and log samples (now less frequent - once per epoch via config)
             if self.global_step % self.config.SAMPLE_EVERY == 0 and self.global_step > 0:
                 progress_bar.set_description(f"Epoch {self.epoch} - Generating samples...")
                 samples = self.generate_samples()
-                self.log_samples(samples, self.global_step)
+                self.save_samples_as_gifs(samples, self.global_step)
                 progress_bar.set_description(f"Epoch {self.epoch}")
+            
+            # Save noise display every 100 steps
+            if self.global_step % 100 == 0:
+                try:
+                    # Debug: Check tensor shapes and values
+                    print(f"Predicted noise shape: {predicted_noise[0].shape}, range: [{predicted_noise[0].min():.3f}, {predicted_noise[0].max():.3f}]")
+                    print(f"Real noise shape: {noise[0].shape}, range: [{noise[0].min():.3f}, {noise[0].max():.3f}]")
+                    
+                    # Normalize noise to [-1, 1] range for visualization
+                    # Clamp to reasonable range (±3 std) then normalize
+                    pred_noise_viz = torch.clamp(predicted_noise[0], -3, 3) / 3.0
+                    real_noise_viz = torch.clamp(noise[0], -3, 3) / 3.0
+                    x_0_viz = torch.clamp(videos[0], -1, 1) / 1.0  # Original video for reference
+                    
+                    gif_utils.save_video_as_gif(pred_noise_viz, f'./noise_display/pred_noise_{self.global_step}.gif')
+                    gif_utils.save_video_as_gif(real_noise_viz, f'./noise_display/real_noise_{self.global_step}.gif')
+                    gif_utils.save_video_as_gif(x_0_viz, f'./noise_display/original_video_{self.global_step}.gif')
+                    print(f"✅ Saved noise display GIFs at step {self.global_step}")
+                except Exception as e:
+                    logger.warning(f"Failed to save noise display GIFs: {e}")
+                    print(f"❌ Noise display error: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # Save checkpoint (now less frequent - every two epochs via config)
             if self.global_step % self.config.SAVE_EVERY == 0 and self.global_step > 0:
@@ -601,7 +551,7 @@ class Trainer:
                 # Generate and log samples at the end of each epoch
                 logger.info(f"🎬 Generating samples for epoch {epoch}...")
                 samples = self.generate_samples()
-                self.log_samples(samples, self.global_step)
+                self.save_samples_as_gifs(samples, self.global_step)
                 
                 # Log training throughput
                 samples_processed = len(self.dataloader) * self.config.BATCH_SIZE
@@ -624,7 +574,6 @@ class Trainer:
                 
                 # Log comprehensive training statistics (every 5 epochs)
                 if epoch % 5 == 0:
-                    self.log_training_stats(epoch)
                     self.create_training_summary(epoch)
                 
                 # Update epoch progress bar with completion info
@@ -691,11 +640,22 @@ def setup_training(config) -> Trainer:
     
     # Create optimizer
     print("⚙️  Setting up optimizer...")
-    optimizer = optim.AdamW(
-        model.parameters(),
-        lr=config.LEARNING_RATE,
-        weight_decay=1e-4
-    )
+    lr = config.get_learning_rate()  # Get architecture-specific learning rate
+    if config.OPTIMIZER_TYPE == "adamw":
+        optimizer = optim.AdamW(
+            model.parameters(),
+            lr=lr,
+            weight_decay=config.WEIGHT_DECAY,
+            betas=config.ADAM_BETAS
+        )
+        print(f"✅ AdamW optimizer ready - LR: {lr}, Weight Decay: {config.WEIGHT_DECAY}")
+    else:
+        optimizer = optim.Adam(
+            model.parameters(),
+            lr=lr,
+            betas=config.ADAM_BETAS
+        )
+        print(f"✅ Adam optimizer ready - LR: {lr}")
     
     # No learning rate scheduler - using constant learning rate
     scheduler = None

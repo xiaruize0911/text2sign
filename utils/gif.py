@@ -18,13 +18,25 @@ def save_video_as_gif(video_tensor: torch.Tensor, filepath: str, fps: int = 10):
         filepath (str): Output filepath for the GIF
         fps (int): Frames per second
     """
+    # Assert input shape and range
+    assert video_tensor.ndim == 4, f"Expected 4D tensor (C,F,H,W), got {video_tensor.ndim}D"
+    channels, frames, height, width = video_tensor.shape
+    assert channels == 3, f"Expected 3 channels (RGB), got {channels}"
+    assert video_tensor.dtype == torch.float32, f"Expected float32, got {video_tensor.dtype}"
+    # Assert value range: should be in [-1, 1]
+    vmin, vmax = video_tensor.min().item(), video_tensor.max().item()
+    assert -1.0001 <= vmin <= 1.0001 and -1.0001 <= vmax <= 1.0001, \
+        f"Video tensor not in [-1,1]: min={vmin}, max={vmax}"
+    
     # Convert to numpy and rearrange dimensions
     video = video_tensor.detach().cpu().numpy()
     video = np.transpose(video, (1, 2, 3, 0))  # (frames, height, width, channels)
     
     # Convert to uint8
-    video = np.clip(video * 255, 0, 255).astype(np.uint8)
-    
+    # Convert from [-1, 1] to [0, 255] for saving
+    video = np.clip((video + 1) * 127.5, 0, 255).astype(np.uint8)
+    #create file if not exist
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     # Save as GIF
     imageio.mimsave(filepath, video, fps=fps)
 
@@ -42,8 +54,9 @@ def load_gif_as_tensor(filepath: str) -> torch.Tensor:
     frames = imageio.mimread(filepath)
     frames = np.array(frames)
     
-    # Convert to torch tensor and normalize
+    # Convert to torch tensor and normalize to [-1, 1] (matching dataset)
     frames = torch.from_numpy(frames).float() / 255.0
+    frames = frames * 2 - 1  # [0, 1] → [-1, 1]
     
     # Rearrange dimensions
     frames = frames.permute(3, 0, 1, 2)  # (channels, frames, height, width)

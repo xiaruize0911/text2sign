@@ -3,6 +3,8 @@
 /training_data
 /checkpoints
 /generated_samples
+/noise_display
+/samples
 
 # Python cache
 __pycache__/

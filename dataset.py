@@ -69,9 +69,14 @@ class SignLanguageDataset(Dataset):
         try:
             frames = imageio.mimread(gif_path)
             frames = np.array(frames)  # Shape: (num_frames, height, width, channels)
-            
+            # Assert channel order: should be RGB (3 channels)
+            assert frames.shape[-1] == 3, f"Expected 3 channels (RGB), got {frames.shape[-1]}"
+            # Assert data type: should be uint8
+            assert frames.dtype == np.uint8, f"Expected uint8, got {frames.dtype}"
             # Convert to torch tensor and normalize to [0, 1]
             frames = torch.from_numpy(frames).float() / 255.0
+            # Normalize to [-1, 1] for diffusion models
+            frames = frames * 2 - 1
             
             # Ensure we have exactly 28 frames (pad or truncate)
             num_frames = frames.shape[0]
@@ -90,6 +95,11 @@ class SignLanguageDataset(Dataset):
             
             # Final rearrangement to (channels, frames, height, width) for the model
             frames = frames.permute(3, 0, 1, 2)
+            # Sanity check: data should be in [-1, 1]
+            if frames.numel() > 0:
+                fmin, fmax = frames.min().item(), frames.max().item()
+                assert -1.0001 <= fmin <= 1.0001 and -1.0001 <= fmax <= 1.0001, \
+                    f"Frames not normalized to [-1,1]: min={fmin}, max={fmax}"
                 
             return frames, text
             

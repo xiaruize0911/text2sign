@@ -31,6 +31,7 @@ class DiffusionModel(nn.Module):
         timesteps: int = 1000,
         noise_scheduler: str = "linear",
         device: torch.device = torch.device("cpu"),
+        text_encoder=None,
         **scheduler_kwargs
     ):
         super().__init__()
@@ -38,6 +39,7 @@ class DiffusionModel(nn.Module):
         self.timesteps = timesteps
         self.device = device
         self.noise_scheduler_type = noise_scheduler
+        self.text_encoder = text_encoder
         
         print(f"🔧 Initializing {noise_scheduler} noise scheduler...")
         self.noise_scheduler = create_noise_scheduler(noise_scheduler, timesteps, **scheduler_kwargs)
@@ -68,6 +70,11 @@ class DiffusionModel(nn.Module):
         print(f"   Beta range: [{self.betas.min():.6f}, {self.betas.max():.6f}]")
         print(f"   Alpha_cumprod range: [{self.alphas_cumprod.min():.6f}, {self.alphas_cumprod.max():.6f}]")
         
+        if text_encoder is not None:
+            print(f"✅ Text encoder integrated: {type(text_encoder).__name__}")
+        else:
+            print("⚠️  No text encoder provided - model will operate unconditionally")
+        
     def q_sample(self, x_start: torch.Tensor, t: torch.Tensor, noise: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Forward diffusion process: q(x_t | x_0)
@@ -87,21 +94,17 @@ class DiffusionModel(nn.Module):
         """
         if noise is None:
             noise = torch.randn_like(x_start)
-            
-        # Get the noise schedule coefficients for the given timesteps
-        sqrt_alphas_cumprod_t = self.sqrt_alphas_cumprod.gather(0, t)
-        sqrt_one_minus_alphas_cumprod_t = self.sqrt_one_minus_alphas_cumprod.gather(0, t)
-        
-        # Reshape for broadcasting across (batch_size, channels, frames, height, width)
-        sqrt_alphas_cumprod_t = sqrt_alphas_cumprod_t.reshape(-1, 1, 1, 1, 1)
-        sqrt_one_minus_alphas_cumprod_t = sqrt_one_minus_alphas_cumprod_t.reshape(-1, 1, 1, 1, 1)
+
+        alpha_bar_t = self.alphas_cumprod[t].view(-1, *([1] * (x_start.ndim - 1)))
+        sqrt_alpha_bar_t = torch.sqrt(alpha_bar_t)
+        sqrt_one_minus_alpha_bar_t = torch.sqrt(1.0 - alpha_bar_t)
         
         # Apply the noise schedule: x_t = sqrt(α̅_t) * x_0 + sqrt(1 - α̅_t) * ε
-        x_noisy = sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
-        
-        return x_noisy
+        x_noisy = sqrt_alpha_bar_t * x_start + sqrt_one_minus_alpha_bar_t * noise
+
+        return noise, x_noisy
     
-    def p_sample_step(self, x: torch.Tensor, t: torch.Tensor, text: Optional[str] = None) -> torch.Tensor:
+    def p_sample_step(self, x: torch.Tensor, t: torch.Tensor, text: Optional[str] = None, deterministic: bool = False) -> torch.Tensor:
         """
         Single reverse diffusion step: p(x_{t-1} | x_t)
         
@@ -110,41 +113,49 @@ class DiffusionModel(nn.Module):
         Args:
             x (torch.Tensor): Noisy data at timestep t
             t (torch.Tensor): Current timestep  
-            text (str, optional): Text conditioning (for future use)
+            text (str, optional): Text conditioning
+            deterministic (bool): If True, use deterministic sampling (no noise in intermediate steps)
             
         Returns:
             torch.Tensor: Denoised data at timestep t-1
         """
         with torch.no_grad():
-            # Predict noise using the trained model
-            predicted_noise = self.model(x, t)
-            
-            # Get alpha values for current timestep
-            alpha_t = self.alphas.gather(0, t).reshape(-1, 1, 1, 1, 1)
-            alpha_cumprod_t = self.alphas_cumprod.gather(0, t).reshape(-1, 1, 1, 1, 1)
-            alpha_cumprod_t_prev = self.alphas_cumprod_prev.gather(0, t).reshape(-1, 1, 1, 1, 1)
-            beta_t = self.betas.gather(0, t).reshape(-1, 1, 1, 1, 1)
-            
-            # Predict x_0 from noise prediction: x_0 = (x_t - sqrt(1-α̅_t) * ε_θ) / sqrt(α̅_t)
-            sqrt_alpha_cumprod_t = torch.sqrt(alpha_cumprod_t)
-            sqrt_one_minus_alpha_cumprod_t = torch.sqrt(1.0 - alpha_cumprod_t)
-            pred_x0 = (x - sqrt_one_minus_alpha_cumprod_t * predicted_noise) / sqrt_alpha_cumprod_t
-            
-            # Clamp x_0 to reasonable range to prevent instability
-            pred_x0 = torch.clamp(pred_x0, -1, 1)
-            
-            # Calculate mean of p(x_{t-1} | x_t, x_0) using DDPM posterior formula
-            sqrt_alpha_t = torch.sqrt(alpha_t)
-            sqrt_alpha_cumprod_t_prev = torch.sqrt(alpha_cumprod_t_prev)
-            
-            # DDPM posterior mean: μ_t = (β_t * sqrt(α̅_{t-1}) / (1 - α̅_t)) * x_0 + ((1 - α̅_{t-1}) * sqrt(α_t) / (1 - α̅_t)) * x_t
-            coeff1 = beta_t * sqrt_alpha_cumprod_t_prev / (1.0 - alpha_cumprod_t)
-            coeff2 = (1.0 - alpha_cumprod_t_prev) * sqrt_alpha_t / (1.0 - alpha_cumprod_t)
-            
-            mean = coeff1 * pred_x0 + coeff2 * x
-            
-            return mean
-    
+            # Encode text if provided
+            text_emb = None
+            if text is not None and self.text_encoder is not None:
+                batch_size = x.shape[0]
+                # Repeat text for batch
+                text_batch = [text] * batch_size
+                text_emb = self.text_encoder(text_batch)  # (batch_size, embed_dim)
+
+            predicted_noise = self.model(x, t, text_emb)
+
+            # Gather per-sample terms (support batches where timesteps differ)
+            alpha_t = self.alphas[t].view(-1, 1, 1, 1, 1)  # (batch,1,1,1,1)
+            alpha_bar_t = self.alphas_cumprod[t].view(-1, 1, 1, 1, 1)  # (batch,1,1,1,1)
+
+            # Calculate the mean of the reverse process (DDPM, ε-parameterization)
+            mean = (1.0 / torch.sqrt(alpha_t)) * (
+                x - ((1.0 - alpha_t) / torch.sqrt(1.0 - alpha_bar_t)) * predicted_noise
+            )
+
+            # Use posterior variance (precomputed) for the reverse diffusion variance per-sample
+            posterior_var = self.posterior_variance[t].view(-1, 1, 1, 1, 1)
+            sigma = torch.sqrt(posterior_var)
+
+            # Create noise tensor; respect deterministic flag
+            if deterministic:
+                eps = torch.zeros_like(x)
+            else:
+                eps = torch.randn_like(x)
+
+            # Build mask to zero-out noise where t == 0 (final step should be deterministic mean)
+            t_mask = (t > 0).view(-1, 1, 1, 1, 1).to(x.dtype)
+
+            # Apply noise only where appropriate (batch-safe)
+            return mean + sigma * eps * t_mask
+        
+    @torch.no_grad()
     def p_sample(self, shape: Tuple[int, ...], device: torch.device = None, text: Optional[str] = None, deterministic: bool = False) -> torch.Tensor:
         """
         Complete reverse diffusion process (sampling from noise to data)
@@ -163,15 +174,22 @@ class DiffusionModel(nn.Module):
             
         # Start with random noise (x_T ~ N(0, I))
         x = torch.randn(shape, device=device)
+        # Assert noise properties
+        assert x.shape[1] == 3, f"Expected 3 channels, got {x.shape[1]}"
+        assert x.dtype == torch.float32, f"Expected float32, got {x.dtype}"
         
         # Reverse diffusion process: gradually denoise from T to 0
         for i in tqdm(reversed(range(self.timesteps)), desc="Sampling", total=self.timesteps):
             t = torch.full((shape[0],), i, device=device, dtype=torch.long)
-            x = self.p_sample_step(x, t, text)
-            
-        return x
-    
-    def sample(self, text: str, batch_size: int = 1, num_frames: int = 28, height: int = 128, width: int = 128, deterministic: bool = False) -> torch.Tensor:
+            x = self.p_sample_step(x, t, text, deterministic)
+
+            # Log sampling progress occasionally
+            if i % 100 == 0 or i < 5:
+                print(f"Sampling step {i}: x range [{x.min().item():.3f}, {x.max().item():.3f}], mean={x.mean().item():.3f}")
+
+        # Clamp final sample to training data range [-1,1]
+        x = torch.clamp(x, -1.0, 1.0)
+        return x    def sample(self, text: str, batch_size: int = 1, num_frames: int = 28, height: int = 128, width: int = 128, deterministic: bool = False) -> torch.Tensor:
         """
         Convenience method for text-conditioned video generation
         
@@ -195,7 +213,7 @@ class DiffusionModel(nn.Module):
         
         Args:
             x (torch.Tensor): Clean video data with shape (batch_size, channels, frames, height, width)
-            text (str, optional): Text conditioning (for future text2sign conditioning)
+            text (str, optional): Text conditioning
             
         Returns:
             tuple: (loss, predicted_noise, actual_noise)
@@ -206,45 +224,19 @@ class DiffusionModel(nn.Module):
         # Sample random timesteps for each item in the batch
         t = torch.randint(0, self.timesteps, (batch_size,), device=device, dtype=torch.long)
         
-        # Sample noise to add to the videos
-        noise = torch.randn_like(x)
-        
         # Apply noise scheduler: q(x_t | x_0) - forward diffusion process
-        x_noisy = self.q_sample(x, t, noise)
+        noise, x_noisy = self.q_sample(x, t)
         
-        # Predict the noise using the backbone model
-        # The model should learn to predict the noise that was added
-        try:
-            predicted_noise = self.model(x_noisy, t)
-        except Exception as e:
-            print(f"Error in model prediction: {e}")
-            # Return safe values to continue training
-            predicted_noise = torch.zeros_like(noise)
-            loss = torch.tensor(1.0, device=device, requires_grad=True)
-            return loss, predicted_noise, noise
-        
-        # Validate predictions
-        if torch.isnan(predicted_noise).any() or torch.isinf(predicted_noise).any():
-            print(f"Warning: NaN/Inf in model prediction at timesteps {t}")
-            print(f"Input x_noisy stats: mean={x_noisy.mean():.4f}, std={x_noisy.std():.4f}, range=[{x_noisy.min():.4f}, {x_noisy.max():.4f}]")
-            # Replace invalid predictions with zeros
-            predicted_noise = torch.where(
-                torch.isnan(predicted_noise) | torch.isinf(predicted_noise),
-                torch.zeros_like(predicted_noise),
-                predicted_noise
-            )
-        
+        # Encode text if provided
+        text_emb = None
+        # print(f'text is {text}')
+        # Repeat text for batch
+        text_batch = text
+        text_emb = self.text_encoder(text_batch)  # (batch_size, embed_dim)
+        predicted_noise = self.model(x_noisy, t, text_emb)        
         # Calculate denoising loss (MSE between predicted and actual noise)
         # This is the standard DDPM training objective: L = E[||ε - ε_θ(x_t, t)||²]
-        loss = F.mse_loss(predicted_noise, noise, reduction='mean')
-        
-        # Validate loss
-        if torch.isnan(loss) or torch.isinf(loss):
-            print(f"Warning: NaN/Inf loss detected at timesteps {t}")
-            print(f"Predicted noise stats: mean={predicted_noise.mean():.4f}, std={predicted_noise.std():.4f}")
-            print(f"Actual noise stats: mean={noise.mean():.4f}, std={noise.std():.4f}")
-            # Use a small positive loss to continue training
-            loss = torch.tensor(0.1, device=device, requires_grad=True)
+        loss = F.mse_loss(predicted_noise, noise)
         
         return loss, predicted_noise, noise
 
@@ -258,6 +250,17 @@ def create_diffusion_model(config) -> DiffusionModel:
     Returns:
         DiffusionModel: Configured diffusion model
     """
+    # Create text encoder
+    text_encoder = None
+    if hasattr(config, 'TEXT_ENCODER_MODEL'):
+        try:
+            from models.text_encoder import create_text_encoder
+            text_encoder = create_text_encoder(config)
+            print(f"✅ Text encoder created: {type(text_encoder).__name__}")
+        except Exception as e:
+            print(f"⚠️ Failed to create text encoder: {e}")
+            print("Model will operate unconditionally")
+    
     if config.MODEL_ARCHITECTURE == "vit3d":
         from models.architectures.vit3d import ViT3D
         backbone = ViT3D(**config.get_model_config())
@@ -284,6 +287,7 @@ def create_diffusion_model(config) -> DiffusionModel:
         timesteps=config.TIMESTEPS,
         noise_scheduler=config.NOISE_SCHEDULER,
         device=config.DEVICE,
+        text_encoder=text_encoder,
         **scheduler_kwargs
     )
     

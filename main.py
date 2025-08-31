@@ -2,6 +2,8 @@
 """
 Main script for the Text2Sign diffusion model
 This script provides a command-line interface for training, testing, and sampling
+        # Clamp to [-1, 1] range (matching training data normalization)
+        samples = torch.clamp(samples, -1, 1)"
 """
 
 import argparse
@@ -103,7 +105,7 @@ def test_components():
     
     logger.info("All component tests completed successfully!")
 
-def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = "samples"):
+def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = "samples", text_prompt: str = "hello"):
     """
     Generate sample videos using a trained model
     
@@ -111,8 +113,9 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
         checkpoint_path (str): Path to the model checkpoint
         num_samples (int): Number of videos to generate
         output_dir (str): Directory to save generated videos
+        text_prompt (str): Text prompt for generation
     """
-    logger.info(f"Generating {num_samples} sample videos...")
+    logger.info(f"Generating {num_samples} sample videos with text: '{text_prompt}'")
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -138,16 +141,22 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
         shape = (num_samples, *Config.INPUT_SHAPE)
         logger.info("🎬 Generating samples...")
         
-        # Use AMP if available and enabled
-        if getattr(Config, 'USE_AMP', False) and torch.cuda.is_available():
-            from torch.amp import autocast
-            with autocast('cuda'):
-                samples = model.p_sample(shape)
+        # Use text-conditioned sampling
+        if hasattr(model, 'sample') and model.text_encoder is not None:
+            samples = model.sample(text_prompt, batch_size=num_samples)
         else:
-            samples = model.p_sample(shape)
+            # Fallback to unconditional sampling
+            logger.warning("Text encoder not available, using unconditional sampling")
+            # Use AMP if available and enabled
+            if getattr(Config, 'USE_AMP', False) and torch.cuda.is_available():
+                from torch.amp import autocast
+                with autocast('cuda'):
+                    samples = model.p_sample(shape)
+            else:
+                samples = model.p_sample(shape)
         
-        # Clamp to [0, 1] range
-        samples = torch.clamp(samples, 0, 1)
+        # Clamp to [-1, 1] range (matching training data normalization)
+        samples = torch.clamp(samples, -1, 1)
         logger.info(f"✅ Generated {num_samples} samples")
     
     # Save samples as GIFs
@@ -155,23 +164,22 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
     import imageio
     
     samples_np = samples.detach().cpu().numpy()
-    
+    frames = samples_np.shape[2]  # (batch, channels, frames, height, width)
+
     for i, sample in enumerate(samples_np):
-        # Convert from CHW to HWC format and scale to [0, 255]
+        # Convert from CHW to HWC format and scale from [-1,1] to [0, 255]
         video_frames = []
-        for frame_idx in range(sample.shape[1]):  # frames dimension
+        for frame_idx in range(frames):
             frame = sample[:, frame_idx]  # (channels, height, width)
             frame = np.transpose(frame, (1, 2, 0))  # Convert to (height, width, channels)
-            frame = np.clip(frame * 255, 0, 255).astype(np.uint8)  # Scale to [0, 255]
+            # Convert from [-1, 1] to [0, 255]
+            frame = np.clip((frame + 1) * 127.5, 0, 255).astype(np.uint8)
             video_frames.append(frame)
-        
         # Save as GIF
-        output_path = os.path.join(output_dir, f"sample_{i:03d}.gif")
+        output_path = os.path.join(output_dir, f"sample_{i:03d}_{text_prompt.replace(' ', '_')}.gif")
         imageio.mimsave(output_path, video_frames, fps=8, loop=0)
-        
         file_size = os.path.getsize(output_path)
         logger.info(f"💾 Saved sample {i}: {output_path} ({file_size:,} bytes)")
-    
     logger.info(f"✅ Sample generation completed. Saved to: {output_dir}")
     logger.info(f"🌐 You can view the GIFs in any web browser or image viewer")
 
@@ -239,12 +247,14 @@ def main():
     
     # Sample command
     sample_parser = subparsers.add_parser("sample", help="Generate sample videos")
-    sample_parser.add_argument("--checkpoint", type=str, default="checkpoints/latest_checkpoint.pt",
+    sample_parser.add_argument("--checkpoint", type=str, default="checkpoints/text2sign_experiment_unet1/latest_checkpoint.pt",
                               help="Path to model checkpoint")
     sample_parser.add_argument("--num_samples", type=int, default=4,
                               help="Number of samples to generate")
     sample_parser.add_argument("--output_dir", type=str, default="samples",
                               help="Output directory for samples")
+    sample_parser.add_argument("--text", type=str, default="hello",
+                              help="Text prompt for generation")
     
     # Visualize command
     viz_parser = subparsers.add_parser("visualize", help="Visualize model architecture")
@@ -265,7 +275,7 @@ def main():
     elif args.command == "test":
         test_components()
     elif args.command == "sample":
-        sample_videos(args.checkpoint, args.num_samples, args.output_dir)
+        sample_videos(args.checkpoint, args.num_samples, args.output_dir, args.text)
     elif args.command == "visualize":
         visualize_model()
     elif args.command == "install":
