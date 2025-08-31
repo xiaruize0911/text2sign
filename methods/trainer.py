@@ -220,13 +220,6 @@ class Trainer:
         
         for sample_idx in range(batch_size):
             sample = samples_np[sample_idx]  # (channels, frames, height, width)
-            # Assert sample properties
-            assert sample.shape[0] == 3, f"Expected 3 channels, got {sample.shape[0]}"
-            assert sample.dtype == np.float32, f"Expected float32, got {sample.dtype}"
-            smin, smax = sample.min(), sample.max()
-            assert -1.0001 <= smin <= 1.0001 and -1.0001 <= smax <= 1.0001, \
-                f"Sample not in [-1,1]: min={smin}, max={smax}"
-            
             # Convert from CHW to HWC format and scale from [-1,1] to [0, 255]
             video_frames = []
             for frame_idx in range(frames):

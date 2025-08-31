@@ -116,6 +116,12 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
         text_prompt (str): Text prompt for generation
     """
     logger.info(f"Generating {num_samples} sample videos with text: '{text_prompt}'")
+
+    # --- Input Validation ---
+    assert num_samples > 0, "Number of samples (batch size) must be positive"
+    if not text_prompt:
+        logger.warning("Empty text prompt, using default 'hello'.")
+        text_prompt = "hello"
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -125,17 +131,21 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
     model = create_diffusion_model(Config)
     model.to(Config.DEVICE)
     
-    # Load checkpoint
-    if os.path.exists(checkpoint_path):
-        checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE, weights_only=False)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        epoch = checkpoint.get('epoch', 'unknown')
-        step = checkpoint.get('global_step', 'unknown')
-        logger.info(f"Loaded checkpoint: {checkpoint_path} (Epoch: {epoch}, Step: {step})")
-    else:
-        logger.warning(f"Checkpoint not found: {checkpoint_path}. Using random weights.")
+    # --- Load Checkpoint with Error Handling ---
+    try:
+        if os.path.exists(checkpoint_path):
+            checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE, weights_only=False)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            epoch = checkpoint.get('epoch', 'unknown')
+            step = checkpoint.get('global_step', 'unknown')
+            logger.info(f"Loaded checkpoint: {checkpoint_path} (Epoch: {epoch}, Step: {step})")
+        else:
+            logger.warning(f"Checkpoint not found: {checkpoint_path}. Using random weights.")
+    except Exception as e:
+        logger.error(f"❌ Critical error loading checkpoint: {e}")
+        return # Exit if checkpoint fails to load
     
-    # Generate samples
+    # --- Generate Samples ---
     model.eval()
     with torch.no_grad():
         shape = (num_samples, *Config.INPUT_SHAPE)
@@ -147,39 +157,42 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
         else:
             # Fallback to unconditional sampling
             logger.warning("Text encoder not available, using unconditional sampling")
-            # Use AMP if available and enabled
-            if getattr(Config, 'USE_AMP', False) and torch.cuda.is_available():
-                from torch.amp import autocast
-                with autocast('cuda'):
-                    samples = model.p_sample(shape)
-            else:
-                samples = model.p_sample(shape)
+            samples = model.p_sample(shape)
         
         # Clamp to [-1, 1] range (matching training data normalization)
         samples = torch.clamp(samples, -1, 1)
         logger.info(f"✅ Generated {num_samples} samples")
-    
-    # Save samples as GIFs
+
+        # --- Shape Assertion ---
+        expected_shape = (num_samples, *Config.INPUT_SHAPE)
+        assert tuple(samples.shape) == expected_shape, f"Output shape {samples.shape} does not match expected {expected_shape}"
+
+    # --- Save Samples as GIFs ---
     import numpy as np
     import imageio
     
     samples_np = samples.detach().cpu().numpy()
     frames = samples_np.shape[2]  # (batch, channels, frames, height, width)
+    K = 10  # Frame interval for GIF
 
     for i, sample in enumerate(samples_np):
         # Convert from CHW to HWC format and scale from [-1,1] to [0, 255]
         video_frames = []
         for frame_idx in range(frames):
-            frame = sample[:, frame_idx]  # (channels, height, width)
-            frame = np.transpose(frame, (1, 2, 0))  # Convert to (height, width, channels)
-            # Convert from [-1, 1] to [0, 255]
-            frame = np.clip((frame + 1) * 127.5, 0, 255).astype(np.uint8)
-            video_frames.append(frame)
+            # Only include frames at specified intervals for efficiency
+            if frame_idx % K == 0 or frame_idx < 5 or frame_idx == frames - 1:
+                frame = sample[:, frame_idx]  # (channels, height, width)
+                frame = np.transpose(frame, (1, 2, 0))  # Convert to (height, width, channels)
+                # Convert from [-1, 1] to [0, 255]
+                frame = np.clip((frame + 1) * 127.5, 0, 255).astype(np.uint8)
+                video_frames.append(frame)
+        
         # Save as GIF
         output_path = os.path.join(output_dir, f"sample_{i:03d}_{text_prompt.replace(' ', '_')}.gif")
         imageio.mimsave(output_path, video_frames, fps=8, loop=0)
         file_size = os.path.getsize(output_path)
         logger.info(f"💾 Saved sample {i}: {output_path} ({file_size:,} bytes)")
+        
     logger.info(f"✅ Sample generation completed. Saved to: {output_dir}")
     logger.info(f"🌐 You can view the GIFs in any web browser or image viewer")
 

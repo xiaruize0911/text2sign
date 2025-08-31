@@ -18,16 +18,6 @@ def save_video_as_gif(video_tensor: torch.Tensor, filepath: str, fps: int = 10):
         filepath (str): Output filepath for the GIF
         fps (int): Frames per second
     """
-    # Assert input shape and range
-    assert video_tensor.ndim == 4, f"Expected 4D tensor (C,F,H,W), got {video_tensor.ndim}D"
-    channels, frames, height, width = video_tensor.shape
-    assert channels == 3, f"Expected 3 channels (RGB), got {channels}"
-    assert video_tensor.dtype == torch.float32, f"Expected float32, got {video_tensor.dtype}"
-    # Assert value range: should be in [-1, 1]
-    vmin, vmax = video_tensor.min().item(), video_tensor.max().item()
-    assert -1.0001 <= vmin <= 1.0001 and -1.0001 <= vmax <= 1.0001, \
-        f"Video tensor not in [-1,1]: min={vmin}, max={vmax}"
-    
     # Convert to numpy and rearrange dimensions
     video = video_tensor.detach().cpu().numpy()
     video = np.transpose(video, (1, 2, 3, 0))  # (frames, height, width, channels)

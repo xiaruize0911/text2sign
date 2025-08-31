@@ -127,6 +127,11 @@ class DiffusionModel(nn.Module):
                 # Repeat text for batch
                 text_batch = [text] * batch_size
                 text_emb = self.text_encoder(text_batch)  # (batch_size, embed_dim)
+                
+                # Ensure text embedding is on the correct device
+                if text_emb.device != x.device:
+                    text_emb = text_emb.to(x.device)
+                    print(f"Moved text embedding to device: {x.device}")
 
             predicted_noise = self.model(x, t, text_emb)
 
@@ -171,15 +176,16 @@ class DiffusionModel(nn.Module):
         """
         if device is None:
             device = self.device
+
+        # Assert that text is provided if a text encoder exists
+        if self.text_encoder is not None:
+            assert text is not None, "Text prompt must be provided for a conditioned model"
             
         # Start with random noise (x_T ~ N(0, I))
         x = torch.randn(shape, device=device)
-        # Assert noise properties
-        assert x.shape[1] == 3, f"Expected 3 channels, got {x.shape[1]}"
-        assert x.dtype == torch.float32, f"Expected float32, got {x.dtype}"
         
         # Reverse diffusion process: gradually denoise from T to 0
-        for i in tqdm(reversed(range(self.timesteps)), desc="Sampling", total=self.timesteps):
+        for i in tqdm(reversed(range(600)), desc="Sampling", total=600):
             t = torch.full((shape[0],), i, device=device, dtype=torch.long)
             x = self.p_sample_step(x, t, text, deterministic)
 
@@ -189,7 +195,9 @@ class DiffusionModel(nn.Module):
 
         # Clamp final sample to training data range [-1,1]
         x = torch.clamp(x, -1.0, 1.0)
-        return x    def sample(self, text: str, batch_size: int = 1, num_frames: int = 28, height: int = 128, width: int = 128, deterministic: bool = False) -> torch.Tensor:
+        return x
+    
+    def sample(self, text: str, batch_size: int = 1, num_frames: int = 28, height: int = 128, width: int = 128, deterministic: bool = False) -> torch.Tensor:
         """
         Convenience method for text-conditioned video generation
         

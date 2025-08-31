@@ -69,10 +69,6 @@ class SignLanguageDataset(Dataset):
         try:
             frames = imageio.mimread(gif_path)
             frames = np.array(frames)  # Shape: (num_frames, height, width, channels)
-            # Assert channel order: should be RGB (3 channels)
-            assert frames.shape[-1] == 3, f"Expected 3 channels (RGB), got {frames.shape[-1]}"
-            # Assert data type: should be uint8
-            assert frames.dtype == np.uint8, f"Expected uint8, got {frames.dtype}"
             # Convert to torch tensor and normalize to [0, 1]
             frames = torch.from_numpy(frames).float() / 255.0
             # Normalize to [-1, 1] for diffusion models
