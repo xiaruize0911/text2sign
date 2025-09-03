@@ -1,7 +1,31 @@
+# Core ML libraries
 torch>=2.0.0
 torchvision>=0.15.0
 numpy>=1.21.0
+
+# Transformers for text encoding
+transformers>=4.20.0
+
+# Data processing and visualization
 imageio>=2.28.0
+imageio[ffmpeg]>=2.19.0
 matplotlib>=3.5.0
+pillow>=9.0.0
+
+# Training utilities
 tensorboard>=2.11.0
 tqdm>=4.64.0
+
+# Development and testing
+pytest>=7.0.0
+black>=22.0.0
+flake8>=5.0.0
+
+# Optional: Jupyter for notebooks
+jupyter>=1.0.0
+ipywidgets>=7.7.0
+
+# Note: Install PyTorch with appropriate CUDA version for your system
+# For CUDA 11.8: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# For CPU only: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# For macOS with Metal: pip install torch torchvision

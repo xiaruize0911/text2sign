@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-Main script for the Text2Sign diffusion model
-This script provides a command-line interface for training, testing, and sampling
-        # Clamp to [-1, 1] range (matching training data normalization)
-        samples = torch.clamp(samples, -1, 1)"
+Main script for the Text2Sign diffusion model.
+Provides a command-line interface for training, testing, sampling, and visualization.
 """
 
 import argparse
@@ -11,6 +9,7 @@ import sys
 import os
 import torch
 import logging
+import shutil
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -37,6 +36,11 @@ def train_model(resume=False):
     """
     logger.info("Starting training...")
     
+    # Clean log directory
+    if Config.LOG_DIR and os.path.exists(Config.LOG_DIR):
+        shutil.rmtree(Config.LOG_DIR)
+    os.makedirs(Config.LOG_DIR, exist_ok=True)
+    
     # Setup training
     trainer = setup_training(Config)
     
@@ -46,7 +50,11 @@ def train_model(resume=False):
         latest_checkpoint = os.path.join(Config.CHECKPOINT_DIR, "latest_checkpoint.pt")
         if os.path.exists(latest_checkpoint):
             logger.info(f"Resuming training from checkpoint: {latest_checkpoint}")
-            trainer.load_checkpoint("latest_checkpoint.pt")
+            try:
+                trainer.load_checkpoint("latest_checkpoint.pt")
+            except Exception as e:
+                logger.error(f"Failed to load checkpoint securely: {e}")
+                logger.warning("Starting fresh training.")
         else:
             logger.warning(f"No checkpoint found at {latest_checkpoint}. Starting fresh training.")
     
@@ -73,10 +81,9 @@ def list_checkpoints():
         checkpoint_path = os.path.join(checkpoint_dir, checkpoint)
         file_size = os.path.getsize(checkpoint_path)
         file_size_mb = file_size / (1024 * 1024)
-        
-        # Try to load checkpoint info
+        # Try to load checkpoint info securely
         try:
-            checkpoint_data = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+            checkpoint_data = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
             epoch = checkpoint_data.get('epoch', 'unknown')
             step = checkpoint_data.get('global_step', 'unknown')
             logger.info(f"  • {checkpoint} ({file_size_mb:.1f} MB) - Epoch: {epoch}, Step: {step}")
@@ -118,9 +125,17 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
     logger.info(f"Generating {num_samples} sample videos with text: '{text_prompt}'")
 
     # --- Input Validation ---
-    assert num_samples > 0, "Number of samples (batch size) must be positive"
-    if not text_prompt:
-        logger.warning("Empty text prompt, using default 'hello'.")
+    if not isinstance(checkpoint_path, str) or not checkpoint_path.strip():
+        logger.error("Checkpoint path must be a non-empty string")
+        return
+    if not isinstance(num_samples, int) or num_samples <= 0:
+        logger.error("Number of samples must be a positive integer")
+        return
+    if not isinstance(output_dir, str) or not output_dir.strip():
+        logger.error("Output directory must be a non-empty string")
+        return
+    if not text_prompt or not isinstance(text_prompt, str):
+        logger.warning("Empty or invalid text prompt, using default 'hello'.")
         text_prompt = "hello"
     
     # Create output directory
@@ -134,7 +149,7 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
     # --- Load Checkpoint with Error Handling ---
     try:
         if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE, weights_only=False)
+            checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE, weights_only=True)
             model.load_state_dict(checkpoint['model_state_dict'])
             epoch = checkpoint.get('epoch', 'unknown')
             step = checkpoint.get('global_step', 'unknown')

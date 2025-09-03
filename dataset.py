@@ -12,6 +12,9 @@ import torchvision.transforms.functional as TF
 from typing import Tuple, List
 import glob
 from tqdm import tqdm
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SignLanguageDataset(Dataset):
     """
@@ -68,6 +71,8 @@ class SignLanguageDataset(Dataset):
         # Load GIF frames
         try:
             frames = imageio.mimread(gif_path)
+            if not frames:
+                raise ValueError("No frames found in GIF")
             frames = np.array(frames)  # Shape: (num_frames, height, width, channels)
             # Convert to torch tensor and normalize to [0, 1]
             frames = torch.from_numpy(frames).float() / 255.0
@@ -100,10 +105,10 @@ class SignLanguageDataset(Dataset):
             return frames, text
             
         except Exception as e:
-            print(f"Error loading {gif_path}: {e}")
+            logger.error(f"Error loading {gif_path}: {e}")
             # Return a dummy tensor if loading fails (channels, frames, height, width)
             dummy_frames = torch.zeros(3, 28, 128, 128)
-            return dummy_frames, ""
+            return dummy_frames, "error"
 
 class CenterCropTransform:
     """
@@ -171,7 +176,23 @@ def create_dataloader(data_root: str, batch_size: int, num_workers: int = 2, shu
         
     Returns:
         DataLoader: PyTorch DataLoader instance
+        
+    Raises:
+        ValueError: If data_root doesn't exist or batch_size is invalid
     """
+    # Input validation
+    if not isinstance(data_root, str) or not data_root.strip():
+        raise ValueError("data_root must be a non-empty string")
+    
+    if not os.path.exists(data_root):
+        raise ValueError(f"Data directory does not exist: {data_root}")
+    
+    if not isinstance(batch_size, int) or batch_size <= 0:
+        raise ValueError("batch_size must be a positive integer")
+    
+    if not isinstance(num_workers, int) or num_workers < 0:
+        raise ValueError("num_workers must be a non-negative integer")
+    
     # Define transforms
     transform = CenterCropTransform(size=128)
     
@@ -180,8 +201,8 @@ def create_dataloader(data_root: str, batch_size: int, num_workers: int = 2, shu
     
     # Create dataloader with deterministic behavior
     if shuffle:
-        # Use a fixed seed for shuffling to ensure reproducibility
-        torch.manual_seed(42)
+        # Use a configurable seed for shuffling to ensure reproducibility
+        torch.manual_seed(42)  # TODO: Make this configurable via Config
     dataloader = DataLoader(
         dataset=dataset,
         batch_size=batch_size,

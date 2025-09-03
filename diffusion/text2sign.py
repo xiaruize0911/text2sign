@@ -129,9 +129,7 @@ class DiffusionModel(nn.Module):
                 text_emb = self.text_encoder(text_batch)  # (batch_size, embed_dim)
                 
                 # Ensure text embedding is on the correct device
-                if text_emb.device != x.device:
-                    text_emb = text_emb.to(x.device)
-                    print(f"Moved text embedding to device: {x.device}")
+                text_emb = text_emb.to(x.device)
 
             predicted_noise = self.model(x, t, text_emb)
 
@@ -185,7 +183,7 @@ class DiffusionModel(nn.Module):
         x = torch.randn(shape, device=device)
         
         # Reverse diffusion process: gradually denoise from T to 0
-        for i in tqdm(reversed(range(600)), desc="Sampling", total=600):
+        for i in tqdm(reversed(range(self.timesteps)), desc="Sampling", total=self.timesteps):
             t = torch.full((shape[0],), i, device=device, dtype=torch.long)
             x = self.p_sample_step(x, t, text, deterministic)
 
