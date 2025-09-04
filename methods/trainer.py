@@ -386,11 +386,11 @@ class Trainer:
                     actual_noise_abs_max = noise.abs().max().item()
                     
                     # Log to console and tensorboard
-                    print(f"[Step {self.global_step}] Diagnostics:")
-                    print(f"  Video: range=[{video_min:.3f}, {video_max:.3f}], mean={video_mean:.3f}, std={video_std:.3f}")
-                    print(f"  Real noise: mean={noise_mean:.3f}, std={noise_std:.3f}, abs_max={actual_noise_abs_max:.3f}")
-                    print(f"  Pred noise: mean={pred_noise_mean:.3f}, std={pred_noise_std:.3f}, abs_max={pred_noise_abs_max:.3f}")
-                    print(f"  Loss: {loss.item():.6f}")
+                    # print(f"[Step {self.global_step}] Diagnostics:")
+                    # print(f"  Video: range=[{video_min:.3f}, {video_max:.3f}], mean={video_mean:.3f}, std={video_std:.3f}")
+                    # print(f"  Real noise: mean={noise_mean:.3f}, std={noise_std:.3f}, abs_max={actual_noise_abs_max:.3f}")
+                    # print(f"  Pred noise: mean={pred_noise_mean:.3f}, std={pred_noise_std:.3f}, abs_max={pred_noise_abs_max:.3f}")
+                    # print(f"  Loss: {loss.item():.6f}")
                     
                     # TensorBoard logging
                     self.writer.add_scalar('debug/video_range_min', video_min, self.global_step)
@@ -478,6 +478,18 @@ class Trainer:
                 progress_bar.set_description(f"Epoch {self.epoch} - Generating samples...")
                 samples = self.generate_samples()
                 self.save_samples_as_gifs(samples, self.global_step)
+                # Log generated samples as video to TensorBoard
+                try:
+                    # samples shape: (batch_size, channels, frames, height, width)
+                    self.writer.add_video(
+                        'samples/video',
+                        samples,
+                        global_step=self.global_step,
+                        fps=8,
+                        dataformats='NCTHW'
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to add video to TensorBoard: {e}")
                 progress_bar.set_description(f"Epoch {self.epoch}")
             
             # Save noise display at configured intervals (step-based)
@@ -497,6 +509,34 @@ class Trainer:
                     gif_utils.save_video_as_gif(real_noise_viz, f'./noise_display/real_noise_{self.global_step}.gif')
                     gif_utils.save_video_as_gif(x_0_viz, f'./noise_display/original_video_{self.global_step}.gif')
                     print(f"✅ Saved noise display GIFs at step {self.global_step}")
+                    # Log noise display videos to TensorBoard
+                    try:
+                        # Each viz tensor has shape (channels, frames, height, width)
+                        self.writer.add_video(
+                            'noise/pred_noise_viz',
+                            pred_noise_viz.unsqueeze(0),  # shape (1, C, T, H, W)
+                            global_step=self.global_step,
+                            fps=8,
+                            dataformats='NCTHW'
+                        )
+                        self.writer.add_video(
+                            'noise/real_noise_viz',
+                            real_noise_viz.unsqueeze(0),
+                            global_step=self.global_step,
+                            fps=8,
+                            dataformats='NCTHW'
+                        )
+                        # Original video frames
+                        self.writer.add_video(
+                            'noise/original_video_viz',
+                            x_0_viz.unsqueeze(0),
+                            global_step=self.global_step,
+                            fps=8,
+                            dataformats='NCTHW'
+                        )
+                        self.writer.flush()
+                    except Exception as e:
+                        logger.warning(f"Failed to log noise display videos: {e}")
                 except Exception as e:
                     logger.warning(f"Failed to save noise display GIFs: {e}")
                     print(f"❌ Noise display error: {e}")

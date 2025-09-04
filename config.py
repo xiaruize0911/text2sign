@@ -52,7 +52,7 @@ class Config:
     
     # Training settings
     LEARNING_RATE = 0.01  # Higher learning rate for ViT (was 0.00001 for UNet)
-    NUM_EPOCHS = 200
+    NUM_EPOCHS = 500
     GRADIENT_CLIP = 1.0  # Enable gradient clipping for training stability
     GRADIENT_ACCUMULATION_STEPS = 4  # Number of steps to accumulate gradients before optimizer step
     
@@ -83,7 +83,7 @@ class Config:
     LOG_MODEL_GRAPH = True  # Enable model graph logging to aid debugging
     
     # Step-based diagnostic logging intervals (for within-epoch diagnostics)
-    NOISE_DISPLAY_EVERY_STEPS = 500  # Save noise display GIFs every N steps
+    NOISE_DISPLAY_EVERY_STEPS = 2040  # Save noise display GIFs every N steps
     DIAGNOSTIC_LOG_EVERY_STEPS = 500  # Log detailed diagnostics every N steps
     TENSORBOARD_FLUSH_EVERY_STEPS = 500  # Flush TensorBoard every N steps
     
@@ -98,7 +98,7 @@ class Config:
     def get_learning_rate(cls):
         """Get architecture-specific learning rate"""
         if cls.MODEL_ARCHITECTURE == "vit3d":
-            return 0.001  # Higher LR for ViT
+            return 0.0001  # Higher LR for ViT
         elif cls.MODEL_ARCHITECTURE == "unet3d":
             return 0.00001  # Lower LR for UNet
         else:
