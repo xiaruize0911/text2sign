@@ -70,12 +70,12 @@ class SpatialTemporalAttention(nn.Module):
         self.norm1 = nn.LayerNorm(embed_dim)
         self.norm2 = nn.LayerNorm(embed_dim)
         
-        # Feed-forward network
+        # Feed-forward network (expanded for higher capacity)
         self.ffn = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim * 4),
+            nn.Linear(embed_dim, embed_dim * 8),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(embed_dim * 4, embed_dim),
+            nn.Linear(embed_dim * 8, embed_dim),
             nn.Dropout(dropout)
         )
         
@@ -232,6 +232,31 @@ class FeatureUpsampler(nn.Module):
             x = F.interpolate(x, size=self.target_size, mode='bilinear', align_corners=False)
         return x
 
+class FiLMLayer(nn.Module):
+    """Feature-wise Linear Modulation Layer"""
+    def __init__(self, embed_dim: int, feature_dim: int):
+        super().__init__()
+        self.projection = nn.Linear(embed_dim, feature_dim * 2)
+
+    def forward(self, features: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
+        """
+        Apply FiLM conditioning
+        Args:
+            features: (batch, ..., feature_dim) - Input features
+            conditioning: (batch, embed_dim) - Conditioning vector
+        Returns:
+            modulated_features: (batch, ..., feature_dim)
+        """
+        # Project conditioning to get scale and shift
+        gamma, beta = self.projection(conditioning).chunk(2, dim=-1)
+        
+        # Reshape for broadcasting
+        while len(gamma.shape) < len(features.shape):
+            gamma = gamma.unsqueeze(1)
+            beta = beta.unsqueeze(1)
+            
+        return features * (1 + gamma) + beta
+
 class ViT3D(nn.Module):
     """
     Redesigned 3D Vision Transformer for video diffusion with improved architecture.
@@ -255,7 +280,7 @@ class ViT3D(nn.Module):
                  embed_dim: int = 768,
                  freeze_backbone: bool = False, 
                  num_temporal_heads: int = 8,
-                 num_attention_layers: int = 2):
+                 num_attention_layers: int = 4):  # increased default attention depth for capacity
         super().__init__()
         
         # Store input parameters
@@ -273,11 +298,6 @@ class ViT3D(nn.Module):
         
         # Time embedding
         self.time_embedding = SinusoidalTimeEmbedding(time_dim)
-        self.time_proj = nn.Sequential(
-            nn.Linear(time_dim, self.feature_dim),
-            nn.GELU(),
-            nn.Linear(self.feature_dim, self.feature_dim)
-        )
         
         # Text conditioning (optional)
         self.text_proj = None
@@ -288,6 +308,11 @@ class ViT3D(nn.Module):
                 nn.Linear(time_dim, time_dim)
             )
         
+        # FiLM layers for conditioning
+        self.film_layers = nn.ModuleList([
+            FiLMLayer(time_dim, self.feature_dim) for _ in range(num_attention_layers)
+        ])
+        
         # Spatial-temporal attention stack
         self.attention_layers = nn.ModuleList([
             SpatialTemporalAttention(
@@ -297,14 +322,11 @@ class ViT3D(nn.Module):
             ) for _ in range(num_attention_layers)
         ])
         
-        # Feature conditioning and processing
+        # Feature modulation layer for final feature processing
         self.feature_modulation = nn.Sequential(
-            nn.LayerNorm(self.feature_dim),
-            nn.Linear(self.feature_dim, self.feature_dim * 2),
+            nn.Linear(self.feature_dim, self.feature_dim),
             nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(self.feature_dim * 2, self.feature_dim),
-            nn.LayerNorm(self.feature_dim)
+            nn.Linear(self.feature_dim, self.feature_dim)
         )
         
         # Learnable upsampling to output resolution
@@ -328,16 +350,61 @@ class ViT3D(nn.Module):
     
     def _initialize_weights(self):
         """Initialize model weights"""
-        for module in [self.time_proj, self.feature_modulation, self.temporal_conv]:
-            for layer in module.modules():
+        # Initialize time embedding
+        for layer in self.time_embedding.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
+        
+        # Initialize text projection if it exists
+        if self.text_proj is not None:
+            for layer in self.text_proj.modules():
                 if isinstance(layer, nn.Linear):
                     nn.init.xavier_uniform_(layer.weight)
                     if layer.bias is not None:
                         nn.init.zeros_(layer.bias)
-                elif isinstance(layer, (nn.Conv3d, nn.Conv2d)):
-                    nn.init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
+        
+        # Initialize FiLM layers
+        for film_layer in self.film_layers:
+            for layer in film_layer.modules():
+                if isinstance(layer, nn.Linear):
+                    nn.init.xavier_uniform_(layer.weight)
                     if layer.bias is not None:
                         nn.init.zeros_(layer.bias)
+        
+        # Initialize attention layers
+        for attention_layer in self.attention_layers:
+            for layer in attention_layer.modules():
+                if isinstance(layer, nn.Linear):
+                    nn.init.xavier_uniform_(layer.weight)
+                    if layer.bias is not None:
+                        nn.init.zeros_(layer.bias)
+        
+        # Initialize feature modulation
+        for layer in self.feature_modulation.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
+        
+        # Initialize upsampler
+        for layer in self.upsampler.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
+            elif isinstance(layer, (nn.Conv3d, nn.Conv2d)):
+                nn.init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
+        
+        # Initialize temporal convolution
+        for layer in self.temporal_conv.modules():
+            if isinstance(layer, (nn.Conv3d, nn.Conv2d)):
+                nn.init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
     
     def forward(self, x: torch.Tensor, time: torch.Tensor, text_emb: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
@@ -362,7 +429,7 @@ class ViT3D(nn.Module):
             time_emb = time_emb + text_emb_proj
         
         # Project time embedding to feature space
-        time_features = self.time_proj(time_emb)  # (batch, feature_dim)
+        time_features = self.time_embedding(time)  # (batch, time_dim)
         
         # === SPATIAL FEATURE EXTRACTION ===
         # Reshape for frame-wise processing
@@ -379,13 +446,10 @@ class ViT3D(nn.Module):
         temporal_features = global_features.view(batch_size, frames, self.feature_dim)
         # (batch, frames, feature_dim)
         
-        # Add time conditioning to each frame
-        time_features_expanded = time_features.unsqueeze(1).expand(-1, frames, -1)
-        temporal_features = temporal_features + time_features_expanded
-        
         # Apply spatial-temporal attention layers
-        for attention_layer in self.attention_layers:
+        for attention_layer, film_layer in zip(self.attention_layers, self.film_layers):
             temporal_features = attention_layer(temporal_features)
+            temporal_features = film_layer(temporal_features, time_features)
         
         # Apply feature modulation
         modulated_features = self.feature_modulation(temporal_features)

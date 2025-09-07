@@ -10,8 +10,8 @@ class Config:
     
     # Data settings
     DATA_ROOT = "training_data"
-    BATCH_SIZE = 2
-    NUM_WORKERS = 2
+    BATCH_SIZE = 16
+    NUM_WORKERS = 16
 
     # Model dimensions
     INPUT_SHAPE = (3, 28, 128, 128)  # (channels, frames, height, width)
@@ -51,10 +51,39 @@ class Config:
     COSINE_MAX_BETA = 0.999  # Maximum beta value for cosine scheduler
     
     # Training settings
-    LEARNING_RATE = 0.01  # Higher learning rate for ViT (was 0.00001 for UNet)
+    LEARNING_RATE = 0.0001  # Higher learning rate for ViT (was 0.00001 for UNet)
     NUM_EPOCHS = 500
     GRADIENT_CLIP = 1.0  # Enable gradient clipping for training stability
-    GRADIENT_ACCUMULATION_STEPS = 4  # Number of steps to accumulate gradients before optimizer step
+    GRADIENT_ACCUMULATION_STEPS = 2  # Number of steps to accumulate gradients before optimizer step
+    
+    # Dynamic Learning Rate Scheduler Settings
+    USE_SCHEDULER = True  # Enable dynamic learning rate scheduling
+    SCHEDULER_TYPE = "cosine_annealing_with_restarts"  # Options: "cosine_annealing", "cosine_annealing_with_restarts", "reduce_on_plateau", "exponential", "linear_warmup_cosine", "polynomial"
+    
+    # Cosine Annealing Settings
+    COSINE_T_MAX = 50  # Period of cosine annealing (epochs)
+    COSINE_ETA_MIN = 1e-7  # Minimum learning rate for cosine annealing
+    
+    # Cosine Annealing with Warm Restarts Settings
+    COSINE_RESTARTS_T_0 = 25  # Initial restart period (epochs)
+    COSINE_RESTARTS_T_MULT = 2  # Factor to increase restart period after each restart
+    COSINE_RESTARTS_ETA_MIN = 1e-7  # Minimum learning rate
+    
+    # Reduce on Plateau Settings
+    PLATEAU_FACTOR = 0.5  # Factor to reduce LR by when plateau is detected
+    PLATEAU_PATIENCE = 15  # Number of epochs to wait before reducing LR
+    PLATEAU_THRESHOLD = 1e-4  # Threshold for measuring improvement
+    PLATEAU_MIN_LR = 1e-7  # Minimum learning rate for plateau scheduler
+    
+    # Exponential Decay Settings
+    EXPONENTIAL_GAMMA = 0.95  # Multiplicative factor of learning rate decay
+    
+    # Linear Warmup + Cosine Settings
+    WARMUP_EPOCHS = 10  # Number of epochs for linear warmup
+    WARMUP_START_LR = 1e-6  # Starting learning rate for warmup
+    
+    # Polynomial Decay Settings
+    POLYNOMIAL_POWER = 0.9  # Power for polynomial decay
     
     # Reproducibility settings
     RANDOM_SEED = 42  # Random seed for reproducibility
@@ -71,7 +100,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "text2sign_experiment_vit1"  # Name for this experiment
+    EXPERIMENT_NAME = "text2sign_experiment_vit2"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
@@ -83,13 +112,39 @@ class Config:
     LOG_MODEL_GRAPH = True  # Enable model graph logging to aid debugging
     
     # Step-based diagnostic logging intervals (for within-epoch diagnostics)
-    NOISE_DISPLAY_EVERY_STEPS = 2040  # Save noise display GIFs every N steps
-    DIAGNOSTIC_LOG_EVERY_STEPS = 500  # Log detailed diagnostics every N steps
-    TENSORBOARD_FLUSH_EVERY_STEPS = 500  # Flush TensorBoard every N steps
+    NOISE_DISPLAY_EVERY_STEPS = 200   # Save noise display GIFs every N steps (much more frequent)
+    DIAGNOSTIC_LOG_EVERY_STEPS = 10    # Log detailed diagnostics every N steps (very frequent)
+    TENSORBOARD_FLUSH_EVERY_STEPS = 50 # Flush TensorBoard every N steps (frequent)
     
     # Epoch-based logging intervals  
     PARAM_LOG_EVERY_EPOCHS = 10  # Log parameter histograms every N epochs
     SUMMARY_LOG_EVERY_EPOCHS = 10  # Log comprehensive training summary every N epochs
+    
+    # TensorBoard Logging Structure Settings
+    TENSORBOARD_LOG_CATEGORIES = [
+        "01_Training",           # Core training metrics (loss, LR, grad norm)
+        "02_Loss_Components",    # Detailed loss breakdown
+        "03_Epoch_Summary",      # Epoch-level aggregated metrics
+        "04_Learning_Rate",      # LR scheduling and history
+        "05_Performance",        # Training throughput metrics
+        "06_Diffusion",         # Diffusion-specific metrics (noise MSE, SNR)
+        "07_Noise_Analysis",    # Detailed noise prediction analysis
+        "08_Model_Architecture", # Model parameters and structure
+        "09_Parameter_Stats",   # Layer-wise parameter statistics
+        "10_Parameter_Histograms", # Parameter distribution histograms
+        "11_Gradient_Stats",    # Gradient statistics and norms
+        "12_Generated_Samples", # Video samples and quality metrics
+        "13_Noise_Visualization", # Noise prediction visualizations
+        "14_System",           # GPU/MPS memory and system metrics
+        "15_Configuration"     # Training configuration logging
+    ]
+    
+    # Advanced logging features
+    ENABLE_GRADIENT_HISTOGRAMS = True   # Log gradient histograms (can be memory intensive)
+    ENABLE_PARAMETER_TRACKING = True    # Track parameter evolution over time
+    ENABLE_VIDEO_LOGGING = True         # Log generated videos to TensorBoard
+    ENABLE_NOISE_VISUALIZATION = False   # Log noise prediction visualizations
+    ENABLE_PERFORMANCE_PROFILING = True # Track training performance metrics
 
     # Sampling settings
     NUM_SAMPLES = 2  # Number of samples to generate for logging
@@ -98,7 +153,7 @@ class Config:
     def get_learning_rate(cls):
         """Get architecture-specific learning rate"""
         if cls.MODEL_ARCHITECTURE == "vit3d":
-            return 0.0001  # Higher LR for ViT
+            return 0.00001  # Higher LR for ViT
         elif cls.MODEL_ARCHITECTURE == "unet3d":
             return 0.00001  # Lower LR for UNet
         else:
@@ -164,6 +219,32 @@ class Config:
         
         if not isinstance(cls.TENSORBOARD_FLUSH_EVERY_STEPS, int) or cls.TENSORBOARD_FLUSH_EVERY_STEPS <= 0:
             errors.append("TENSORBOARD_FLUSH_EVERY_STEPS must be a positive integer")
+        
+        # Validate scheduler settings
+        if hasattr(cls, 'USE_SCHEDULER') and cls.USE_SCHEDULER:
+            valid_schedulers = [
+                "cosine_annealing", "cosine_annealing_with_restarts", 
+                "reduce_on_plateau", "exponential", "linear_warmup_cosine", 
+                "polynomial", "adaptive"
+            ]
+            scheduler_type = getattr(cls, 'SCHEDULER_TYPE', '')
+            if scheduler_type not in valid_schedulers:
+                errors.append(f"SCHEDULER_TYPE must be one of {valid_schedulers}")
+            
+            # Validate scheduler-specific parameters
+            if scheduler_type in ["cosine_annealing", "linear_warmup_cosine"]:
+                if not hasattr(cls, 'COSINE_T_MAX') or cls.COSINE_T_MAX <= 0:
+                    warnings.append("COSINE_T_MAX should be a positive integer")
+            
+            if scheduler_type == "cosine_annealing_with_restarts":
+                if not hasattr(cls, 'COSINE_RESTARTS_T_0') or cls.COSINE_RESTARTS_T_0 <= 0:
+                    warnings.append("COSINE_RESTARTS_T_0 should be a positive integer")
+            
+            if scheduler_type == "linear_warmup_cosine":
+                if not hasattr(cls, 'WARMUP_EPOCHS') or cls.WARMUP_EPOCHS <= 0:
+                    warnings.append("WARMUP_EPOCHS should be a positive integer")
+                if cls.WARMUP_EPOCHS >= cls.NUM_EPOCHS:
+                    warnings.append("WARMUP_EPOCHS should be less than NUM_EPOCHS")
         
         # Validate input shape
         if not isinstance(cls.INPUT_SHAPE, tuple) or len(cls.INPUT_SHAPE) != 4:

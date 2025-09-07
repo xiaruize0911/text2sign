@@ -18,6 +18,8 @@ from tqdm import tqdm
 from config import Config
 from dataset import create_dataloader
 from diffusion import create_diffusion_model
+from schedulers.lr_schedulers import create_lr_scheduler, log_lr_schedule
+from utils.tensorboard_logger import TensorBoardLogger, create_tensorboard_logger
 import logging
 import utils.gif as gif_utils
 
@@ -70,8 +72,9 @@ class Trainer:
         os.makedirs(config.SAMPLES_DIR, exist_ok=True)
         os.makedirs('./noise_display', exist_ok=True)  # Directory for noise display GIFs
         
-        # Initialize tensorboard writer
-        self.writer = SummaryWriter(log_dir=config.LOG_DIR)
+        # Initialize comprehensive tensorboard logger
+        self.tb_logger = create_tensorboard_logger(config)
+        self.writer = self.tb_logger.writer  # Keep backward compatibility
         
         # Training state
         self.global_step = 0
@@ -85,6 +88,10 @@ class Trainer:
         self.sample_every_steps = config.SAMPLE_EVERY_EPOCHS * self.steps_per_epoch
         self.log_every_steps = config.LOG_EVERY_EPOCHS * self.steps_per_epoch  
         self.save_every_steps = config.SAVE_EVERY_EPOCHS * self.steps_per_epoch
+        
+        # Track learning rate history for adaptive scheduling
+        self.lr_history = []
+        self.loss_history = []
         
         # Log model structure
         self.log_model_structure()
@@ -203,7 +210,7 @@ class Trainer:
         with torch.no_grad():
             shape = (num_samples, *self.config.INPUT_SHAPE)
             # Generate samples with progress tracking
-            logger.info(f"🎬 Generating {num_samples} video samples...")
+            logger.debug(f"Generating {num_samples} video samples...")
             
             # Provide a text prompt for conditioned models
             text_prompt = "A sample sign language translation"  # Replace with your desired prompt
@@ -246,34 +253,21 @@ class Trainer:
             gif_filename = f"sample_step_{step}_idx_{sample_idx}.gif"
             gif_path = os.path.join(self.config.SAMPLES_DIR, gif_filename)
             imageio.mimsave(gif_path, video_frames, duration=0.1)
-        # Log model parameter statistics
-        total_params = 0
-        trainable_params = 0
+    
+    def log_training_initialization(self):
+        """
+        Log initial training configuration and model setup
+        """
+        # Log configuration at the start of training
+        self.tb_logger.log_configuration(self.config, epoch=0)
         
-        for name, param in self.model.named_parameters():
-            if param.requires_grad:
-                trainable_params += param.numel()
-                # Log parameter statistics
-                param_mean = param.data.mean().item()
-                param_std = param.data.std().item()
-                self.writer.add_scalar(f'param_stats/{name}_mean', param_mean, self.epoch)
-                self.writer.add_scalar(f'param_stats/{name}_std', param_std, self.epoch)
-            total_params += param.numel()
-
-        # Log training configuration stats
-        self.writer.add_scalar('config/total_parameters', total_params, self.epoch)
-        self.writer.add_scalar('config/trainable_parameters', trainable_params, self.epoch)
-        self.writer.add_scalar('config/batch_size', self.config.BATCH_SIZE, self.epoch)
-        self.writer.add_scalar('config/learning_rate', self.config.LEARNING_RATE, self.epoch)
-
-        # Log memory usage if available
-        if torch.cuda.is_available():
-            memory_allocated = torch.cuda.memory_allocated() / 1024**3  # GB
-            memory_reserved = torch.cuda.memory_reserved() / 1024**3    # GB
-            self.writer.add_scalar('memory/allocated_gb', memory_allocated, self.epoch)
-            self.writer.add_scalar('memory/reserved_gb', memory_reserved, self.epoch)
-
-        self.writer.flush()
+        # Log initial model architecture
+        self.tb_logger.log_model_architecture(self.model, epoch=0)
+        
+        # Log initial system metrics
+        self.tb_logger.log_system_metrics(epoch=0)
+        
+        logger.debug("Training initialization logged to TensorBoard")
     
     def create_training_summary(self, epoch: int):
         """
@@ -289,6 +283,9 @@ class Trainer:
         Current Learning Rate: {(self.optimizer.param_groups[0]['lr']):.6f}
         Device: {self.device}
         Batch Size: {self.config.BATCH_SIZE}
+        Effective Batch Size: {self.get_effective_batch_size()}
+        Architecture: {self.config.MODEL_ARCHITECTURE}
+        Scheduler: {getattr(self.config, 'SCHEDULER_TYPE', 'None')}
         """
         self.writer.add_text('training_summary', summary_text, epoch)
         # Log training curves as custom plots (if we have enough data points)
@@ -345,14 +342,17 @@ class Trainer:
         num_optimizer_steps = 0  # Track actual optimizer steps for gradient norm averaging
         
         # Create progress bar for training batches
+        current_lr = self.optimizer.param_groups[0]['lr']
         progress_bar = tqdm(
             self.dataloader, 
-            desc=f"Epoch {self.epoch}/{self.config.NUM_EPOCHS}", 
+            desc=f"Epoch {self.epoch}/{self.config.NUM_EPOCHS} | LR: {current_lr:.2e}", 
             leave=False,
             unit="batch"
         )
         
         for batch_idx, (videos, texts) in enumerate(progress_bar):
+            step_start_time = time.time()  # Track step timing
+            
             # Move video data to device
             videos = videos.to(self.device)
             # Sanity check: input videos should be normalized to [-1,1]
@@ -424,7 +424,16 @@ class Trainer:
                 
                 # Update learning rate
                 if self.scheduler is not None:
-                    self.scheduler.step()
+                    # Handle different scheduler types
+                    from torch.optim.lr_scheduler import ReduceLROnPlateau
+                    from schedulers.lr_schedulers import AdaptiveLRScheduler
+                    
+                    if isinstance(self.scheduler, (ReduceLROnPlateau, AdaptiveLRScheduler)):
+                        # These schedulers need loss values, we'll step them at epoch end
+                        pass
+                    else:
+                        # Step-based schedulers
+                        self.scheduler.step()
                 
                 # Reset accumulation counter
                 self.accumulation_step = 0
@@ -450,104 +459,135 @@ class Trainer:
                 'eff_bs': effective_batch_size
             })
             
-            # Logging (epoch-based frequency)
-            if self.global_step % self.log_every_steps == 0:
-                self.writer.add_scalar('train/loss', loss.item(), self.global_step)
-                self.writer.add_scalar('train/learning_rate', self.optimizer.param_groups[0]['lr'], self.global_step)
-                self.writer.add_scalar('train/grad_norm', grad_norm.item(), self.global_step)
+            # Basic scalar logging every few steps for immediate feedback
+            if self.global_step % 5 == 0:  # Log basic metrics every 5 steps
+                running_avg_loss = epoch_loss / num_batches if num_batches > 0 else loss.item()
                 
-                # Critical ε-parameterization diagnostics
+                # Calculate basic loss components for logging
                 with torch.no_grad():
-                    # Noise prediction quality metrics
+                    basic_noise_mse = F.mse_loss(predicted_noise, noise, reduction='mean')
+                
+                self.tb_logger.log_training_step({
+                    'loss': running_avg_loss,
+                    'learning_rate': self.optimizer.param_groups[0]['lr'],
+                    'grad_norm': grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm,
+                    'loss_components': {
+                        'total_loss': running_avg_loss,
+                        'noise_mse': basic_noise_mse.item()
+                    }
+                }, self.global_step)
+            
+            # Comprehensive logging using new TensorBoard logger (more frequent)
+            if self.global_step % self.config.DIAGNOSTIC_LOG_EVERY_STEPS == 0:
+                # Prepare comprehensive metrics
+                running_avg_loss = epoch_loss / num_batches if num_batches > 0 else loss.item()
+                
+                # Calculate additional diffusion metrics
+                with torch.no_grad():
                     noise_mse = F.mse_loss(predicted_noise, noise, reduction='none').mean()
-                    self.writer.add_scalar('debug/noise_prediction_mse', noise_mse.item(), self.global_step)
+                    noise_mae = F.l1_loss(predicted_noise, noise, reduction='none').mean()
                     
-                    # Model output statistics (should be unbiased for ε-parameterization)
-                    self.writer.add_scalar('debug/predicted_noise_abs_mean', predicted_noise.abs().mean().item(), self.global_step)
-                    self.writer.add_scalar('debug/actual_noise_abs_mean', noise.abs().mean().item(), self.global_step)
-
-                # Update progress bar with detailed step info
+                    # Signal-to-noise ratio
+                    signal_power = videos.pow(2).mean()
+                    noise_power = noise.pow(2).mean()
+                    snr = 10 * torch.log10(signal_power / (noise_power + 1e-8))
+                
+                # Training metrics
+                training_metrics = {
+                    'loss': running_avg_loss,
+                    'learning_rate': self.optimizer.param_groups[0]['lr'],
+                    'grad_norm': grad_norm.item(),
+                    'batch_size': effective_batch_size,
+                    'loss_components': {
+                        'total_loss': running_avg_loss,
+                        'noise_mse': noise_mse.item(),
+                        'noise_mae': noise_mae.item()
+                    }
+                }
+                
+                # Diffusion-specific metrics
+                # Create representative timesteps for logging (since we don't have access to actual timesteps)
+                dummy_timesteps = torch.randint(0, self.config.TIMESTEPS, (videos.size(0),), device=videos.device)
+                
+                diffusion_metrics = {
+                    'noise_mse': noise_mse.item(),
+                    'noise_mae': noise_mae.item(),
+                    'snr': snr.item(),
+                    'timestep_distribution': dummy_timesteps.cpu().numpy()
+                }
+                
+                # Log using new structured system
+                self.tb_logger.log_training_step(training_metrics, self.global_step)
+                self.tb_logger.log_diffusion_metrics(diffusion_metrics, self.global_step)
+                self.tb_logger.log_noise_statistics(predicted_noise, noise, videos, dummy_timesteps, self.global_step)
+                self.tb_logger.log_gradient_statistics(self.model, self.global_step)
+                
+                # Add step-level performance metrics
+                step_time = time.time() - step_start_time
+                step_performance = {
+                    'step_time': step_time,
+                    'samples_per_second': effective_batch_size / step_time if step_time > 0 else 0.0,
+                }
+                
+                # Add memory usage if available
+                if self.device.type == 'cuda':
+                    memory_usage = torch.cuda.memory_allocated() / 1024 / 1024  # MB
+                    step_performance['memory_usage'] = memory_usage
+                elif self.device.type == 'mps':
+                    try:
+                        memory_usage = torch.mps.current_allocated_memory() / 1024 / 1024  # MB
+                        step_performance['memory_usage'] = memory_usage
+                    except:
+                        pass
+                
+                self.tb_logger.log_step_performance(step_performance, self.global_step)
+                
+                # Update progress bar with enhanced info
+                current_lr = self.optimizer.param_groups[0]['lr']
                 progress_bar.set_description(
-                    f"Epoch {self.epoch} [Step {self.global_step}] - "
-                    f"Loss: {loss.item():.4f}, Noise MSE: {noise_mse.item():.4f}"
+                    f"Epoch {self.epoch} [Step {self.global_step}] | LR: {current_lr:.2e} - "
+                    f"Loss: {loss.item():.4f}, MSE: {noise_mse.item():.4f}, SNR: {snr.item():.1f}dB"
                 )
     
 
             # Generate and log samples (epoch-based frequency)
             if self.global_step % self.sample_every_steps == 0 and self.global_step > 0:
-                progress_bar.set_description(f"Epoch {self.epoch} - Generating samples...")
+                progress_bar.set_description(f"Epoch {self.epoch} | LR: {current_lr:.2e} - Generating samples...")
                 samples = self.generate_samples()
                 self.save_samples_as_gifs(samples, self.global_step)
-                # Log generated samples as video to TensorBoard
-                try:
-                    # samples shape: (batch_size, channels, frames, height, width)
-                    self.writer.add_video(
-                        'samples/video',
-                        samples,
-                        global_step=self.global_step,
-                        fps=8,
-                        dataformats='NCTHW'
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to add video to TensorBoard: {e}")
-                progress_bar.set_description(f"Epoch {self.epoch}")
+                
+                # Log generated samples using new structured logging
+                self.tb_logger.log_generated_samples(samples, self.global_step, "Training_Samples")
+                progress_bar.set_description(f"Epoch {self.epoch} | LR: {current_lr:.2e}")
             
             # Save noise display at configured intervals (step-based)
             if self.global_step % self.config.NOISE_DISPLAY_EVERY_STEPS == 0:
                 try:
-                    # Debug: Check tensor shapes and values
-                    print(f"Predicted noise shape: {predicted_noise[0].shape}, range: [{predicted_noise[0].min():.3f}, {predicted_noise[0].max():.3f}]")
-                    print(f"Real noise shape: {noise[0].shape}, range: [{noise[0].min():.3f}, {noise[0].max():.3f}]")
-                    
                     # Normalize noise to [-1, 1] range for visualization
                     # Clamp to reasonable range (±3 std) then normalize
                     pred_noise_viz = torch.clamp(predicted_noise[0], -3, 3) / 3.0
                     real_noise_viz = torch.clamp(noise[0], -3, 3) / 3.0
                     x_0_viz = torch.clamp(videos[0], -1, 1) / 1.0  # Original video for reference
                     
+                    # Save as GIFs (keep existing functionality)
                     gif_utils.save_video_as_gif(pred_noise_viz, f'./noise_display/pred_noise_{self.global_step}.gif')
                     gif_utils.save_video_as_gif(real_noise_viz, f'./noise_display/real_noise_{self.global_step}.gif')
                     gif_utils.save_video_as_gif(x_0_viz, f'./noise_display/original_video_{self.global_step}.gif')
-                    print(f"✅ Saved noise display GIFs at step {self.global_step}")
-                    # Log noise display videos to TensorBoard
-                    try:
-                        # Each viz tensor has shape (channels, frames, height, width)
-                        self.writer.add_video(
-                            'noise/pred_noise_viz',
-                            pred_noise_viz.unsqueeze(0),  # shape (1, C, T, H, W)
-                            global_step=self.global_step,
-                            fps=8,
-                            dataformats='NCTHW'
-                        )
-                        self.writer.add_video(
-                            'noise/real_noise_viz',
-                            real_noise_viz.unsqueeze(0),
-                            global_step=self.global_step,
-                            fps=8,
-                            dataformats='NCTHW'
-                        )
-                        # Original video frames
-                        self.writer.add_video(
-                            'noise/original_video_viz',
-                            x_0_viz.unsqueeze(0),
-                            global_step=self.global_step,
-                            fps=8,
-                            dataformats='NCTHW'
-                        )
-                        self.writer.flush()
-                    except Exception as e:
-                        logger.warning(f"Failed to log noise display videos: {e}")
+                    
+                    # Log using new structured noise visualization
+                    self.tb_logger.log_noise_visualization(
+                        predicted_noise, noise, videos, self.global_step
+                    )
                 except Exception as e:
-                    logger.warning(f"Failed to save noise display GIFs: {e}")
-                    print(f"❌ Noise display error: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.debug(f"Failed to save noise display GIFs: {e}")
+                    # Traceback only in debug mode to avoid console clutter
             
             # Save checkpoint (epoch-based frequency)
             if self.global_step % self.save_every_steps == 0 and self.global_step > 0:
-                progress_bar.set_description(f"Epoch {self.epoch} - Saving checkpoint...")
+                current_lr = self.optimizer.param_groups[0]['lr']
+                progress_bar.set_description(f"Epoch {self.epoch} | LR: {current_lr:.2e} - Saving checkpoint...")
                 self.save_checkpoint(f'checkpoint_step_{self.global_step}.pt')
-                progress_bar.set_description(f"Epoch {self.epoch}")
+                progress_bar.set_description(f"Epoch {self.epoch} | LR: {current_lr:.2e}")
             
             # Flush TensorBoard at configured intervals (step-based)
             if self.global_step % self.config.TENSORBOARD_FLUSH_EVERY_STEPS == 0:
@@ -562,18 +602,13 @@ class Trainer:
     
     def train(self):
         """Main training loop"""
-        logger.info("Starting training...")
-        logger.info(f"Device: {self.device}")
-        logger.info(f"Total epochs: {self.config.NUM_EPOCHS}")
-        logger.info(f"Batch size: {self.config.BATCH_SIZE}")
-        logger.info(f"Gradient accumulation steps: {self.config.GRADIENT_ACCUMULATION_STEPS}")
-        logger.info(f"Effective batch size: {self.config.BATCH_SIZE * self.config.GRADIENT_ACCUMULATION_STEPS}")
-        logger.info(f"Steps per epoch: {self.steps_per_epoch}")
-        logger.info(f"Logging frequency: every {self.config.LOG_EVERY_EPOCHS} epochs ({self.log_every_steps} steps)")
-        logger.info(f"Sampling frequency: every {self.config.SAMPLE_EVERY_EPOCHS} epochs ({self.sample_every_steps} steps)")  
-        logger.info(f"Checkpoint frequency: every {self.config.SAVE_EVERY_EPOCHS} epochs ({self.save_every_steps} steps)")
+        logger.info("🚀 Starting training...")
+        logger.info(f"📊 Config: {self.config.NUM_EPOCHS} epochs, batch size {self.config.BATCH_SIZE} "
+                   f"(effective: {self.config.BATCH_SIZE * self.config.GRADIENT_ACCUMULATION_STEPS}), "
+                   f"device: {self.device}")
         
-        # Log configuration
+        # Initialize comprehensive logging
+        self.log_training_initialization()
         config_text = "\n".join([f"{k}: {v}" for k, v in self.config.__dict__.items() if not k.startswith('_')])
         self.writer.add_text('config', config_text, 0)
         self.writer.flush()  # Flush configuration immediately
@@ -604,29 +639,66 @@ class Trainer:
                 
                 epoch_time = time.time() - start_time
                 
+                # Calculate performance metrics
+                samples_processed = len(self.dataloader) * self.config.BATCH_SIZE
+                samples_per_second = samples_processed / epoch_time if epoch_time > 0 else 0
+                steps_per_second = len(self.dataloader) / epoch_time if epoch_time > 0 else 0
+                
                 # Update epoch progress with metrics
+                current_lr = self.optimizer.param_groups[0]['lr']
                 epoch_progress.set_postfix({
                     'loss': f"{metrics['loss']:.4f}",
+                    'lr': f"{current_lr:.2e}",
                     'time': f"{epoch_time:.1f}s"
                 })
                 
-                # Log comprehensive epoch metrics
-                self.writer.add_scalar('epoch/loss', metrics['loss'], epoch)
-                self.writer.add_scalar('epoch/time', epoch_time, epoch)
-                self.writer.add_scalar('epoch/grad_norm', metrics['grad_norm'], epoch)
-                self.writer.add_scalar('epoch/learning_rate', self.optimizer.param_groups[0]['lr'], epoch)
-                self.writer.add_scalar('epoch/optimizer_steps', metrics['optimizer_steps'], epoch)
-                self.writer.add_scalar('epoch/effective_batch_size', self.get_effective_batch_size(), epoch)
+                # Prepare comprehensive epoch metrics
+                epoch_summary = {
+                    'loss': metrics['loss'],
+                    'time': epoch_time,
+                    'grad_norm': metrics['grad_norm'],
+                    'learning_rate': self.optimizer.param_groups[0]['lr'],
+                    'optimizer_steps': metrics['optimizer_steps'],
+                    'samples_per_second': samples_per_second,
+                    'steps_per_second': steps_per_second
+                }
                 
-                # Also log step-based metrics at epoch end for consistency
-                self.writer.add_scalar('train/loss', metrics['loss'], self.global_step)
-                self.writer.add_scalar('train/learning_rate', self.optimizer.param_groups[0]['lr'], self.global_step)
-                self.writer.add_scalar('train/grad_norm', metrics['grad_norm'], self.global_step)
+                # Log comprehensive epoch summary using new structured logging
+                self.tb_logger.log_epoch_summary(epoch_summary, epoch)
+                self.tb_logger.log_model_architecture(self.model, epoch)
+                self.tb_logger.log_system_metrics(epoch)
+                
+                # Update learning rate scheduler at epoch end
+                if self.scheduler is not None:
+                    from torch.optim.lr_scheduler import ReduceLROnPlateau
+                    from schedulers.lr_schedulers import AdaptiveLRScheduler
+                    
+                    if isinstance(self.scheduler, ReduceLROnPlateau):
+                        self.scheduler.step(metrics['loss'])
+                    elif isinstance(self.scheduler, AdaptiveLRScheduler):
+                        current_lr = self.scheduler.step(metrics['loss'])
+                    else:
+                        # For step-based schedulers, step once per epoch
+                        if not hasattr(self, '_scheduler_stepped_this_epoch'):
+                            self.scheduler.step()
+                            self._scheduler_stepped_this_epoch = True
+                    
+                    # Log learning rate schedule using new structured logging
+                    self.tb_logger.log_learning_rate_schedule(self.scheduler, self.optimizer, self.config, epoch)
+                
+                # Track learning rate and loss history
+                self.lr_history.append(self.optimizer.param_groups[0]['lr'])
+                self.loss_history.append(metrics['loss'])
+                
+                # Reset scheduler step flag for next epoch
+                self._scheduler_stepped_this_epoch = False
                 
                 # Generate and log samples at the end of each epoch
-                logger.info(f"🎬 Generating samples for epoch {epoch}...")
                 samples = self.generate_samples()
                 self.save_samples_as_gifs(samples, self.global_step)
+                
+                # Log epoch-end samples using structured logging
+                self.tb_logger.log_generated_samples(samples, epoch, f"Epoch_{epoch}_Samples")
                 
                 # Log training throughput
                 samples_processed = len(self.dataloader) * self.config.BATCH_SIZE
@@ -647,9 +719,13 @@ class Trainer:
                 
                 self.writer.flush()  # Flush epoch metrics immediately
                 
-                # Log comprehensive training statistics at configured intervals
+                # Log comprehensive training summary periodically
                 if epoch % self.config.SUMMARY_LOG_EVERY_EPOCHS == 0:
                     self.create_training_summary(epoch)
+                
+                # Flush TensorBoard logs periodically
+                if self.global_step % self.config.TENSORBOARD_FLUSH_EVERY_STEPS == 0:
+                    self.tb_logger.flush()
                 
                 # Update epoch progress bar with completion info
                 epoch_progress.set_postfix({
@@ -661,7 +737,7 @@ class Trainer:
                 # Save epoch checkpoint at configured intervals
                 if epoch % self.config.SAVE_EVERY_EPOCHS == 0:
                     self.save_checkpoint(f'checkpoint_epoch_{epoch}.pt')
-                    logger.info(f"💾 Saved checkpoint for epoch {epoch}")
+                    logger.debug(f"Saved checkpoint for epoch {epoch}")
                 
                 # Always save latest checkpoint
                 self.save_checkpoint('latest_checkpoint.pt')
@@ -676,8 +752,14 @@ class Trainer:
             raise
         
         finally:
-            self.writer.close()
+            # Close comprehensive logging system
+            self.tb_logger.close()
             logger.info("Training completed")
+            
+            # Print final logging summary in debug mode only
+            if logger.isEnabledFor(logging.DEBUG):
+                logging_summary = self.tb_logger.get_logging_summary()
+                logger.debug(f"Logging Summary: {logging_summary}")
 
 def setup_training(config) -> Trainer:
     """
@@ -700,18 +782,15 @@ def setup_training(config) -> Trainer:
         num_workers=config.NUM_WORKERS,
         shuffle=True
     )
-    print(f"✅ Data loader ready: {len(dataloader)} batches")
     
     # Create model with progress indication
-    print("🤖 Creating diffusion model...")
     model = create_diffusion_model(config)
     model.to(config.DEVICE)
-    print(f"✅ Model created and moved to {config.DEVICE}")
     
     # Count parameters
     from models import count_parameters
     num_params = count_parameters(model)
-    logger.info(f"Model parameters: {num_params:,}")
+    print(f"✅ Setup complete: {len(dataloader)} batches, {num_params:,} parameters on {config.DEVICE}")
     
     # Create optimizer
     print("⚙️  Setting up optimizer...")
@@ -732,9 +811,14 @@ def setup_training(config) -> Trainer:
         )
         print(f"✅ Adam optimizer ready - LR: {lr}")
     
-    # No learning rate scheduler - using constant learning rate
-    scheduler = None
-    print("✅ Optimizer ready (constant learning rate)")
+    # Create learning rate scheduler
+    print("📈 Setting up learning rate scheduler...")
+    scheduler = create_lr_scheduler(optimizer, config)
+    if scheduler is not None:
+        scheduler_type = getattr(config, 'SCHEDULER_TYPE', 'none')
+        print(f"✅ {scheduler_type} scheduler created")
+    else:
+        print("✅ No scheduler (constant learning rate)")
     
     # Create trainer
     print("🚀 Creating trainer...")

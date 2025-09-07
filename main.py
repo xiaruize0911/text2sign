@@ -11,6 +11,9 @@ import torch
 import logging
 import shutil
 
+# Disable tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -221,21 +224,8 @@ def visualize_model():
     # Print model summary
     print_model_summary(model.model, Config.INPUT_SHAPE)
     
-    # Try to create a visual representation
-    try:
-        from torch.utils.tensorboard import SummaryWriter
-        writer = SummaryWriter("model_visualization")
-        
-        dummy_input = torch.randn(1, *Config.INPUT_SHAPE)
-        dummy_time = torch.randint(0, Config.TIMESTEPS, (1,))
-        
-        writer.add_graph(model.model, (dummy_input, dummy_time))
-        writer.close()
-        
-        logger.info("Model visualization saved to 'model_visualization' directory")
-        logger.info("View with: tensorboard --logdir model_visualization")
-    except Exception as e:
-        logger.error(f"Failed to create model visualization: {e}")
+    logger.info("Model debugging completed - comprehensive TensorBoard logging will be available during training")
+    logger.info(f"View training logs with: tensorboard --logdir {Config.LOG_DIR}")
 
 def install_requirements():
     """Install required packages"""
