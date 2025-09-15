@@ -25,9 +25,10 @@ class SignLanguageDataset(Dataset):
         transform (callable, optional): Optional transform to be applied on a sample
     """
     
-    def __init__(self, data_root: str, transform=None):
+    def __init__(self, data_root: str, transform=None, num_frames: int = 16):
         self.data_root = data_root
         self.transform = transform
+        self.num_frames = num_frames
         
         # Find all GIF files with progress bar
         print(f"Scanning for GIF files in {data_root}...")
@@ -79,16 +80,16 @@ class SignLanguageDataset(Dataset):
             # Normalize to [-1, 1] for diffusion models
             frames = frames * 2 - 1
             
-            # Ensure we have exactly 28 frames (pad or truncate)
+            # Ensure we have exactly the specified number of frames (pad or truncate)
             num_frames = frames.shape[0]
-            if num_frames < 28:
+            if num_frames < self.num_frames:
                 # Pad with the last frame
-                padding = 28 - num_frames
+                padding = self.num_frames - num_frames
                 last_frame = frames[-1:].repeat(padding, 1, 1, 1)
                 frames = torch.cat([frames, last_frame], dim=0)
-            elif num_frames > 28:
-                # Truncate to first 28 frames
-                frames = frames[:28]
+            elif num_frames > self.num_frames:
+                # Truncate to first num_frames frames
+                frames = frames[:self.num_frames]
             
             # Apply transforms if provided (expects frames, channels, height, width)
             if self.transform:
@@ -164,7 +165,7 @@ class CenterCropTransform:
         
         return cropped_frames
 
-def create_dataloader(data_root: str, batch_size: int, num_workers: int = 2, shuffle: bool = True) -> DataLoader:
+def create_dataloader(data_root: str, batch_size: int, num_workers: int = 2, shuffle: bool = True, num_frames: int = 16) -> DataLoader:
     """
     Create a DataLoader for the sign language dataset
     
@@ -194,10 +195,11 @@ def create_dataloader(data_root: str, batch_size: int, num_workers: int = 2, shu
         raise ValueError("num_workers must be a non-negative integer")
     
     # Define transforms
-    transform = CenterCropTransform(size=128)
+    from config import Config
+    transform = CenterCropTransform(size=Config.IMAGE_SIZE)
     
     # Create dataset
-    dataset = SignLanguageDataset(data_root=data_root, transform=transform)
+    dataset = SignLanguageDataset(data_root=data_root, transform=transform, num_frames=num_frames)
     
     # Create dataloader with deterministic behavior
     if shuffle:

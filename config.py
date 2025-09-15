@@ -10,16 +10,21 @@ class Config:
     
     # Data settings
     DATA_ROOT = "training_data"
-    BATCH_SIZE = 16
-    NUM_WORKERS = 16
+    BATCH_SIZE = 1  # Reduced for memory efficiency with 16GB constraint
+    NUM_WORKERS = 2
 
-    # Model dimensions
-    INPUT_SHAPE = (3, 28, 128, 128)  # (channels, frames, height, width)
-    NUM_FRAMES = 28  # Number of frames per video
-    IMAGE_SIZE = 128  # Height and width of each frame
+    # Model     @classmethod
+    def set_model_architecture(cls, architecture: str):
+        """Set the model architecture"""
+        if architecture not in ["unet3d", "vit3d", "dit3d"]:
+            raise ValueError(f"Unknown architecture: {architecture}")
+        cls.MODEL_ARCHITECTURE = architectureions
+    INPUT_SHAPE = (3, 16, 64, 64)  # (channels, frames, height, width) - reduced for memory
+    NUM_FRAMES = 16  # Number of frames per video - reduced from 28
+    IMAGE_SIZE = 64  # Height and width of each frame - reduced from 128
     
     # Model architecture selection
-    MODEL_ARCHITECTURE = "vit3d"  # Options: "unet3d", "vit3d"
+    MODEL_ARCHITECTURE = "dit3d"  # Options: "unet3d", "vit3d", "dit3d"
     
     # UNet3D architecture settings (smaller for MacBook M4)
     UNET_DIM = 16  # Base dimension (reduced further for MacBook M4)
@@ -33,6 +38,14 @@ class Config:
     VIT_IMAGE_SIZE = 224  # Keep at 224 for pre-trained ViT compatibility
     VIT_FREEZE_BACKBONE = True  # Whether to freeze ViT backbone
     VIT_DROPOUT = 0.1  # Dropout rate
+    
+    # DiT3D architecture settings (Diffusion Transformer for Video)
+    DIT_MODEL_SIZE = "DiT3D-XL-2"  # Fixed to HuggingFace pretrained model
+    DIT_VIDEO_SIZE = (16, 64, 64)  # (frames, height, width) - matches INPUT_SHAPE - reduced for memory
+    DIT_PATCH_SIZE = (4, 16, 16)  # (temporal_patch, spatial_patch_h, spatial_patch_w) - larger patches for efficiency
+    DIT_LEARN_SIGMA = False  # Whether to predict noise variance - set to False for memory efficiency
+    DIT_CLASS_DROPOUT_PROB = 0.1  # Dropout probability for classifier-free guidance
+    DIT_NUM_CLASSES = 1000  # Number of classes (if using class conditioning instead of text)
     
     # Text conditioning settings
     TEXT_ENCODER_MODEL = "distilbert-base-uncased"  # Pre-trained text encoder
@@ -100,7 +113,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "text2sign_experiment_vit2"  # Name for this experiment
+    EXPERIMENT_NAME = "text2sign_experiment_dit1"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
@@ -156,6 +169,8 @@ class Config:
             return 0.00001  # Higher LR for ViT
         elif cls.MODEL_ARCHITECTURE == "unet3d":
             return 0.00001  # Lower LR for UNet
+        elif cls.MODEL_ARCHITECTURE == "dit3d":
+            return 0.0001   # DiT benefits from higher learning rates
         else:
             return cls.LEARNING_RATE
     
@@ -186,7 +201,7 @@ class Config:
             errors.append("GRADIENT_ACCUMULATION_STEPS must be a positive integer")
         
         # Validate model architecture
-        if cls.MODEL_ARCHITECTURE not in ["unet3d", "vit3d"]:
+        if cls.MODEL_ARCHITECTURE not in ["unet3d", "vit3d", "dit3d"]:
             errors.append(f"Unknown MODEL_ARCHITECTURE: {cls.MODEL_ARCHITECTURE}")
         
         # Validate noise scheduler
@@ -311,13 +326,23 @@ class Config:
                 'text_dim': cls.TEXT_EMBED_DIM,  # Add text_dim for ViT3D
                 'freeze_backbone': cls.VIT_FREEZE_BACKBONE
             }
+        elif cls.MODEL_ARCHITECTURE == "dit3d":
+            return {
+                'video_size': cls.DIT_VIDEO_SIZE,
+                'patch_size': cls.DIT_PATCH_SIZE,
+                'in_channels': cls.UNET_CHANNELS,  # Input channels only
+                'text_dim': cls.TEXT_EMBED_DIM,
+                'learn_sigma': cls.DIT_LEARN_SIGMA,
+                'class_dropout_prob': cls.DIT_CLASS_DROPOUT_PROB,
+                'num_classes': cls.DIT_NUM_CLASSES
+            }
         else:
             raise ValueError(f"Unknown model architecture: {cls.MODEL_ARCHITECTURE}")
     
     @classmethod
     def set_model_architecture(cls, architecture: str):
         """Set the model architecture"""
-        if architecture not in ["unet3d", "vit3d"]:
+        if architecture not in ["unet3d", "vit3d", "dit3d"]:
             raise ValueError(f"Unsupported architecture: {architecture}")
         cls.MODEL_ARCHITECTURE = architecture
         print(f"Model architecture set to: {architecture}")

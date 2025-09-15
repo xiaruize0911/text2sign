@@ -273,6 +273,14 @@ def create_diffusion_model(config) -> DiffusionModel:
     elif config.MODEL_ARCHITECTURE == "unet3d":
         from models.architectures.unet3d import UNet3D
         backbone = UNet3D(**config.get_model_config())
+    elif config.MODEL_ARCHITECTURE == "dit3d":
+        from models.architectures.dit3d import DiT3D_models
+        # Get the specific DiT3D model from the registry
+        model_name = getattr(config, 'DIT_MODEL_SIZE', 'DiT3D-S/2')
+        if model_name not in DiT3D_models:
+            raise ValueError(f"Unknown DiT3D model: {model_name}")
+        model_config = config.get_model_config()
+        backbone = DiT3D_models[model_name](**model_config)
     else:
         raise ValueError(f"Unknown model architecture: {config.MODEL_ARCHITECTURE}")
     

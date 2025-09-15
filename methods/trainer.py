@@ -780,7 +780,8 @@ def setup_training(config) -> Trainer:
         data_root=config.DATA_ROOT,
         batch_size=config.BATCH_SIZE,
         num_workers=config.NUM_WORKERS,
-        shuffle=True
+        shuffle=True,
+        num_frames=config.NUM_FRAMES
     )
     
     # Create model with progress indication

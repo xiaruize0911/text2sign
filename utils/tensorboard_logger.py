@@ -503,7 +503,7 @@ class TensorBoardLogger:
         # Model architecture configuration
         if hasattr(config, 'MODEL_ARCHITECTURE'):
             # Convert string to numeric for logging
-            arch_map = {'unet3d': 0, 'vit3d': 1}
+            arch_map = {'unet3d': 0, 'vit3d': 1, 'dit3d': 2}
             arch_value = arch_map.get(config.MODEL_ARCHITECTURE, -1)
             self.writer.add_scalar('15_Configuration/Model_Architecture', arch_value, epoch)
     
