@@ -24,7 +24,7 @@ class Config:
     IMAGE_SIZE = 64  # Height and width of each frame - reduced from 128
     
     # Model architecture selection
-    MODEL_ARCHITECTURE = "dit3d"  # Options: "unet3d", "vit3d", "dit3d"
+    MODEL_ARCHITECTURE = "vivit"  # Options: "unet3d", "vit3d", "dit3d", "vivit"
     
     # UNet3D architecture settings (smaller for MacBook M4)
     UNET_DIM = 16  # Base dimension (reduced further for MacBook M4)
@@ -46,6 +46,16 @@ class Config:
     DIT_LEARN_SIGMA = False  # Whether to predict noise variance - set to False for memory efficiency
     DIT_CLASS_DROPOUT_PROB = 0.1  # Dropout probability for classifier-free guidance
     DIT_NUM_CLASSES = 1000  # Number of classes (if using class conditioning instead of text)
+    
+    # ViViT architecture settings (Video Vision Transformer from HuggingFace)
+    VIVIT_MODEL_NAME = "google/vivit-b-16x2-kinetics400"  # Use optimized config instead of pretrained
+    VIVIT_VIDEO_SIZE = (32, 224, 224)  # (frames, height, width) - ViViT default size
+    VIVIT_TIME_DIM = 768  # Time embedding dimension
+    VIVIT_FREEZE_BACKBONE = True  # Whether to freeze ViViT backbone
+    VIVIT_NUM_TEMPORAL_LAYERS = 2  # Number of additional temporal attention layers
+    VIVIT_NUM_HEADS = 8  # Number of attention heads
+    VIVIT_DROPOUT = 0.1  # Dropout rate
+    VIVIT_CLASS_DROPOUT_PROB = 0.1  # Dropout probability for classifier-free guidance
     
     # Text conditioning settings
     TEXT_ENCODER_MODEL = "distilbert-base-uncased"  # Pre-trained text encoder
@@ -113,7 +123,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "text2sign_experiment_dit1"  # Name for this experiment
+    EXPERIMENT_NAME = "text2sign_experiment_vivit1"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
@@ -171,6 +181,8 @@ class Config:
             return 0.00001  # Lower LR for UNet
         elif cls.MODEL_ARCHITECTURE == "dit3d":
             return 0.0001   # DiT benefits from higher learning rates
+        elif cls.MODEL_ARCHITECTURE == "vivit":
+            return 0.00005  # ViViT moderate learning rate
         else:
             return cls.LEARNING_RATE
     
@@ -201,7 +213,7 @@ class Config:
             errors.append("GRADIENT_ACCUMULATION_STEPS must be a positive integer")
         
         # Validate model architecture
-        if cls.MODEL_ARCHITECTURE not in ["unet3d", "vit3d", "dit3d"]:
+        if cls.MODEL_ARCHITECTURE not in ["unet3d", "vit3d", "dit3d", "vivit"]:
             errors.append(f"Unknown MODEL_ARCHITECTURE: {cls.MODEL_ARCHITECTURE}")
         
         # Validate noise scheduler
@@ -336,13 +348,27 @@ class Config:
                 'class_dropout_prob': cls.DIT_CLASS_DROPOUT_PROB,
                 'num_classes': cls.DIT_NUM_CLASSES
             }
+        elif cls.MODEL_ARCHITECTURE == "vivit":
+            return {
+                'video_size': cls.VIVIT_VIDEO_SIZE,
+                'in_channels': cls.UNET_CHANNELS,
+                'out_channels': cls.UNET_CHANNELS,
+                'time_dim': cls.VIVIT_TIME_DIM,
+                'text_dim': cls.TEXT_EMBED_DIM,
+                'model_name': cls.VIVIT_MODEL_NAME,
+                'freeze_backbone': cls.VIVIT_FREEZE_BACKBONE,
+                'num_temporal_layers': cls.VIVIT_NUM_TEMPORAL_LAYERS,
+                'num_heads': cls.VIVIT_NUM_HEADS,
+                'dropout': cls.VIVIT_DROPOUT,
+                'class_dropout_prob': cls.VIVIT_CLASS_DROPOUT_PROB
+            }
         else:
             raise ValueError(f"Unknown model architecture: {cls.MODEL_ARCHITECTURE}")
     
     @classmethod
     def set_model_architecture(cls, architecture: str):
         """Set the model architecture"""
-        if architecture not in ["unet3d", "vit3d", "dit3d"]:
+        if architecture not in ["unet3d", "vit3d", "dit3d", "vivit"]:
             raise ValueError(f"Unsupported architecture: {architecture}")
         cls.MODEL_ARCHITECTURE = architecture
         print(f"Model architecture set to: {architecture}")

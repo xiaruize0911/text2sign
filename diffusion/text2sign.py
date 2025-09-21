@@ -235,10 +235,19 @@ class DiffusionModel(nn.Module):
         
         # Encode text if provided
         text_emb = None
-        # print(f'text is {text}')
-        # Repeat text for batch
-        text_batch = text
-        text_emb = self.text_encoder(text_batch)  # (batch_size, embed_dim)
+        if text is not None and self.text_encoder is not None:
+            # Handle different text input formats
+            if isinstance(text, str):
+                raise ValueError("Single string input is not supported. Please provide a list of strings matching the batch size.")
+            elif isinstance(text, list):
+                # List of strings: use as-is (should match batch_size)
+                if len(text) != batch_size:
+                    raise ValueError(f"Text list length ({len(text)}) must match batch size ({batch_size})")
+                text_batch = text
+            else:
+                raise ValueError(f"Unsupported text type: {type(text)}")
+            
+            text_emb = self.text_encoder(text_batch)  # (batch_size, embed_dim)
         predicted_noise = self.model(x_noisy, t, text_emb)        
         # Calculate denoising loss (MSE between predicted and actual noise)
         # This is the standard DDPM training objective: L = E[||ε - ε_θ(x_t, t)||²]
@@ -281,6 +290,9 @@ def create_diffusion_model(config) -> DiffusionModel:
             raise ValueError(f"Unknown DiT3D model: {model_name}")
         model_config = config.get_model_config()
         backbone = DiT3D_models[model_name](**model_config)
+    elif config.MODEL_ARCHITECTURE == "vivit":
+        from models.architectures.vivit import ViViT
+        backbone = ViViT(**config.get_model_config())
     else:
         raise ValueError(f"Unknown model architecture: {config.MODEL_ARCHITECTURE}")
     

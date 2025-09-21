@@ -21,6 +21,7 @@ from config import Config
 from methods import setup_training
 from dataset import test_dataloader
 from models import test_unet3d
+from models.architectures import test_vit3d, test_dit3d, test_vivit
 from diffusion import test_diffusion
 from utils import get_device_info, print_model_summary
 
@@ -105,9 +106,24 @@ def test_components():
     logger.info("Testing dataloader...")
     test_dataloader()
     
+    # Test model architectures
+    logger.info("Testing model architectures...")
+    
     # Test UNet3D model
     logger.info("Testing UNet3D model...")
     test_unet3d()
+    
+    # Test ViT3D model
+    logger.info("Testing ViT3D model...")
+    test_vit3d()
+    
+    # Test DiT3D model
+    logger.info("Testing DiT3D model...")
+    test_dit3d()
+    
+    # Test ViViT model
+    logger.info("Testing ViViT model...")
+    test_vivit()
     
     # Test diffusion model
     logger.info("Testing diffusion model...")
