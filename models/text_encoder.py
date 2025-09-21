@@ -35,8 +35,19 @@ class TextEncoder(nn.Module):
         
         # Initialize tokenizer and model
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModel.from_pretrained(model_name)
+            print(f"Loading text encoder: {model_name} (cached if available)...")
+            # Use local cache and optimized loading
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_name,
+                local_files_only=False,
+                use_fast=True,  # Use fast tokenizer
+                trust_remote_code=False
+            )
+            self.model = AutoModel.from_pretrained(
+                model_name,
+                local_files_only=False,
+                trust_remote_code=False
+            )
             
             # Add special tokens if not present
             if self.tokenizer.pad_token is None:

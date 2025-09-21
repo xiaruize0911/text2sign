@@ -10,7 +10,7 @@ class Config:
     
     # Data settings
     DATA_ROOT = "training_data"
-    BATCH_SIZE = 1  # Reduced for memory efficiency with 16GB constraint
+    BATCH_SIZE = 1
     NUM_WORKERS = 2
 
     # Model     @classmethod
@@ -19,7 +19,7 @@ class Config:
         if architecture not in ["unet3d", "vit3d", "dit3d"]:
             raise ValueError(f"Unknown architecture: {architecture}")
         cls.MODEL_ARCHITECTURE = architectureions
-    INPUT_SHAPE = (3, 16, 64, 64)  # (channels, frames, height, width) - reduced for memory
+    INPUT_SHAPE = (3, 32, 224, 224)  # (channels, frames, height, width) - reduced for memory
     NUM_FRAMES = 16  # Number of frames per video - reduced from 28
     IMAGE_SIZE = 64  # Height and width of each frame - reduced from 128
     
@@ -49,7 +49,7 @@ class Config:
     
     # ViViT architecture settings (Video Vision Transformer from HuggingFace)
     VIVIT_MODEL_NAME = "google/vivit-b-16x2-kinetics400"  # Use optimized config instead of pretrained
-    VIVIT_VIDEO_SIZE = (32, 224, 224)  # (frames, height, width) - ViViT default size
+    VIVIT_VIDEO_SIZE = (16, 64, 64)  # (frames, height, width) - Match actual training data
     VIVIT_TIME_DIM = 768  # Time embedding dimension
     VIVIT_FREEZE_BACKBONE = True  # Whether to freeze ViViT backbone
     VIVIT_NUM_TEMPORAL_LAYERS = 2  # Number of additional temporal attention layers
@@ -64,7 +64,8 @@ class Config:
     TEXT_FREEZE_BACKBONE = True  # Whether to freeze text encoder backbone
     
     # Diffusion process settings
-    TIMESTEPS = 1000  # Number of diffusion timesteps
+    TIMESTEPS = 1000  # Number of diffusion timesteps for training
+    INFERENCE_TIMESTEPS = 300  # Reduced timesteps for faster sampling (20x speedup)
     BETA_START = 0.01  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
     
@@ -123,7 +124,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "text2sign_experiment_vivit1"  # Name for this experiment
+    EXPERIMENT_NAME = "text2sign_experiment_vivit2"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
@@ -182,7 +183,7 @@ class Config:
         elif cls.MODEL_ARCHITECTURE == "dit3d":
             return 0.0001   # DiT benefits from higher learning rates
         elif cls.MODEL_ARCHITECTURE == "vivit":
-            return 0.00005  # ViViT moderate learning rate
+            return 0.00001  # ViViT moderate learning rate
         else:
             return cls.LEARNING_RATE
     

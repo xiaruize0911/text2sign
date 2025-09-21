@@ -14,6 +14,12 @@ import shutil
 # Disable tokenizers parallelism warning
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+# Disable HuggingFace progress bars for faster initialization
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
+# Reduce HuggingFace logging
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -193,8 +199,6 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
             logger.warning("Text encoder not available, using unconditional sampling")
             samples = model.p_sample(shape)
         
-        # Clamp to [-1, 1] range (matching training data normalization)
-        samples = torch.clamp(samples, -1, 1)
         logger.info(f"✅ Generated {num_samples} samples")
 
         # --- Shape Assertion ---
@@ -207,19 +211,17 @@ def sample_videos(checkpoint_path: str, num_samples: int = 4, output_dir: str = 
     
     samples_np = samples.detach().cpu().numpy()
     frames = samples_np.shape[2]  # (batch, channels, frames, height, width)
-    K = 10  # Frame interval for GIF
 
     for i, sample in enumerate(samples_np):
         # Convert from CHW to HWC format and scale from [-1,1] to [0, 255]
         video_frames = []
         for frame_idx in range(frames):
-            # Only include frames at specified intervals for efficiency
-            if frame_idx % K == 0 or frame_idx < 5 or frame_idx == frames - 1:
-                frame = sample[:, frame_idx]  # (channels, height, width)
-                frame = np.transpose(frame, (1, 2, 0))  # Convert to (height, width, channels)
-                # Convert from [-1, 1] to [0, 255]
-                frame = np.clip((frame + 1) * 127.5, 0, 255).astype(np.uint8)
-                video_frames.append(frame)
+            # Include ALL frames (no frame skipping)
+            frame = sample[:, frame_idx]  # (channels, height, width)
+            frame = np.transpose(frame, (1, 2, 0))  # Convert to (height, width, channels)
+            # Convert from [-1, 1] to [0, 255]
+            frame = np.clip((frame + 1) * 127.5, 0, 255).astype(np.uint8)
+            video_frames.append(frame)
         
         # Save as GIF
         output_path = os.path.join(output_dir, f"sample_{i:03d}_{text_prompt.replace(' ', '_')}.gif")
