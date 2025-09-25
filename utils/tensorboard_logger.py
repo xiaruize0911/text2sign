@@ -93,7 +93,6 @@ class TensorBoardLogger:
         
         # Advanced training metrics
         if 'loss_components' in metrics:
-            print(f"🔍 DEBUG: Logging loss components: {metrics['loss_components']}")
             for component, value in metrics['loss_components'].items():
                 self.writer.add_scalar(f'02_Loss_Components/{component}', value, step)
     
@@ -105,7 +104,6 @@ class TensorBoardLogger:
             metrics: Dictionary of epoch metrics
             epoch: Current epoch number
         """
-        print(f"🔍 DEBUG: Logging epoch summary at epoch {epoch}: {list(metrics.keys())}")
         self.step_counters['epoch'] = epoch
         
         # Primary epoch metrics
@@ -140,7 +138,6 @@ class TensorBoardLogger:
             metrics: Dictionary of performance metrics
             step: Current global step
         """
-        print(f"🔍 DEBUG: Logging step performance at step {step}: {list(metrics.keys())}")
         if 'step_time' in metrics:
             self.writer.add_scalar('05_Performance/Step_Time_Seconds', metrics['step_time'], step)
         

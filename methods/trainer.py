@@ -370,37 +370,20 @@ class Trainer:
             # Scale loss by accumulation steps for correct gradients
             scaled_loss = loss / self.config.GRADIENT_ACCUMULATION_STEPS
             
-            # Diagnostic logging for noise statistics
-            if self.global_step % self.config.DIAGNOSTIC_LOG_EVERY_STEPS == 0:
+            # Reduced diagnostic logging - only log critical issues
+            if self.global_step % (self.config.DIAGNOSTIC_LOG_EVERY_STEPS * 5) == 0:
                 with torch.no_grad():
-                    # Check input data range
-                    video_min, video_max = videos.min().item(), videos.max().item()
-                    video_mean, video_std = videos.mean().item(), videos.std().item()
-                    
-                    # Check noise statistics
-                    noise_mean, noise_std = noise.mean().item(), noise.std().item()
-                    pred_noise_mean, pred_noise_std = predicted_noise.mean().item(), predicted_noise.std().item()
-                    
-                    # CRITICAL: Check if model is predicting reasonable noise scale
+                    # Check for critical issues only
                     pred_noise_abs_max = predicted_noise.abs().max().item()
                     actual_noise_abs_max = noise.abs().max().item()
                     
-                    # Log to console and tensorboard
-                    # print(f"[Step {self.global_step}] Diagnostics:")
-                    # print(f"  Video: range=[{video_min:.3f}, {video_max:.3f}], mean={video_mean:.3f}, std={video_std:.3f}")
-                    # print(f"  Real noise: mean={noise_mean:.3f}, std={noise_std:.3f}, abs_max={actual_noise_abs_max:.3f}")
-                    # print(f"  Pred noise: mean={pred_noise_mean:.3f}, std={pred_noise_std:.3f}, abs_max={pred_noise_abs_max:.3f}")
-                    # print(f"  Loss: {loss.item():.6f}")
+                    # Only log if there's a potential issue
+                    if pred_noise_abs_max > 10.0 or actual_noise_abs_max > 10.0:
+                        print(f"⚠️ [Step {self.global_step}] High noise values detected - pred_max: {pred_noise_abs_max:.2f}, actual_max: {actual_noise_abs_max:.2f}")
                     
-                    # TensorBoard logging
-                    self.writer.add_scalar('debug/video_range_min', video_min, self.global_step)
-                    self.writer.add_scalar('debug/video_range_max', video_max, self.global_step)
-                    self.writer.add_scalar('debug/video_mean', video_mean, self.global_step)
-                    self.writer.add_scalar('debug/video_std', video_std, self.global_step)
-                    self.writer.add_scalar('debug/noise_mean', noise_mean, self.global_step)
-                    self.writer.add_scalar('debug/noise_std', noise_std, self.global_step)
-                    self.writer.add_scalar('debug/pred_noise_mean', pred_noise_mean, self.global_step)
-                    self.writer.add_scalar('debug/pred_noise_std', pred_noise_std, self.global_step)
+                    # Essential TensorBoard logging only
+                    self.writer.add_scalar('debug/pred_noise_max', pred_noise_abs_max, self.global_step)
+                    self.writer.add_scalar('debug/actual_noise_max', actual_noise_abs_max, self.global_step)
             # Backward pass with scaled loss
             scaled_loss.backward()
             

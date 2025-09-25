@@ -35,7 +35,7 @@ class TextEncoder(nn.Module):
         
         # Initialize tokenizer and model
         try:
-            print(f"Loading text encoder: {model_name} (cached if available)...")
+            # Loading text encoder silently
             # Use local cache and optimized loading
             self.tokenizer = AutoTokenizer.from_pretrained(
                 model_name,
@@ -230,10 +230,9 @@ def create_text_encoder(config) -> TextEncoder:
             max_length=max_length,
             freeze_backbone=freeze_backbone
         )
-        print(f"✅ Created text encoder with {model_name}")
+        print(f"✅ Text encoder initialized: {model_name}")
     except Exception as e:
-        print(f"⚠️ Failed to create text encoder with {model_name}: {e}")
-        print("Falling back to simple text encoder")
+        print(f"⚠️ Text encoder fallback: {e}")
         encoder = SimpleTextEncoder(
             embed_dim=embed_dim,
             max_length=max_length
@@ -241,25 +240,4 @@ def create_text_encoder(config) -> TextEncoder:
         
     return encoder
 
-def test_text_encoder():
-    """Test the text encoder"""
-    print("Testing text encoder...")
-    
-    # Test with simple encoder
-    encoder = SimpleTextEncoder(embed_dim=768, max_length=50)
-    
-    test_texts = [
-        "Hello world",
-        "This is a test sentence",
-        "Sign language generation"
-    ]
-    
-    embeddings = encoder(test_texts)
-    print(f"Input texts: {test_texts}")
-    print(f"Embeddings shape: {embeddings.shape}")
-    print(f"Embeddings range: [{embeddings.min():.3f}, {embeddings.max():.3f}]")
-    
-    print("Text encoder test completed!")
 
-if __name__ == "__main__":
-    test_text_encoder()

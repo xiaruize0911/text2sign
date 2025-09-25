@@ -89,7 +89,7 @@ class ViViTBackboneExtractor(nn.Module):
         self.freeze_backbone = freeze_backbone
         
         try:
-            print(f"🔍 Loading ViViT model: {model_name} (this may take a moment for first-time download...)")
+            # Loading ViViT model silently
             
             # Instead of using the full ViViT which has compatibility issues,
             # we'll use a ViT backbone and add our own temporal processing
@@ -99,12 +99,9 @@ class ViViTBackboneExtractor(nn.Module):
             try:
                 # Try to use a standard ViT model for spatial features
                 vit_model_name = "google/vit-base-patch16-224"
-                print(f"Using ViT backbone: {vit_model_name}")
                 self.vit = ViTModel.from_pretrained(vit_model_name)
-                print(f"✅ Successfully loaded ViT backbone")
             except Exception as e:
-                print(f"⚠️  Failed to load ViT backbone: {e}")
-                print("   Creating ViT with default configuration...")
+                print(f"⚠️ Failed to load ViT backbone, using default config: {e}")
                 config = ViTConfig(
                     image_size=224,
                     patch_size=16,
@@ -119,7 +116,7 @@ class ViViTBackboneExtractor(nn.Module):
                     qkv_bias=True
                 )
                 self.vit = ViTModel(config)
-                print(f"✅ Created ViT model with default configuration")
+                # ViT model created with default configuration
             
             # Store model dimensions
             self.embed_dim = self.vit.config.hidden_size  # 768 for ViT-B
@@ -127,15 +124,14 @@ class ViViTBackboneExtractor(nn.Module):
             
             # Count parameters
             total_params = sum(p.numel() for p in self.vit.parameters())
-            print(f"✅ Created ViT model with optimized configuration ({total_params:,} parameters)")
+            print(f"✅ ViViT model loaded ({total_params:,} parameters)")
             
             # Freeze backbone if requested
             if freeze_backbone:
                 for param in self.vit.parameters():
                     param.requires_grad = False
-                print(f"🔒 ViT backbone frozen ({total_params:,} parameters)")
-            else:
-                print(f"🔓 ViT backbone trainable ({total_params:,} parameters)")
+                # ViT backbone frozen for training efficiency
+                pass
                 
         except Exception as e:
             print(f"❌ Failed to initialize ViT model: {e}")
@@ -143,46 +139,67 @@ class ViViTBackboneExtractor(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Extract features from ViT backbone frame by frame with patch-level features preserved
+        Forward pass through ViViT backbone with proper temporal processing
+        
         Args:
             x: (batch, channels, frames, height, width) - Input video
+            
         Returns:
-            features: (batch, frames, spatial_patches, embed_dim) - Patch-level features per frame
+            features: (batch, frames * spatial_patches, embed_dim) - Patch-level features with temporal context
         """
         batch_size, channels, frames, height, width = x.shape
         
-        # Process each frame separately through ViT
-        all_frame_features = []
+        # Reshape video to process all frames together: (batch*frames, channels, height, width)
+        x_frames = x.permute(0, 2, 1, 3, 4).contiguous()  # (batch, frames, channels, height, width)
+        x_frames = x_frames.view(batch_size * frames, channels, height, width)
         
-        for frame_idx in range(frames):
-            # Extract single frame
-            frame = x[:, :, frame_idx, :, :]  # (batch, channels, height, width)
+        # Resize to ViT expected size (224x224) if needed
+        if height != 224 or width != 224:
+            x_frames = F.interpolate(x_frames, size=(224, 224), mode='bilinear', align_corners=False)
+        
+        # Process all frames through ViT backbone
+        if self.freeze_backbone:
+            with torch.no_grad():
+                outputs = self.vit(x_frames)
+        else:
+            outputs = self.vit(x_frames)
+        
+        # Extract patch-level features (remove CLS token)
+        # outputs.last_hidden_state: (batch*frames, num_patches + 1, embed_dim)
+        patch_features = outputs.last_hidden_state[:, 1:, :]  # (batch*frames, num_patches, embed_dim)
+        
+        # Reshape back to separate frames: (batch, frames, num_patches, embed_dim)
+        num_patches = patch_features.shape[1]
+        embed_dim = patch_features.shape[2]
+        patch_features = patch_features.reshape(batch_size, frames, num_patches, embed_dim)
+        
+        # Apply temporal attention across frames for each spatial patch position
+        # This enables the model to learn temporal relationships between corresponding spatial locations
+        patch_features_temporal = patch_features.permute(0, 2, 1, 3)  # (batch, num_patches, frames, embed_dim)
+        
+        # Process temporal relationships at each spatial location
+        enhanced_features = []
+        for patch_idx in range(num_patches):
+            # Get temporal sequence for this spatial patch: (batch, frames, embed_dim)
+            patch_temporal = patch_features_temporal[:, patch_idx, :, :]
             
-            # Resize to ViT expected size (224x224) if needed
-            if height != 224 or width != 224:
-                frame = F.interpolate(frame, size=(224, 224), mode='bilinear', align_corners=False)
+            # Apply simple temporal enhancement (can be replaced with more sophisticated attention)
+            # Add temporal differences to capture motion
+            temporal_diff = torch.zeros_like(patch_temporal)
+            temporal_diff[:, 1:, :] = patch_temporal[:, 1:, :] - patch_temporal[:, :-1, :]
             
-            # Apply ViT model to frame
-            if self.freeze_backbone:
-                with torch.no_grad():
-                    outputs = self.vit(frame)
-            else:
-                outputs = self.vit(frame)
-            
-            # Use patch-level features instead of global pooling
-            # outputs.last_hidden_state: (batch, num_patches + 1, embed_dim)
-            # Remove CLS token and keep only patch features
-            patch_features = outputs.last_hidden_state[:, 1:, :]  # (batch, num_patches, embed_dim)
-            all_frame_features.append(patch_features)
+            # Combine original features with temporal differences
+            enhanced_patch = patch_temporal + 0.1 * temporal_diff
+            enhanced_features.append(enhanced_patch)
         
-        # Stack frame features: (batch, frames, num_patches, embed_dim)
-        features = torch.stack(all_frame_features, dim=1)  
+        # Stack back: (batch, num_patches, frames, embed_dim)
+        enhanced_features = torch.stack(enhanced_features, dim=1)
         
-        # Reshape to (batch, frames * num_patches, embed_dim) for temporal processing
-        batch_size, frames, num_patches, embed_dim = features.shape
-        features = features.view(batch_size, frames * num_patches, embed_dim)
+        # Reshape to final output format: (batch, frames * num_patches, embed_dim)
+        enhanced_features = enhanced_features.permute(0, 2, 1, 3)  # (batch, frames, num_patches, embed_dim)
+        enhanced_features = enhanced_features.reshape(batch_size, frames * num_patches, embed_dim)
         
-        return features  # (batch, frames * num_patches, embed_dim)
+        return enhanced_features  # (batch, frames * num_patches, embed_dim)
 
 class TemporalAttentionLayer(nn.Module):
     """Temporal attention layer for enhanced temporal modeling"""

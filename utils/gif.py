@@ -88,52 +88,7 @@ def create_video_grid(videos: torch.Tensor, nrow: int = 4) -> torch.Tensor:
     
     return grid
 
-def interpolate_videos(video1: torch.Tensor, video2: torch.Tensor, steps: int = 10) -> torch.Tensor:
-    """
-    Create interpolation between two videos
-    
-    Args:
-        video1 (torch.Tensor): First video
-        video2 (torch.Tensor): Second video
-        steps (int): Number of interpolation steps
-        
-    Returns:
-        torch.Tensor: Interpolated videos
-    """
-    interpolated = []
-    
-    for i in range(steps):
-        alpha = i / (steps - 1)
-        interpolated_video = (1 - alpha) * video1 + alpha * video2
-        interpolated.append(interpolated_video)
-    
-    return torch.stack(interpolated, dim=0)
 
-def compute_video_metrics(pred_videos: torch.Tensor, target_videos: torch.Tensor) -> dict:
-    """
-    Compute metrics between predicted and target videos
-    
-    Args:
-        pred_videos (torch.Tensor): Predicted videos
-        target_videos (torch.Tensor): Target videos
-        
-    Returns:
-        dict: Computed metrics
-    """
-    # Mean Squared Error
-    mse = torch.mean((pred_videos - target_videos) ** 2)
-    
-    # Peak Signal-to-Noise Ratio
-    psnr = 20 * torch.log10(1.0 / torch.sqrt(mse))
-    
-    # Mean Absolute Error
-    mae = torch.mean(torch.abs(pred_videos - target_videos))
-    
-    return {
-        'mse': mse.item(),
-        'psnr': psnr.item(),
-        'mae': mae.item()
-    }
 
 def get_device_info():
     """Get information about available devices"""

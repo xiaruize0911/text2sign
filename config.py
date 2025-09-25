@@ -1,39 +1,34 @@
 """
-Configuration file for the Text2Sign Diffusion Model
-This file contains all hyperparameters and settings for easy modification
+Configuration file for the Text2Sign Diffusion Model.
+Contains all hyperparameters and settings for model training and inference.
 """
 
 import torch
 
 class Config:
-    """Configuration class containing all hyperparameters"""
+    """Configuration class containing all hyperparameters for the diffusion model."""
     
     # Data settings
     DATA_ROOT = "training_data"
     BATCH_SIZE = 1
     NUM_WORKERS = 2
 
-    # Model     @classmethod
-    def set_model_architecture(cls, architecture: str):
-        """Set the model architecture"""
-        if architecture not in ["unet3d", "vit3d", "dit3d"]:
-            raise ValueError(f"Unknown architecture: {architecture}")
-        cls.MODEL_ARCHITECTURE = architectureions
-    INPUT_SHAPE = (3, 32, 224, 224)  # (channels, frames, height, width) - reduced for memory
-    NUM_FRAMES = 16  # Number of frames per video - reduced from 28
-    IMAGE_SIZE = 64  # Height and width of each frame - reduced from 128
+    # Model input/output dimensions
+    INPUT_SHAPE = (3, 16, 64, 64)  # (channels, frames, height, width)
+    NUM_FRAMES = 16
+    IMAGE_SIZE = 64
     
     # Model architecture selection
     MODEL_ARCHITECTURE = "vivit"  # Options: "unet3d", "vit3d", "dit3d", "vivit"
     
-    # UNet3D architecture settings (smaller for MacBook M4)
-    UNET_DIM = 16  # Base dimension (reduced further for MacBook M4)
-    UNET_DIM_MULTS = (1, 2)  # Dimension multipliers (reduced from (1, 2, 4))
-    UNET_CHANNELS = 3  # RGB channels
-    UNET_TIME_DIM = 16  # Time embedding dimension (reduced)
+    # UNet3D architecture settings
+    UNET_DIM = 16
+    UNET_DIM_MULTS = (1, 2)
+    UNET_CHANNELS = 3
+    UNET_TIME_DIM = 16
     
-    # ViT architecture settings (ViT-B/16 only)
-    VIT_EMBED_DIM = 768  # Embedding dimension (ViT-B/16 fixed)
+    # ViT architecture settings
+    VIT_EMBED_DIM = 768
     VIT_TIME_DIM = 768  # Time embedding dimension
     VIT_IMAGE_SIZE = 224  # Keep at 224 for pre-trained ViT compatibility
     VIT_FREEZE_BACKBONE = True  # Whether to freeze ViT backbone
@@ -64,8 +59,8 @@ class Config:
     TEXT_FREEZE_BACKBONE = True  # Whether to freeze text encoder backbone
     
     # Diffusion process settings
-    TIMESTEPS = 1000  # Number of diffusion timesteps for training
-    INFERENCE_TIMESTEPS = 300  # Reduced timesteps for faster sampling (20x speedup)
+    TIMESTEPS = 300  # Number of diffusion timesteps for training
+    INFERENCE_TIMESTEPS = 100  # Reduced timesteps for faster sampling (20x speedup)
     BETA_START = 0.01  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
     
@@ -78,7 +73,8 @@ class Config:
     LEARNING_RATE = 0.0001  # Higher learning rate for ViT (was 0.00001 for UNet)
     NUM_EPOCHS = 500
     GRADIENT_CLIP = 1.0  # Enable gradient clipping for training stability
-    GRADIENT_ACCUMULATION_STEPS = 2  # Number of steps to accumulate gradients before optimizer step
+    GRADIENT_ACCUMULATION_STEPS = 4  # Number of steps to accumulate gradients before optimizer step
+    GRADIENT_CHECKPOINTING = True  # Enable gradient checkpointing to reduce memory usage
     
     # Dynamic Learning Rate Scheduler Settings
     USE_SCHEDULER = True  # Enable dynamic learning rate scheduling
@@ -124,7 +120,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "text2sign_experiment_vivit2"  # Name for this experiment
+    EXPERIMENT_NAME = "text2sign_experiment_vivit_4"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
@@ -137,7 +133,7 @@ class Config:
     
     # Step-based diagnostic logging intervals (for within-epoch diagnostics)
     NOISE_DISPLAY_EVERY_STEPS = 200   # Save noise display GIFs every N steps (much more frequent)
-    DIAGNOSTIC_LOG_EVERY_STEPS = 10    # Log detailed diagnostics every N steps (very frequent)
+    DIAGNOSTIC_LOG_EVERY_STEPS = 50    # Log detailed diagnostics every N steps (very frequent)
     TENSORBOARD_FLUSH_EVERY_STEPS = 50 # Flush TensorBoard every N steps (frequent)
     
     # Epoch-based logging intervals  
