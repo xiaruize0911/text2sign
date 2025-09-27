@@ -22,6 +22,10 @@ from schedulers.lr_schedulers import create_lr_scheduler, log_lr_schedule
 from utils.tensorboard_logger import TensorBoardLogger, create_tensorboard_logger
 import logging
 import utils.gif as gif_utils
+import matplotlib.pyplot as plt
+import io
+from PIL import Image
+import psutil
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -95,6 +99,13 @@ class Trainer:
         
         # Log model structure
         self.log_model_structure()
+        
+        # System monitoring
+        self.process = psutil.Process()
+        
+        # Epoch losses and times
+        self.epoch_losses = []
+        self.epoch_times = []
     
     def get_effective_batch_size(self) -> int:
         """Get the effective batch size considering gradient accumulation"""
@@ -172,6 +183,28 @@ class Trainer:
             return
         try:
             checkpoint = torch.load(filepath, map_location=self.device, weights_only=True)
+            
+            # Check for architecture mismatch and warn user
+            model_keys = list(checkpoint['model_state_dict'].keys())
+            current_arch = self.config.MODEL_ARCHITECTURE
+            
+            # Detect checkpoint architecture
+            if any('init_conv' in key or 'encoder_resblocks' in key for key in model_keys):
+                checkpoint_arch = 'unet3d'
+            elif any('vit.embeddings' in key or 'temporal_layers' in key for key in model_keys):
+                checkpoint_arch = 'vivit'
+            elif any('patch_embed' in key or 'blocks' in key for key in model_keys):
+                checkpoint_arch = 'vit3d'
+            elif any('dit_blocks' in key or 'x_embedder' in key for key in model_keys):
+                checkpoint_arch = 'dit3d'
+            else:
+                checkpoint_arch = 'unknown'
+            
+            if checkpoint_arch != 'unknown' and checkpoint_arch != current_arch:
+                logger.error(f"Architecture mismatch: Config={current_arch}, Checkpoint={checkpoint_arch}")
+                logger.error(f"Please change CONFIG.MODEL_ARCHITECTURE to '{checkpoint_arch}' or use a {current_arch} checkpoint")
+                return
+            
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.epoch = checkpoint['epoch']
@@ -328,6 +361,163 @@ class Trainer:
         
         self.writer.flush()
     
+    def log_system_metrics(self, prefix=""):
+        """Log system performance metrics"""
+        try:
+            # Memory usage
+            memory_info = self.process.memory_info()
+            self.writer.add_scalar(f'14_System/{prefix}Memory_RSS_MB', 
+                                 memory_info.rss / 1024 / 1024, self.global_step)
+            self.writer.add_scalar(f'14_System/{prefix}Memory_VMS_MB', 
+                                 memory_info.vms / 1024 / 1024, self.global_step)
+            
+            # CPU usage
+            cpu_percent = self.process.cpu_percent()
+            self.writer.add_scalar(f'14_System/{prefix}CPU_Percent', cpu_percent, self.global_step)
+            
+            # GPU memory if available
+            if torch.cuda.is_available():
+                gpu_memory = torch.cuda.memory_allocated() / 1024 / 1024
+                gpu_memory_cached = torch.cuda.memory_reserved() / 1024 / 1024
+                self.writer.add_scalar(f'14_System/{prefix}GPU_Memory_Allocated_MB', 
+                                     gpu_memory, self.global_step)
+                self.writer.add_scalar(f'14_System/{prefix}GPU_Memory_Cached_MB', 
+                                     gpu_memory_cached, self.global_step)
+        except Exception as e:
+            print(f"Warning: Could not log system metrics: {e}")
+
+    def log_model_parameters(self, model):
+        """Log model parameter statistics and histograms"""
+        if not self.config.ENABLE_PARAMETER_TRACKING:
+            return
+            
+        total_params = 0
+        trainable_params = 0
+        
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                trainable_params += param.numel()
+                
+                # Parameter statistics
+                param_data = param.data.cpu()
+                self.writer.add_scalar(f'09_Parameter_Stats/{name}_mean', 
+                                     param_data.mean().item(), self.global_step)
+                self.writer.add_scalar(f'09_Parameter_Stats/{name}_std', 
+                                     param_data.std().item(), self.global_step)
+                self.writer.add_scalar(f'09_Parameter_Stats/{name}_min', 
+                                     param_data.min().item(), self.global_step)
+                self.writer.add_scalar(f'09_Parameter_Stats/{name}_max', 
+                                     param_data.max().item(), self.global_step)
+                
+                # Parameter histograms (less frequent)
+                if self.config.ENABLE_GRADIENT_HISTOGRAMS and self.global_step % 100 == 0:
+                    self.writer.add_histogram(f'10_Parameter_Histograms/{name}', 
+                                            param_data, self.global_step)
+            
+            total_params += param.numel()
+        
+        # Overall model statistics
+        self.writer.add_scalar('08_Model_Architecture/Total_Parameters', 
+                             total_params, self.global_step)
+        self.writer.add_scalar('08_Model_Architecture/Trainable_Parameters', 
+                             trainable_params, self.global_step)
+
+    def log_gradients(self, model):
+        """Log gradient statistics and histograms"""
+        if not self.config.ENABLE_GRADIENT_HISTOGRAMS:
+            return
+            
+        total_norm = 0
+        param_count = 0
+        
+        for name, param in model.named_parameters():
+            if param.grad is not None and param.requires_grad:
+                grad_data = param.grad.data.cpu()
+                param_norm = grad_data.norm()
+                total_norm += param_norm.item() ** 2
+                param_count += 1
+                
+                # Gradient statistics
+                self.writer.add_scalar(f'11_Gradient_Stats/{name}_norm', 
+                                     param_norm.item(), self.global_step)
+                self.writer.add_scalar(f'11_Gradient_Stats/{name}_mean', 
+                                     grad_data.mean().item(), self.global_step)
+                self.writer.add_scalar(f'11_Gradient_Stats/{name}_std', 
+                                     grad_data.std().item(), self.global_step)
+                
+                # Gradient histograms (less frequent)
+                if self.global_step % 50 == 0:
+                    self.writer.add_histogram(f'11_Gradient_Stats/{name}_histogram', 
+                                            grad_data, self.global_step)
+        
+        # Overall gradient norm
+        if param_count > 0:
+            total_norm = total_norm ** (1. / 2)
+            self.writer.add_scalar('11_Gradient_Stats/Total_Gradient_Norm', 
+                                 total_norm, self.global_step)
+
+    def log_diffusion_metrics(self, predicted_noise, target_noise, timesteps):
+        """Log diffusion-specific metrics"""
+        with torch.no_grad():
+            # Noise prediction MSE
+            mse = F.mse_loss(predicted_noise, target_noise)
+            self.writer.add_scalar('06_Diffusion/Noise_Prediction_MSE', 
+                                 mse.item(), self.global_step)
+            
+            # Per-timestep analysis
+            unique_timesteps = torch.unique(timesteps)
+            for t in unique_timesteps[:5]:  # Log first 5 unique timesteps
+                mask = timesteps == t
+                if mask.sum() > 0:
+                    t_mse = F.mse_loss(predicted_noise[mask], target_noise[mask])
+                    self.writer.add_scalar(f'07_Noise_Analysis/MSE_timestep_{t.item()}', 
+                                         t_mse.item(), self.global_step)
+            
+            # Signal-to-noise ratio
+            signal_power = torch.mean(target_noise ** 2)
+            noise_power = torch.mean((predicted_noise - target_noise) ** 2)
+            if noise_power > 0:
+                snr = 10 * torch.log10(signal_power / noise_power)
+                self.writer.add_scalar('06_Diffusion/Signal_to_Noise_Ratio_dB', 
+                                     snr.item(), self.global_step)
+
+    def create_loss_plot(self):
+        """Create a matplotlib plot of the loss curve"""
+        if len(self.epoch_losses) < 2:
+            return None
+            
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+        
+        # Loss curve
+        epochs = range(1, len(self.epoch_losses) + 1)
+        ax1.plot(epochs, self.epoch_losses, 'b-', linewidth=2, label='Training Loss')
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('Loss')
+        ax1.set_title('Training Loss Curve')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend()
+        
+        # Training time per epoch
+        if len(self.epoch_times) > 0:
+            ax2.plot(epochs[:len(self.epoch_times)], self.epoch_times, 'r-', 
+                    linewidth=2, label='Time per Epoch')
+            ax2.set_xlabel('Epoch')
+            ax2.set_ylabel('Time (seconds)')
+            ax2.set_title('Training Time per Epoch')
+            ax2.grid(True, alpha=0.3)
+            ax2.legend()
+        
+        plt.tight_layout()
+        
+        # Convert to image
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+        buf.seek(0)
+        image = Image.open(buf)
+        plt.close(fig)
+        
+        return np.array(image)
+    
     def train_epoch(self) -> Dict[str, float]:
         """
         Train for one epoch
@@ -385,13 +575,20 @@ class Trainer:
                     self.writer.add_scalar('debug/pred_noise_max', pred_noise_abs_max, self.global_step)
                     self.writer.add_scalar('debug/actual_noise_max', actual_noise_abs_max, self.global_step)
             # Backward pass with scaled loss
-            scaled_loss.backward()
+            if self.use_amp:
+                self.scaler.scale(scaled_loss).backward()
+            else:
+                scaled_loss.backward()
             
             # Increment accumulation step
             self.accumulation_step += 1
             
             # Only perform optimizer step when accumulation is complete
             if self.accumulation_step == self.config.GRADIENT_ACCUMULATION_STEPS:
+                # Unscale gradients before clipping if using AMP
+                if self.use_amp:
+                    self.scaler.unscale_(self.optimizer)
+
                 # Gradient clipping (applied to accumulated gradients)
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
                 
@@ -403,7 +600,11 @@ class Trainer:
                     continue
                 
                 # Optimizer step (applies accumulated gradients)
-                self.optimizer.step()
+                if self.use_amp:
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.optimizer.step()
                 
                 # Update learning rate
                 if self.scheduler is not None:

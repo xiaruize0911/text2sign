@@ -155,7 +155,15 @@ class ViViTBackboneExtractor(nn.Module):
         
         # Resize to ViT expected size (224x224) if needed
         if height != 224 or width != 224:
-            x_frames = F.interpolate(x_frames, size=(224, 224), mode='bilinear', align_corners=False)
+            target_size = (224, 224)
+            antialias = height > target_size[0] or width > target_size[1]
+            x_frames = F.interpolate(
+                x_frames,
+                size=target_size,
+                mode="bicubic",
+                align_corners=False,
+                antialias=antialias,
+            )
         
         # Process all frames through ViT backbone
         if self.freeze_backbone:
@@ -306,7 +314,14 @@ class FeatureUpsampler(nn.Module):
         
         # Ensure final size matches target
         if x.shape[-2:] != self.target_size:
-            x = F.interpolate(x, size=self.target_size, mode='bilinear', align_corners=False)
+            antialias = x.shape[-2] > self.target_size[0] or x.shape[-1] > self.target_size[1]
+            x = F.interpolate(
+                x,
+                size=self.target_size,
+                mode="bicubic",
+                align_corners=False,
+                antialias=antialias,
+            )
         
         return x
 
@@ -473,7 +488,14 @@ class ViViT(nn.Module):
         spatial_features = features_for_upsampling.view(batch_size * frames, self.feature_dim, patch_h, patch_w)
         
         # Upsample from patch grid to target resolution using input dimensions
-        spatial_features = F.interpolate(spatial_features, size=(height, width), mode='bilinear', align_corners=False)
+        antialias = spatial_features.shape[-2] > height or spatial_features.shape[-1] > width
+        spatial_features = F.interpolate(
+            spatial_features,
+            size=(height, width),
+            mode="bicubic",
+            align_corners=False,
+            antialias=antialias,
+        )
         
         # Project to output channels
         spatial_output = self.final_projection(spatial_features)  # (batch*frames, out_channels, height, width)

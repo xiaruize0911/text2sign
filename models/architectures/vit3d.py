@@ -143,7 +143,15 @@ class ViTBackboneExtractor(nn.Module):
         """
         # Resize to ViT expected size if needed
         if x.shape[-2:] != (224, 224):
-            x = F.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
+            target_size = (224, 224)
+            antialias = x.shape[-2] > target_size[0] or x.shape[-1] > target_size[1]
+            x = F.interpolate(
+                x,
+                size=target_size,
+                mode="bicubic",
+                align_corners=False,
+                antialias=antialias,
+            )
         
         # Apply patch embedding
         x = self.vit.conv_proj(x)  # (batch*frames, embed_dim, 14, 14)
@@ -229,7 +237,14 @@ class FeatureUpsampler(nn.Module):
         x = self.conv_layers(x)
         # Ensure final size
         if x.shape[-2:] != self.target_size:
-            x = F.interpolate(x, size=self.target_size, mode='bilinear', align_corners=False)
+            antialias = x.shape[-2] > self.target_size[0] or x.shape[-1] > self.target_size[1]
+            x = F.interpolate(
+                x,
+                size=self.target_size,
+                mode="bicubic",
+                align_corners=False,
+                antialias=antialias,
+            )
         return x
 
 class FiLMLayer(nn.Module):

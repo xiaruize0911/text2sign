@@ -13,13 +13,13 @@ class Config:
     BATCH_SIZE = 1
     NUM_WORKERS = 2
 
-    # Model input/output dimensions
-    INPUT_SHAPE = (3, 16, 64, 64)  # (channels, frames, height, width)
-    NUM_FRAMES = 16
-    IMAGE_SIZE = 64
+    # Model input/output dimensions  
+    INPUT_SHAPE = (3, 28, 128, 128)  # (channels, frames, height, width) - Updated to match UNet3D model
+    NUM_FRAMES = 28
+    IMAGE_SIZE = 128
     
     # Model architecture selection
-    MODEL_ARCHITECTURE = "vivit"  # Options: "unet3d", "vit3d", "dit3d", "vivit"
+    MODEL_ARCHITECTURE = "tinyfusion"  # Options: "unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"
     
     # UNet3D architecture settings
     UNET_DIM = 16
@@ -44,13 +44,21 @@ class Config:
     
     # ViViT architecture settings (Video Vision Transformer from HuggingFace)
     VIVIT_MODEL_NAME = "google/vivit-b-16x2-kinetics400"  # Use optimized config instead of pretrained
-    VIVIT_VIDEO_SIZE = (16, 64, 64)  # (frames, height, width) - Match actual training data
+    VIVIT_VIDEO_SIZE = (28, 128, 128)  # (frames, height, width) - Match actual training data and INPUT_SHAPE
     VIVIT_TIME_DIM = 768  # Time embedding dimension
-    VIVIT_FREEZE_BACKBONE = True  # Whether to freeze ViViT backbone
+    VIVIT_FREEZE_BACKBONE = False  # Whether to freeze ViViT backbone
     VIVIT_NUM_TEMPORAL_LAYERS = 2  # Number of additional temporal attention layers
     VIVIT_NUM_HEADS = 8  # Number of attention heads
     VIVIT_DROPOUT = 0.1  # Dropout rate
     VIVIT_CLASS_DROPOUT_PROB = 0.1  # Dropout probability for classifier-free guidance
+
+    # TinyFusion architecture settings (video wrapper around 2D TinyFusion backbone)
+    TINYFUSION_VIDEO_SIZE = (28, 128, 128)
+    TINYFUSION_VARIANT = "DiT-D14/2"  # Use the pre-trained TinyDiT-D14 model
+    TINYFUSION_CHECKPOINT = "pretrained/TinyDiT-D14-MaskedKD-500K.pt"  # Pre-trained checkpoint
+    TINYFUSION_FREEZE_BACKBONE = False  # Allow fine-tuning of the pre-trained model
+    TINYFUSION_ENABLE_TEMPORAL_POST = True
+    TINYFUSION_TEMPORAL_KERNEL = 2
     
     # Text conditioning settings
     TEXT_ENCODER_MODEL = "distilbert-base-uncased"  # Pre-trained text encoder
@@ -60,7 +68,7 @@ class Config:
     
     # Diffusion process settings
     TIMESTEPS = 300  # Number of diffusion timesteps for training
-    INFERENCE_TIMESTEPS = 100  # Reduced timesteps for faster sampling (20x speedup)
+    INFERENCE_TIMESTEPS = 300  # Reduced timesteps for faster sampling (20x speedup)
     BETA_START = 0.01  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
     
@@ -120,7 +128,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "text2sign_experiment_vivit_4"  # Name for this experiment
+    EXPERIMENT_NAME = "text2sign_experiment_tinyfusion1"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
@@ -135,6 +143,11 @@ class Config:
     NOISE_DISPLAY_EVERY_STEPS = 200   # Save noise display GIFs every N steps (much more frequent)
     DIAGNOSTIC_LOG_EVERY_STEPS = 50    # Log detailed diagnostics every N steps (very frequent)
     TENSORBOARD_FLUSH_EVERY_STEPS = 50 # Flush TensorBoard every N steps (frequent)
+    
+    # Epoch-level flushing and comprehensive logging
+    FLUSH_TENSORBOARD_EVERY_EPOCH = True  # Force TensorBoard flush at end of each epoch
+    ENABLE_EPOCH_SUMMARY_LOGGING = True   # Enable comprehensive epoch-end summary logging
+    ENABLE_REALTIME_METRICS = True        # Enable real-time metric tracking during training
     
     # Epoch-based logging intervals  
     PARAM_LOG_EVERY_EPOCHS = 10  # Log parameter histograms every N epochs
@@ -165,9 +178,19 @@ class Config:
     ENABLE_VIDEO_LOGGING = True         # Log generated videos to TensorBoard
     ENABLE_NOISE_VISUALIZATION = False   # Log noise prediction visualizations
     ENABLE_PERFORMANCE_PROFILING = True # Track training performance metrics
+    ENABLE_LOSS_COMPONENT_TRACKING = True # Track individual loss components
+    ENABLE_GRADIENT_FLOW_ANALYSIS = True  # Analyze gradient flow through layers
+    ENABLE_MEMORY_TRACKING = True        # Track GPU/CPU memory usage
+    ENABLE_LEARNING_RATE_LOGGING = True  # Log learning rate changes and schedules
 
     # Sampling settings
     NUM_SAMPLES = 2  # Number of samples to generate for logging
+    SAMPLE_GENERATION_TIMEOUT = 300  # Timeout for sample generation (seconds)
+    
+    # TensorBoard writer settings
+    TENSORBOARD_MAX_QUEUE = 100       # Maximum queue size for TensorBoard writer
+    TENSORBOARD_FLUSH_SECS = 30       # Automatic flush interval (seconds)
+    TENSORBOARD_FILENAME_SUFFIX = ""  # Optional suffix for TensorBoard files
     
     @classmethod
     def get_learning_rate(cls):
@@ -210,7 +233,7 @@ class Config:
             errors.append("GRADIENT_ACCUMULATION_STEPS must be a positive integer")
         
         # Validate model architecture
-        if cls.MODEL_ARCHITECTURE not in ["unet3d", "vit3d", "dit3d", "vivit"]:
+        if cls.MODEL_ARCHITECTURE not in ["unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"]:
             errors.append(f"Unknown MODEL_ARCHITECTURE: {cls.MODEL_ARCHITECTURE}")
         
         # Validate noise scheduler
@@ -359,13 +382,196 @@ class Config:
                 'dropout': cls.VIVIT_DROPOUT,
                 'class_dropout_prob': cls.VIVIT_CLASS_DROPOUT_PROB
             }
+        elif cls.MODEL_ARCHITECTURE == "tinyfusion":
+            return {
+                'video_size': cls.TINYFUSION_VIDEO_SIZE,
+                'in_channels': cls.UNET_CHANNELS,
+                'out_channels': cls.UNET_CHANNELS,
+                'text_dim': cls.TEXT_EMBED_DIM,
+                'variant': cls.TINYFUSION_VARIANT,
+                'checkpoint_path': cls.TINYFUSION_CHECKPOINT,
+                'freeze_backbone': cls.TINYFUSION_FREEZE_BACKBONE,
+                'enable_temporal_post': cls.TINYFUSION_ENABLE_TEMPORAL_POST,
+                'temporal_kernel': cls.TINYFUSION_TEMPORAL_KERNEL,
+            }
         else:
             raise ValueError(f"Unknown model architecture: {cls.MODEL_ARCHITECTURE}")
     
     @classmethod
     def set_model_architecture(cls, architecture: str):
         """Set the model architecture"""
-        if architecture not in ["unet3d", "vit3d", "dit3d", "vivit"]:
+        if architecture not in ["unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"]:
             raise ValueError(f"Unsupported architecture: {architecture}")
         cls.MODEL_ARCHITECTURE = architecture
         print(f"Model architecture set to: {architecture}")
+    
+    @classmethod
+    def get_logging_config(cls):
+        """Get comprehensive logging configuration dictionary"""
+        return {
+            # Basic logging settings
+            'experiment_name': cls.EXPERIMENT_NAME,
+            'log_dir': cls.LOG_DIR,
+            'checkpoint_dir': cls.CHECKPOINT_DIR,
+            'samples_dir': cls.SAMPLES_DIR,
+            
+            # Epoch-based frequencies
+            'sample_every_epochs': cls.SAMPLE_EVERY_EPOCHS,
+            'log_every_epochs': cls.LOG_EVERY_EPOCHS,
+            'save_every_epochs': cls.SAVE_EVERY_EPOCHS,
+            'param_log_every_epochs': cls.PARAM_LOG_EVERY_EPOCHS,
+            'summary_log_every_epochs': cls.SUMMARY_LOG_EVERY_EPOCHS,
+            
+            # Step-based frequencies
+            'noise_display_every_steps': cls.NOISE_DISPLAY_EVERY_STEPS,
+            'diagnostic_log_every_steps': cls.DIAGNOSTIC_LOG_EVERY_STEPS,
+            'tensorboard_flush_every_steps': cls.TENSORBOARD_FLUSH_EVERY_STEPS,
+            
+            # Epoch-level settings
+            'flush_tensorboard_every_epoch': cls.FLUSH_TENSORBOARD_EVERY_EPOCH,
+            'enable_epoch_summary_logging': cls.ENABLE_EPOCH_SUMMARY_LOGGING,
+            'enable_realtime_metrics': cls.ENABLE_REALTIME_METRICS,
+            
+            # Feature flags
+            'enable_gradient_histograms': cls.ENABLE_GRADIENT_HISTOGRAMS,
+            'enable_parameter_tracking': cls.ENABLE_PARAMETER_TRACKING,
+            'enable_video_logging': cls.ENABLE_VIDEO_LOGGING,
+            'enable_noise_visualization': cls.ENABLE_NOISE_VISUALIZATION,
+            'enable_performance_profiling': cls.ENABLE_PERFORMANCE_PROFILING,
+            'enable_loss_component_tracking': cls.ENABLE_LOSS_COMPONENT_TRACKING,
+            'enable_gradient_flow_analysis': cls.ENABLE_GRADIENT_FLOW_ANALYSIS,
+            'enable_memory_tracking': cls.ENABLE_MEMORY_TRACKING,
+            'enable_learning_rate_logging': cls.ENABLE_LEARNING_RATE_LOGGING,
+            
+            # TensorBoard settings
+            'tensorboard_categories': cls.TENSORBOARD_LOG_CATEGORIES,
+            'tensorboard_max_queue': cls.TENSORBOARD_MAX_QUEUE,
+            'tensorboard_flush_secs': cls.TENSORBOARD_FLUSH_SECS,
+            'tensorboard_filename_suffix': cls.TENSORBOARD_FILENAME_SUFFIX,
+            
+            # Sampling settings
+            'num_samples': cls.NUM_SAMPLES,
+            'sample_generation_timeout': cls.SAMPLE_GENERATION_TIMEOUT,
+            
+            # Advanced settings
+            'log_model_graph': cls.LOG_MODEL_GRAPH
+        }
+    
+    @classmethod
+    def should_log_step(cls, step: int) -> dict:
+        """Determine what logging actions should be performed at this step"""
+        return {
+            'log_diagnostics': step % cls.DIAGNOSTIC_LOG_EVERY_STEPS == 0,
+            'flush_tensorboard': step % cls.TENSORBOARD_FLUSH_EVERY_STEPS == 0,
+            'display_noise': step % cls.NOISE_DISPLAY_EVERY_STEPS == 0,
+        }
+    
+    @classmethod
+    def should_log_epoch(cls, epoch: int) -> dict:
+        """Determine what logging actions should be performed at this epoch"""
+        return {
+            'log_loss': epoch % cls.LOG_EVERY_EPOCHS == 0,
+            'generate_samples': epoch % cls.SAMPLE_EVERY_EPOCHS == 0,
+            'save_checkpoint': epoch % cls.SAVE_EVERY_EPOCHS == 0,
+            'log_parameters': epoch % cls.PARAM_LOG_EVERY_EPOCHS == 0,
+            'log_summary': epoch % cls.SUMMARY_LOG_EVERY_EPOCHS == 0,
+            'flush_tensorboard': cls.FLUSH_TENSORBOARD_EVERY_EPOCH,
+            'comprehensive_logging': cls.ENABLE_EPOCH_SUMMARY_LOGGING
+        }
+    
+    @classmethod
+    def create_tensorboard_writer(cls):
+        """Create and configure TensorBoard SummaryWriter with proper settings"""
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+            import os
+            
+            # Ensure log directory exists
+            os.makedirs(cls.LOG_DIR, exist_ok=True)
+            
+            # Configure writer with proper settings
+            writer = SummaryWriter(
+                log_dir=cls.LOG_DIR,
+                max_queue=cls.TENSORBOARD_MAX_QUEUE,
+                flush_secs=cls.TENSORBOARD_FLUSH_SECS,
+                filename_suffix=cls.TENSORBOARD_FILENAME_SUFFIX
+            )
+            
+            return writer
+        except ImportError:
+            print("⚠️ TensorBoard not available. Install with: pip install tensorboard")
+            return None
+        except Exception as e:
+            print(f"❌ Failed to create TensorBoard writer: {e}")
+            return None
+    
+    @classmethod
+    def setup_logging_directories(cls):
+        """Create all necessary logging directories"""
+        import os
+        
+        directories = [
+            cls.LOG_DIR,
+            cls.CHECKPOINT_DIR,
+            cls.SAMPLES_DIR,
+        ]
+        
+        created_dirs = []
+        for directory in directories:
+            try:
+                os.makedirs(directory, exist_ok=True)
+                created_dirs.append(directory)
+            except Exception as e:
+                print(f"❌ Failed to create directory {directory}: {e}")
+                return False
+        
+        print(f"✅ Created logging directories: {', '.join(created_dirs)}")
+        return True
+    
+    @classmethod
+    def print_logging_status(cls):
+        """Print current logging configuration status"""
+        print("=" * 60)
+        print("LOGGING CONFIGURATION STATUS")
+        print("=" * 60)
+        
+        config = cls.get_logging_config()
+        
+        print(f"📁 Directories:")
+        print(f"   Log Dir: {config['log_dir']}")
+        print(f"   Checkpoint Dir: {config['checkpoint_dir']}")
+        print(f"   Samples Dir: {config['samples_dir']}")
+        
+        print(f"\n⏰ Epoch Frequencies:")
+        print(f"   Sample Generation: Every {config['sample_every_epochs']} epochs")
+        print(f"   Loss Logging: Every {config['log_every_epochs']} epochs")
+        print(f"   Checkpoint Saving: Every {config['save_every_epochs']} epochs")
+        print(f"   Parameter Logging: Every {config['param_log_every_epochs']} epochs")
+        print(f"   Summary Logging: Every {config['summary_log_every_epochs']} epochs")
+        
+        print(f"\n🔄 Step Frequencies:")
+        print(f"   Diagnostics: Every {config['diagnostic_log_every_steps']} steps")
+        print(f"   TensorBoard Flush: Every {config['tensorboard_flush_every_steps']} steps")
+        print(f"   Noise Display: Every {config['noise_display_every_steps']} steps")
+        
+        print(f"\n✨ Feature Flags:")
+        features = [
+            ('Gradient Histograms', config['enable_gradient_histograms']),
+            ('Parameter Tracking', config['enable_parameter_tracking']),
+            ('Video Logging', config['enable_video_logging']),
+            ('Performance Profiling', config['enable_performance_profiling']),
+            ('Loss Component Tracking', config['enable_loss_component_tracking']),
+            ('Memory Tracking', config['enable_memory_tracking']),
+            ('Epoch Summary Logging', config['enable_epoch_summary_logging']),
+            ('Realtime Metrics', config['enable_realtime_metrics']),
+        ]
+        
+        for feature_name, enabled in features:
+            status = "✅ Enabled" if enabled else "❌ Disabled"
+            print(f"   {feature_name}: {status}")
+        
+        print(f"\n📊 TensorBoard Categories: {len(config['tensorboard_categories'])} categories")
+        for category in config['tensorboard_categories']:
+            print(f"   • {category}")
+        
+        print("=" * 60)

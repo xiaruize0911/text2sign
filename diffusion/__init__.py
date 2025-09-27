@@ -13,14 +13,17 @@ def test_diffusion():
         
         # Create model
         model = create_diffusion_model(Config)
+        model = model.to(Config.DEVICE)
         print(f"✅ Model created: {type(model.model).__name__}")
         
         # Test forward pass
         batch_size = 1
-        test_input = torch.randn(batch_size, *Config.INPUT_SHAPE)
+        test_input = torch.randn(batch_size, *Config.INPUT_SHAPE, device=Config.DEVICE)
         
+        dummy_text = ["hello world"] * batch_size
+
         with torch.no_grad():
-            loss, pred_noise, actual_noise = model(test_input)
+            loss, pred_noise, actual_noise = model(test_input, text=dummy_text)
             print(f"✅ Forward pass successful - Loss: {loss.item():.6f}")
             
         print("✅ Diffusion model test passed!")

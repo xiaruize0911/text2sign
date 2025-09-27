@@ -210,7 +210,15 @@ class DiTBackboneExtractor(nn.Module):
         """
         # Resize to expected input size if needed
         if x.shape[-2:] != (self.input_size, self.input_size):
-            x = F.interpolate(x, size=(self.input_size, self.input_size), mode='bilinear', align_corners=False)
+            target_size = (self.input_size, self.input_size)
+            antialias = x.shape[-2] > target_size[0] or x.shape[-1] > target_size[1]
+            x = F.interpolate(
+                x,
+                size=target_size,
+                mode="bicubic",
+                align_corners=False,
+                antialias=antialias,
+            )
         
         # Patch embedding
         x = self.backbone.patch_embed(x)  # (batch*frames, embed_dim, H, W)
@@ -351,7 +359,14 @@ class VideoFeatureUpsampler(nn.Module):
         
         # Ensure final size
         if x.shape[-2:] != self.target_size:
-            x = F.interpolate(x, size=self.target_size, mode='bilinear', align_corners=False)
+            antialias = x.shape[-2] > self.target_size[0] or x.shape[-1] > self.target_size[1]
+            x = F.interpolate(
+                x,
+                size=self.target_size,
+                mode="bicubic",
+                align_corners=False,
+                antialias=antialias,
+            )
         
         return x
 

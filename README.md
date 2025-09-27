@@ -72,8 +72,8 @@ python main.py test
 # Train the model
 python main.py train
 
-# Generate samples
-python main.py sample --checkpoint checkpoints/latest_checkpoint.pt --num_samples 8
+# Generate samples (eta controls stochasticity: 0=deterministic, 1=ancestral)
+python main.py sample --checkpoint checkpoints/latest_checkpoint.pt --num_samples 8 --eta 0.0
 
 # Visualize model architecture
 python main.py visualize
