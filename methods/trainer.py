@@ -7,7 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-from torch.amp import autocast, GradScaler
+from torch.amp import autocast
+from torch.cuda.amp import GradScaler
 import os
 import time
 import pickle
@@ -836,6 +837,14 @@ class Trainer:
                     'time': f"{epoch_time:.1f}s"
                 })
                 
+                # Store epoch loss and time for plotting
+                self.epoch_losses.append(metrics['loss'])
+                self.epoch_times.append(epoch_time)
+                
+                # Log average loss per epoch explicitly to ensure it's tracked
+                self.writer.add_scalar('epoch/avg_loss', metrics['loss'], epoch)
+                logger.info(f"Epoch {epoch} completed - Average loss: {metrics['loss']:.6f}")
+                
                 # Prepare comprehensive epoch metrics
                 epoch_summary = {
                     'loss': metrics['loss'],
@@ -901,6 +910,12 @@ class Trainer:
                 self.writer.add_scalar('stats/epoch', epoch, epoch)
                 self.writer.add_scalar('stats/global_step', self.global_step, epoch)
                 
+                # Create and log epoch loss plot every 5 epochs
+                if epoch > 0 and epoch % 5 == 0:
+                    loss_plot = self.create_loss_plot()
+                    if loss_plot is not None:
+                        self.writer.add_image('epoch_plots/loss_curve', loss_plot, epoch, dataformats='HWC')
+                
                 self.writer.flush()  # Flush epoch metrics immediately
                 
                 # Log comprehensive training summary periodically
@@ -925,6 +940,12 @@ class Trainer:
                 
                 # Always save latest checkpoint
                 self.save_checkpoint('latest_checkpoint.pt')
+            
+            # Create and log final loss curve plot
+            final_loss_plot = self.create_loss_plot()
+            if final_loss_plot is not None:
+                self.writer.add_image('epoch_plots/final_loss_curve', final_loss_plot, self.epoch, dataformats='HWC')
+                self.writer.flush()
         
         except KeyboardInterrupt:
             logger.info("Training interrupted by user")

@@ -19,7 +19,7 @@ class Config:
     IMAGE_SIZE = 128
     
     # Model architecture selection
-    MODEL_ARCHITECTURE = "tinyfusion"  # Options: "unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"
+    MODEL_ARCHITECTURE = "vivit"  # Options: "unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"
     
     # UNet3D architecture settings
     UNET_DIM = 16
@@ -46,7 +46,7 @@ class Config:
     VIVIT_MODEL_NAME = "google/vivit-b-16x2-kinetics400"  # Use optimized config instead of pretrained
     VIVIT_VIDEO_SIZE = (28, 128, 128)  # (frames, height, width) - Match actual training data and INPUT_SHAPE
     VIVIT_TIME_DIM = 768  # Time embedding dimension
-    VIVIT_FREEZE_BACKBONE = False  # Whether to freeze ViViT backbone
+    VIVIT_FREEZE_BACKBONE = True  # Whether to freeze ViViT backbone
     VIVIT_NUM_TEMPORAL_LAYERS = 2  # Number of additional temporal attention layers
     VIVIT_NUM_HEADS = 8  # Number of attention heads
     VIVIT_DROPOUT = 0.1  # Dropout rate
@@ -67,10 +67,15 @@ class Config:
     TEXT_FREEZE_BACKBONE = True  # Whether to freeze text encoder backbone
     
     # Diffusion process settings
-    TIMESTEPS = 300  # Number of diffusion timesteps for training
-    INFERENCE_TIMESTEPS = 300  # Reduced timesteps for faster sampling (20x speedup)
+    TIMESTEPS = 50  # Number of diffusion timesteps for training
+    INFERENCE_TIMESTEPS = 50  # Reduced timesteps for faster sampling (20x speedup)
     BETA_START = 0.01  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
+    
+    # Loss weighting settings
+    USE_TIMESTEP_WEIGHTING = True  # Use timestep-aware loss weighting to improve low-timestep performance
+    TIMESTEP_WEIGHT_MIN_SNR = 0.1  # Minimum SNR for loss weighting
+    TIMESTEP_WEIGHT_MAX_SNR = 10.0  # Maximum SNR for loss weighting
     
     # Noise scheduler settings
     NOISE_SCHEDULER = "cosine"  # Options: "linear", "cosine", "quadratic", "sigmoid"
@@ -79,13 +84,13 @@ class Config:
     
     # Training settings
     LEARNING_RATE = 0.0001  # Higher learning rate for ViT (was 0.00001 for UNet)
-    NUM_EPOCHS = 500
+    NUM_EPOCHS = 1000
     GRADIENT_CLIP = 1.0  # Enable gradient clipping for training stability
-    GRADIENT_ACCUMULATION_STEPS = 4  # Number of steps to accumulate gradients before optimizer step
+    GRADIENT_ACCUMULATION_STEPS = 8  # Number of steps to accumulate gradients before optimizer step
     GRADIENT_CHECKPOINTING = True  # Enable gradient checkpointing to reduce memory usage
     
     # Dynamic Learning Rate Scheduler Settings
-    USE_SCHEDULER = True  # Enable dynamic learning rate scheduling
+    USE_SCHEDULER = False  # Enable dynamic learning rate scheduling
     SCHEDULER_TYPE = "cosine_annealing_with_restarts"  # Options: "cosine_annealing", "cosine_annealing_with_restarts", "reduce_on_plateau", "exponential", "linear_warmup_cosine", "polynomial"
     
     # Cosine Annealing Settings
@@ -128,7 +133,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "text2sign_experiment_tinyfusion1"  # Name for this experiment
+    EXPERIMENT_NAME = "text2sign_vivit7"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
@@ -185,7 +190,7 @@ class Config:
 
     # Sampling settings
     NUM_SAMPLES = 2  # Number of samples to generate for logging
-    SAMPLE_GENERATION_TIMEOUT = 300  # Timeout for sample generation (seconds)
+    SAMPLE_GENERATION_TIMEOUT = 3000  # Timeout for sample generation (seconds)
     
     # TensorBoard writer settings
     TENSORBOARD_MAX_QUEUE = 100       # Maximum queue size for TensorBoard writer

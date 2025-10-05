@@ -707,5 +707,4 @@ def create_tinyfusion_model(**kwargs) -> TinyFusionVideoWrapper:
 
     return TinyFusionVideoWrapper(**kwargs)
 
-
 __all__ = ["TinyFusionConfig", "TinyFusionVideoWrapper", "create_tinyfusion_model"]

@@ -33,6 +33,9 @@ class DiffusionModel(nn.Module):
         noise_scheduler: str = "linear",
         device: torch.device = torch.device("cpu"),
         text_encoder=None,
+        use_timestep_weighting: bool = True,
+        weight_min_snr: float = 0.1,
+        weight_max_snr: float = 10.0,
         **scheduler_kwargs,
     ):
         super().__init__()
@@ -42,6 +45,9 @@ class DiffusionModel(nn.Module):
         self.device = device
         self.noise_scheduler_type = noise_scheduler
         self.text_encoder = text_encoder
+        self.use_timestep_weighting = use_timestep_weighting
+        self.weight_min_snr = weight_min_snr
+        self.weight_max_snr = weight_max_snr
         
         print(f"🔧 Initializing {noise_scheduler} noise scheduler...")
         self.noise_scheduler = create_noise_scheduler(noise_scheduler, timesteps, **scheduler_kwargs)
@@ -234,8 +240,8 @@ class DiffusionModel(nn.Module):
             device = self.device
 
         # Assert that text is provided if a text encoder exists
-        if self.text_encoder is not None:
-            assert text is not None, "Text prompt must be provided for a conditioned model"
+        if self.text_encoder is not None and text is None:
+            print("Warning: Text encoder exists but no text provided. Using unconditional sampling.")
 
         # Start with random noise (x_T ~ N(0, I))
         x = torch.randn(shape, device=device)
@@ -275,8 +281,11 @@ class DiffusionModel(nn.Module):
         deterministic_mode = deterministic or eta_value == 0.0
         total_steps = len(timesteps)
 
+        # Improve progress bar formatting
+        sampling_desc = f"Sampling ({'deterministic' if deterministic_mode else 'stochastic'}, eta={eta_value:.2f})"
+        
         # Reverse diffusion process using the selected timestep schedule
-        for idx, timestep in enumerate(tqdm(timesteps, desc="Sampling")):
+        for idx, timestep in enumerate(tqdm(timesteps, desc=sampling_desc, ncols=100)):
             t = torch.full((shape[0],), timestep.item(), device=device, dtype=torch.long)
             if idx + 1 < total_steps:
                 prev_timestep = timesteps[idx + 1].item()
@@ -286,11 +295,15 @@ class DiffusionModel(nn.Module):
 
             x = self.p_sample_step(x, t, prev_t, text, deterministic=deterministic_mode, eta=eta_value)
 
-            # Log sampling progress occasionally
-            if timestep.item() % 100 == 0 or idx < 5:
+            # Log sampling progress more strategically - beginning, end, and major steps
+            log_step = (idx == 0 or idx == total_steps-1 or  # First and last step
+                       (total_steps > 20 and idx % (total_steps // 10) == 0))  # ~10 updates for long runs
+                       
+            if log_step:
                 print(
-                    f"Sampling step t={timestep.item()} (idx {idx}/{total_steps-1}): "
-                    f"x range [{x.min().item():.3f}, {x.max().item():.3f}], mean={x.mean().item():.3f}"
+                    f"[{idx+1}/{total_steps}] Step t={timestep.item():4d}: "
+                    f"range [{x.min().item():.3f}, {x.max().item():.3f}], "
+                    f"mean={x.mean().item():.3f}, std={x.std().item():.3f}"
                 )
 
         # Clamp final sample to training data range [-1,1]
@@ -363,7 +376,24 @@ class DiffusionModel(nn.Module):
         predicted_noise = self.model(x_noisy, t, text_emb)        
         # Calculate denoising loss (MSE between predicted and actual noise)
         # This is the standard DDPM training objective: L = E[||ε - ε_θ(x_t, t)||²]
-        loss = F.mse_loss(predicted_noise, noise)
+        base_loss = F.mse_loss(predicted_noise, noise, reduction='none')
+        
+        # Apply timestep-aware loss weighting if enabled
+        if self.use_timestep_weighting:
+            # Low timesteps (cleaner images) are harder to denoise and need more emphasis
+            # Weight inversely proportional to SNR (Signal-to-Noise Ratio)
+            alpha_bar_t = self.alphas_cumprod[t].view(-1, *([1] * (base_loss.ndim - 1)))
+            snr = alpha_bar_t / (1.0 - alpha_bar_t + 1e-8)  # Signal-to-Noise Ratio
+            
+            # Compute loss weight: higher weight for low SNR (low timesteps)
+            loss_weight = 1.0 / torch.clamp(snr, min=self.weight_min_snr, max=self.weight_max_snr)
+            
+            # Apply weight and reduce
+            weighted_loss = base_loss * loss_weight
+            loss = weighted_loss.mean()
+        else:
+            # Standard unweighted loss
+            loss = base_loss.mean()
         
         return loss, predicted_noise, noise
 
@@ -431,6 +461,9 @@ def create_diffusion_model(config) -> DiffusionModel:
         noise_scheduler=config.NOISE_SCHEDULER,
         device=config.DEVICE,
         text_encoder=text_encoder,
+        use_timestep_weighting=getattr(config, 'USE_TIMESTEP_WEIGHTING', True),
+        weight_min_snr=getattr(config, 'TIMESTEP_WEIGHT_MIN_SNR', 0.1),
+        weight_max_snr=getattr(config, 'TIMESTEP_WEIGHT_MAX_SNR', 10.0),
         **scheduler_kwargs
     )
     

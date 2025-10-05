@@ -9,6 +9,9 @@ transformers>=4.20.0
 # HuggingFace model hub for pretrained DiT models
 huggingface_hub>=0.16.0
 safetensors>=0.3.0
+diffusers>=0.22.0
+accelerate>=0.20.0
+einops>=0.6.0
 
 # Data processing and visualization
 imageio>=2.28.0

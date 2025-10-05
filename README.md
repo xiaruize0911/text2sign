@@ -77,6 +77,9 @@ python main.py sample --checkpoint checkpoints/latest_checkpoint.pt --num_sample
 
 # Visualize model architecture
 python main.py visualize
+
+# Launch Tune-A-Video style fine-tuning (see section below)
+python -m tuneavideo_text2sign.training.train --data_root training_data
 ```
 
 ### Training
@@ -98,6 +101,38 @@ Monitor training with TensorBoard:
 ```bash
 tensorboard --logdir logs
 ```
+
+## Tune-A-Video Text2Sign
+
+We now provide a self-contained fork of the [Tune-A-Video](https://github.com/showlab/Tune-A-Video) pipeline adapted to the Text2Sign dataset. The code lives under `tuneavideo_text2sign/` and reuses the existing GIF/text pairs from `training_data/`.
+
+### Highlights
+
+- **Independent module** – mirrors Tune-A-Video's structure (`configs/`, `data/`, `models/`, `pipelines/`, `training/`, `utils/`).
+- **Shared dataset** – wraps `training_data/` through `SignTuneAVideoDataset`, reusing the same center-crop transform as the main project.
+- **Diffusers-based training loop** – loads Stable Diffusion 2.x components, inflates them to 3D, and fine-tunes with classifier-free guidance.
+- **Validation previews** – optional GIF grids saved to `logs/tuneavideo_text2sign/samples` during training.
+
+### Quickstart
+
+```bash
+# Install dependencies (diffusers, accelerate, einops were added to requirements.txt)
+pip install -r requirements.txt
+
+# Run fine-tuning with defaults targeting stabilityai/stable-diffusion-2-1-base
+python -m tuneavideo_text2sign.training.train \
+	--data_root training_data \
+	--output_dir checkpoints/tuneavideo_text2sign \
+	--logging_dir logs/tuneavideo_text2sign
+
+# Override any hyper-parameter, e.g. a different base model and batch size
+python -m tuneavideo_text2sign.training.train \
+	--pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+	--train_batch_size 2 \
+	--num_frames 28
+```
+
+Key arguments mirror the upstream repository. Run `python -m tuneavideo_text2sign.training.train --help` for the full list.
 
 ### Configuration
 

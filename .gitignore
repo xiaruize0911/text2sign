@@ -38,3 +38,8 @@ env/
 # Logs
 *.log
 training_data.zip
+
+#videoTuna
+
+/videoTuna
+/videotuna_integration

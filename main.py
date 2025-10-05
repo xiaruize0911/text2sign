@@ -47,8 +47,9 @@ def train_model(resume=False):
     """
     logger.info("Starting training...")
     
-    # Clean log directory
-    if Config.LOG_DIR and os.path.exists(Config.LOG_DIR):
+    # Clean log directory if not resuming
+    if not resume and Config.LOG_DIR and os.path.exists(Config.LOG_DIR):
+        logger.info(f"Cleaning previous log directory: {Config.LOG_DIR}")
         shutil.rmtree(Config.LOG_DIR)
     os.makedirs(Config.LOG_DIR, exist_ok=True)
     
@@ -63,6 +64,7 @@ def train_model(resume=False):
             logger.info(f"Resuming training from checkpoint: {latest_checkpoint}")
             try:
                 trainer.load_checkpoint("latest_checkpoint.pt")
+                logger.info(f"Resumed from epoch {trainer.epoch}, step {trainer.global_step}")
             except Exception as e:
                 logger.error(f"Failed to load checkpoint securely: {e}")
                 logger.warning("Starting fresh training.")
@@ -70,7 +72,21 @@ def train_model(resume=False):
             logger.warning(f"No checkpoint found at {latest_checkpoint}. Starting fresh training.")
     
     # Start training
+    logger.info(f"Starting training for {Config.NUM_EPOCHS} epochs...")
     trainer.train()
+    
+    # Log final summary
+    logger.info("Training complete!")
+    if hasattr(trainer, 'epoch_losses') and len(trainer.epoch_losses) > 0:
+        final_loss = trainer.epoch_losses[-1]
+        best_loss = min(trainer.epoch_losses)
+        best_epoch = trainer.epoch_losses.index(best_loss)
+        
+        logger.info(f"Final loss: {final_loss:.6f}")
+        logger.info(f"Best loss: {best_loss:.6f} (epoch {best_epoch})")
+        
+    logger.info(f"Model saved to: {Config.CHECKPOINT_DIR}")
+    logger.info(f"View training logs with: tensorboard --logdir {Config.LOG_DIR}")
 
 def list_checkpoints():
     """List available checkpoints with architecture detection"""
