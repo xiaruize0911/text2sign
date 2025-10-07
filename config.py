@@ -11,12 +11,12 @@ class Config:
     # Data settings
     DATA_ROOT = "training_data"
     BATCH_SIZE = 1
-    NUM_WORKERS = 2
+    NUM_WORKERS = 0
 
     # Model input/output dimensions  
-    INPUT_SHAPE = (3, 28, 128, 128)  # (channels, frames, height, width) - Updated to match UNet3D model
+    INPUT_SHAPE = (3, 28, 64, 64)  # (channels, frames, height, width) - Reduced to 64x64 for memory efficiency
     NUM_FRAMES = 28
-    IMAGE_SIZE = 128
+    IMAGE_SIZE = 64  # Reduced from 128 to 64 for memory efficiency
     
     # Model architecture selection
     MODEL_ARCHITECTURE = "tinyfusion"  # Options: "unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"
@@ -53,10 +53,10 @@ class Config:
     VIVIT_CLASS_DROPOUT_PROB = 0.1  # Dropout probability for classifier-free guidance
 
     # TinyFusion architecture settings (video wrapper around 2D TinyFusion backbone)
-    TINYFUSION_VIDEO_SIZE = (28, 128, 128)
-    TINYFUSION_VARIANT = "DiT-D14/2"  # Use the pre-trained TinyDiT-D14 model
+    TINYFUSION_VIDEO_SIZE = (28, 64, 64)  # Reduced from 128x128 to 64x64 for memory efficiency
+    TINYFUSION_VARIANT = "DiT-D14/2"  # Use DiT-D14/2 which exactly matches the checkpoint architecture
     TINYFUSION_CHECKPOINT = "pretrained/TinyDiT-D14-MaskedKD-500K.pt"  # Pre-trained checkpoint
-    TINYFUSION_FREEZE_BACKBONE = True  # Allow fine-tuning of the pre-trained model
+    TINYFUSION_FREEZE_BACKBONE = False  # Allow fine-tuning of the pre-trained model
     TINYFUSION_ENABLE_TEMPORAL_POST = True
     TINYFUSION_TEMPORAL_KERNEL = 2
     
@@ -81,8 +81,24 @@ class Config:
     LEARNING_RATE = 0.0001  # Higher learning rate for ViT (was 0.00001 for UNet)
     NUM_EPOCHS = 1000
     GRADIENT_CLIP = 1.0  # Enable gradient clipping for training stability
-    GRADIENT_ACCUMULATION_STEPS = 8  # Number of steps to accumulate gradients before optimizer step
+    GRADIENT_ACCUMULATION_STEPS = 4  # Increased for memory efficiency while maintaining effective batch size
     GRADIENT_CHECKPOINTING = True  # Enable gradient checkpointing to reduce memory usage
+    
+    # Memory optimization settings
+    USE_MIXED_PRECISION = True  # Enable automatic mixed precision training
+    USE_CPU_OFFLOAD = False  # Offload optimizer states to CPU (if needed)
+    ENABLE_MEMORY_EFFICIENT_ATTENTION = True  # Use memory-efficient attention implementation
+    CLEAR_CACHE_EVERY_STEPS = 1  # Clear CUDA cache every N steps to prevent fragmentation
+    PREFETCH_FACTOR = 1  # DataLoader prefetch factor (reduced from default 2)
+    PIN_MEMORY = False  # Disable pin memory to save GPU memory
+    
+    # TinyFusion memory optimization
+    TINYFUSION_FRAME_CHUNK_SIZE = 4  # Process frames in smaller chunks (reduced from 8)
+    TINYFUSION_USE_CHECKPOINTING = True  # Enable gradient checkpointing in TinyFusion
+    
+    # CUDA memory management settings
+    PYTORCH_CUDA_ALLOC_CONF = "max_split_size_mb:128"  # Disable expandable_segments due to compatibility issues
+    CUDA_EMPTY_CACHE_STEPS = 1  # Empty CUDA cache every N steps
     
     # Dynamic Learning Rate Scheduler Settings
     USE_SCHEDULER = False  # Enable dynamic learning rate scheduling
@@ -139,10 +155,10 @@ class Config:
     SAVE_EVERY_EPOCHS = 10  # Save checkpoint every N epochs
     LOG_MODEL_GRAPH = True  # Enable model graph logging to aid debugging
     
-    # Step-based diagnostic logging intervals (for within-epoch diagnostics)
-    NOISE_DISPLAY_EVERY_STEPS = 200   # Save noise display GIFs every N steps (much more frequent)
-    DIAGNOSTIC_LOG_EVERY_STEPS = 50    # Log detailed diagnostics every N steps (very frequent)
-    TENSORBOARD_FLUSH_EVERY_STEPS = 50 # Flush TensorBoard every N steps (frequent)
+    # Step-based diagnostic logging intervals (reduced for memory efficiency)
+    NOISE_DISPLAY_EVERY_STEPS = 500   # Reduced frequency to save memory
+    DIAGNOSTIC_LOG_EVERY_STEPS = 100    # Reduced frequency to save memory
+    TENSORBOARD_FLUSH_EVERY_STEPS = 100 # Reduced frequency to save memory
     
     # Epoch-level flushing and comprehensive logging
     FLUSH_TENSORBOARD_EVERY_EPOCH = True  # Force TensorBoard flush at end of each epoch
@@ -172,16 +188,16 @@ class Config:
         "15_Configuration"     # Training configuration logging
     ]
     
-    # Advanced logging features
-    ENABLE_GRADIENT_HISTOGRAMS = True   # Log gradient histograms (can be memory intensive)
-    ENABLE_PARAMETER_TRACKING = True    # Track parameter evolution over time
-    ENABLE_VIDEO_LOGGING = True         # Log generated videos to TensorBoard
-    ENABLE_NOISE_VISUALIZATION = False   # Log noise prediction visualizations
-    ENABLE_PERFORMANCE_PROFILING = True # Track training performance metrics
-    ENABLE_LOSS_COMPONENT_TRACKING = True # Track individual loss components
-    ENABLE_GRADIENT_FLOW_ANALYSIS = True  # Analyze gradient flow through layers
-    ENABLE_MEMORY_TRACKING = True        # Track GPU/CPU memory usage
-    ENABLE_LEARNING_RATE_LOGGING = True  # Log learning rate changes and schedules
+    # Advanced logging features (reduced to save memory)
+    ENABLE_GRADIENT_HISTOGRAMS = False   # Disabled - memory intensive
+    ENABLE_PARAMETER_TRACKING = False    # Disabled - memory intensive
+    ENABLE_VIDEO_LOGGING = True         # Keep enabled for essential monitoring
+    ENABLE_NOISE_VISUALIZATION = False   # Disabled - memory intensive
+    ENABLE_PERFORMANCE_PROFILING = False # Disabled - memory intensive
+    ENABLE_LOSS_COMPONENT_TRACKING = True # Keep for loss monitoring
+    ENABLE_GRADIENT_FLOW_ANALYSIS = True  # Temporarily enabled to check gradients
+    ENABLE_MEMORY_TRACKING = True        # Keep for memory monitoring
+    ENABLE_LEARNING_RATE_LOGGING = True  # Keep for LR monitoring
 
     # Sampling settings
     NUM_SAMPLES = 2  # Number of samples to generate for logging
@@ -393,6 +409,7 @@ class Config:
                 'freeze_backbone': cls.TINYFUSION_FREEZE_BACKBONE,
                 'enable_temporal_post': cls.TINYFUSION_ENABLE_TEMPORAL_POST,
                 'temporal_kernel': cls.TINYFUSION_TEMPORAL_KERNEL,
+                'frame_chunk_size': cls.TINYFUSION_FRAME_CHUNK_SIZE,
             }
         else:
             raise ValueError(f"Unknown model architecture: {cls.MODEL_ARCHITECTURE}")

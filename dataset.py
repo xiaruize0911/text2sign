@@ -205,14 +205,26 @@ def create_dataloader(data_root: str, batch_size: int, num_workers: int = 2, shu
     if shuffle:
         # Use a configurable seed for shuffling to ensure reproducibility
         torch.manual_seed(42)  # TODO: Make this configurable via Config
-    dataloader = DataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=True if torch.cuda.is_available() else False,
-        drop_last=True  # Drop last incomplete batch
-    )
+    # Memory-efficient dataloader settings
+    pin_memory = getattr(Config, 'PIN_MEMORY', False)  # Configurable pin memory
+    prefetch_factor = getattr(Config, 'PREFETCH_FACTOR', 1)  # Reduced prefetch factor
+    
+    # Configure DataLoader parameters based on multiprocessing usage
+    dataloader_kwargs = {
+        'dataset': dataset,
+        'batch_size': batch_size,
+        'shuffle': shuffle,
+        'num_workers': num_workers,
+        'pin_memory': pin_memory,
+        'drop_last': True,  # Drop last incomplete batch
+    }
+    
+    # Only add multiprocessing-specific parameters when num_workers > 0
+    if num_workers > 0:
+        dataloader_kwargs['prefetch_factor'] = prefetch_factor
+        dataloader_kwargs['persistent_workers'] = True
+    
+    dataloader = DataLoader(**dataloader_kwargs)
     
     return dataloader
 

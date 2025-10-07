@@ -66,8 +66,8 @@ class Trainer:
         self.scheduler = scheduler
         self.device = config.DEVICE
         
-        # Initialize AMP scaler if using AMP and CUDA is available
-        self.use_amp = getattr(config, 'USE_AMP', False) and torch.cuda.is_available()
+        # Initialize AMP scaler if using mixed precision training
+        self.use_amp = getattr(config, 'USE_MIXED_PRECISION', False) and (torch.cuda.is_available() or (hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()))
         self.scaler = GradScaler() if self.use_amp else None
         self.amp_dtype = torch.float16 if self.use_amp else torch.float32
         
@@ -556,7 +556,12 @@ class Trainer:
             if self.accumulation_step == 0:
                 self.optimizer.zero_grad()
             
-            loss, predicted_noise, noise = self.model(videos, texts)
+            # Forward pass with mixed precision
+            if self.use_amp:
+                with autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
+                    loss, predicted_noise, noise = self.model(videos, texts)
+            else:
+                loss, predicted_noise, noise = self.model(videos, texts)
             
             # Scale loss by accumulation steps for correct gradients
             scaled_loss = loss / self.config.GRADIENT_ACCUMULATION_STEPS
@@ -643,6 +648,16 @@ class Trainer:
                 'acc': f"{self.accumulation_step}/{self.config.GRADIENT_ACCUMULATION_STEPS}",
                 'eff_bs': effective_batch_size
             })
+            
+            # Memory management - clear cache frequently to prevent fragmentation
+            if hasattr(self.config, 'CLEAR_CACHE_EVERY_STEPS') and self.global_step % self.config.CLEAR_CACHE_EVERY_STEPS == 0:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                    try:
+                        torch.mps.empty_cache()
+                    except:
+                        pass
             
             # Basic scalar logging every few steps for immediate feedback
             if self.global_step % 5 == 0:  # Log basic metrics every 5 steps

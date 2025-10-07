@@ -21,6 +21,9 @@ os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 # Reduce HuggingFace logging
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
+# CUDA memory management optimizations
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

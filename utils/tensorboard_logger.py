@@ -264,22 +264,26 @@ class TensorBoardLogger:
         self.writer.add_scalar('08_Model_Architecture/Parameter_Efficiency', 
                               trainable_params / total_params, epoch)
         
-        # Layer-wise parameter analysis
-        for name, param in model.named_parameters():
-            if param.requires_grad:
-                # Clean parameter name for TensorBoard
-                clean_name = name.replace('.', '/')
-                param_norm = param.norm().item()
-                param_mean = param.mean().item()
-                param_std = param.std().item()
-                
-                self.writer.add_scalar(f'09_Parameter_Stats/{clean_name}/Norm', param_norm, epoch)
-                self.writer.add_scalar(f'09_Parameter_Stats/{clean_name}/Mean', param_mean, epoch)
-                self.writer.add_scalar(f'09_Parameter_Stats/{clean_name}/Std', param_std, epoch)
-                
-                # Add parameter histograms periodically
-                if epoch % 10 == 0:  # Every 10 epochs
-                    self.writer.add_histogram(f'10_Parameter_Histograms/{clean_name}', param, epoch)
+        # Layer-wise parameter analysis (only if parameter tracking is enabled)
+        enable_param_tracking = getattr(self.config, 'ENABLE_PARAMETER_TRACKING', False)
+        enable_gradient_histograms = getattr(self.config, 'ENABLE_GRADIENT_HISTOGRAMS', False)
+        
+        if enable_param_tracking:
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    # Clean parameter name for TensorBoard
+                    clean_name = name.replace('.', '/')
+                    param_norm = param.norm().item()
+                    param_mean = param.mean().item()
+                    param_std = param.std().item()
+                    
+                    self.writer.add_scalar(f'09_Parameter_Stats/{clean_name}/Norm', param_norm, epoch)
+                    self.writer.add_scalar(f'09_Parameter_Stats/{clean_name}/Mean', param_mean, epoch)
+                    self.writer.add_scalar(f'09_Parameter_Stats/{clean_name}/Std', param_std, epoch)
+                    
+                    # Add parameter histograms periodically (only if enabled)
+                    if enable_gradient_histograms and epoch % 10 == 0:  # Every 10 epochs
+                        self.writer.add_histogram(f'10_Parameter_Histograms/{clean_name}', param, epoch)
     
     def log_gradient_statistics(self, model: torch.nn.Module, step: int):
         """
@@ -289,6 +293,12 @@ class TensorBoardLogger:
             model: PyTorch model
             step: Current global step
         """
+        # Only log gradient statistics if gradient flow analysis is enabled
+        enable_gradient_flow = getattr(self.config, 'ENABLE_GRADIENT_FLOW_ANALYSIS', False)
+        
+        if not enable_gradient_flow:
+            return
+        
         total_norm = 0.0
         param_count = 0
         

@@ -76,7 +76,7 @@ class TinyFusionConfig:
     video_size: Tuple[int, int, int] = (28, 128, 128)  # (frames, height, width)
     in_channels: int = 3
     out_channels: int = 3
-    variant: str = "tinyfusion_mini"
+    variant: str = "DiT-S/2"
     checkpoint_path: Optional[str] = None
     freeze_backbone: bool = True
     enable_temporal_post: bool = True
