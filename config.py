@@ -19,7 +19,7 @@ class Config:
     IMAGE_SIZE = 128
     
     # Model architecture selection
-    MODEL_ARCHITECTURE = "vivit"  # Options: "unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"
+    MODEL_ARCHITECTURE = "tinyfusion"  # Options: "unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"
     
     # UNet3D architecture settings
     UNET_DIM = 16
@@ -56,7 +56,7 @@ class Config:
     TINYFUSION_VIDEO_SIZE = (28, 128, 128)
     TINYFUSION_VARIANT = "DiT-D14/2"  # Use the pre-trained TinyDiT-D14 model
     TINYFUSION_CHECKPOINT = "pretrained/TinyDiT-D14-MaskedKD-500K.pt"  # Pre-trained checkpoint
-    TINYFUSION_FREEZE_BACKBONE = False  # Allow fine-tuning of the pre-trained model
+    TINYFUSION_FREEZE_BACKBONE = True  # Allow fine-tuning of the pre-trained model
     TINYFUSION_ENABLE_TEMPORAL_POST = True
     TINYFUSION_TEMPORAL_KERNEL = 2
     
@@ -71,11 +71,6 @@ class Config:
     INFERENCE_TIMESTEPS = 50  # Reduced timesteps for faster sampling (20x speedup)
     BETA_START = 0.01  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
-    
-    # Loss weighting settings
-    USE_TIMESTEP_WEIGHTING = True  # Use timestep-aware loss weighting to improve low-timestep performance
-    TIMESTEP_WEIGHT_MIN_SNR = 0.1  # Minimum SNR for loss weighting
-    TIMESTEP_WEIGHT_MAX_SNR = 10.0  # Maximum SNR for loss weighting
     
     # Noise scheduler settings
     NOISE_SCHEDULER = "cosine"  # Options: "linear", "cosine", "quadratic", "sigmoid"
@@ -133,7 +128,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "text2sign_vivit7"  # Name for this experiment
+    EXPERIMENT_NAME = "tinyfusion_test_1"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples

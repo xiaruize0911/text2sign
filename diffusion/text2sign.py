@@ -33,9 +33,6 @@ class DiffusionModel(nn.Module):
         noise_scheduler: str = "linear",
         device: torch.device = torch.device("cpu"),
         text_encoder=None,
-        use_timestep_weighting: bool = True,
-        weight_min_snr: float = 0.1,
-        weight_max_snr: float = 10.0,
         **scheduler_kwargs,
     ):
         super().__init__()
@@ -45,9 +42,6 @@ class DiffusionModel(nn.Module):
         self.device = device
         self.noise_scheduler_type = noise_scheduler
         self.text_encoder = text_encoder
-        self.use_timestep_weighting = use_timestep_weighting
-        self.weight_min_snr = weight_min_snr
-        self.weight_max_snr = weight_max_snr
         
         print(f"🔧 Initializing {noise_scheduler} noise scheduler...")
         self.noise_scheduler = create_noise_scheduler(noise_scheduler, timesteps, **scheduler_kwargs)
@@ -376,24 +370,7 @@ class DiffusionModel(nn.Module):
         predicted_noise = self.model(x_noisy, t, text_emb)        
         # Calculate denoising loss (MSE between predicted and actual noise)
         # This is the standard DDPM training objective: L = E[||ε - ε_θ(x_t, t)||²]
-        base_loss = F.mse_loss(predicted_noise, noise, reduction='none')
-        
-        # Apply timestep-aware loss weighting if enabled
-        if self.use_timestep_weighting:
-            # Low timesteps (cleaner images) are harder to denoise and need more emphasis
-            # Weight inversely proportional to SNR (Signal-to-Noise Ratio)
-            alpha_bar_t = self.alphas_cumprod[t].view(-1, *([1] * (base_loss.ndim - 1)))
-            snr = alpha_bar_t / (1.0 - alpha_bar_t + 1e-8)  # Signal-to-Noise Ratio
-            
-            # Compute loss weight: higher weight for low SNR (low timesteps)
-            loss_weight = 1.0 / torch.clamp(snr, min=self.weight_min_snr, max=self.weight_max_snr)
-            
-            # Apply weight and reduce
-            weighted_loss = base_loss * loss_weight
-            loss = weighted_loss.mean()
-        else:
-            # Standard unweighted loss
-            loss = base_loss.mean()
+        loss = F.mse_loss(predicted_noise, noise)
         
         return loss, predicted_noise, noise
 
@@ -461,9 +438,6 @@ def create_diffusion_model(config) -> DiffusionModel:
         noise_scheduler=config.NOISE_SCHEDULER,
         device=config.DEVICE,
         text_encoder=text_encoder,
-        use_timestep_weighting=getattr(config, 'USE_TIMESTEP_WEIGHTING', True),
-        weight_min_snr=getattr(config, 'TIMESTEP_WEIGHT_MIN_SNR', 0.1),
-        weight_max_snr=getattr(config, 'TIMESTEP_WEIGHT_MAX_SNR', 10.0),
         **scheduler_kwargs
     )
     

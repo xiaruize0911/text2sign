@@ -11,203 +11,62 @@ from __future__ import annotations
 
 import os
 import sys
-import math
 from dataclasses import dataclass
 from typing import Optional, Tuple
-from config import Config
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 
-# Try to import from external TinyFusion if available
+# Require TinyFusion to be available from the external implementation
+external_tinyfusion_path = os.path.join(
+    os.path.dirname(__file__), '../../external/TinyFusion'
+)
+
+if not os.path.isdir(external_tinyfusion_path):
+    raise ImportError(
+        "TinyFusion external directory not found. Make sure `external/TinyFusion` "
+        "is present and initialized."
+    )
+
+if external_tinyfusion_path not in sys.path:
+    sys.path.insert(0, external_tinyfusion_path)
+
+existing_models_module = sys.modules.get("models")
+restore_local_models = False
+
+if existing_models_module is not None:
+    existing_path = getattr(existing_models_module, "__file__", None)
+    project_models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+    if existing_path is None:
+        restore_local_models = True
+    else:
+        try:
+            if os.path.commonpath([
+                project_models_dir,
+                os.path.abspath(existing_path),
+            ]) == project_models_dir:
+                restore_local_models = True
+        except ValueError:
+            pass
+
+    if restore_local_models:
+        del sys.modules["models"]
+
 try:
-    # Add the external TinyFusion path to sys.path
-    external_tinyfusion_path = os.path.join(os.path.dirname(__file__), '../../external/TinyFusion')
-    if os.path.exists(external_tinyfusion_path) and external_tinyfusion_path not in sys.path:
-        sys.path.insert(0, external_tinyfusion_path)
-    
     from models import DiT_models as DiTConfigs
     from models import DiT
     print("Successfully imported TinyFusion models from external directory")
-    
-except ImportError:
-    print("Could not import TinyFusion models, using fallback implementation")
-    
-    # Fallback DiT implementation
-    class DiT(nn.Module):
-        """Fallback DiT implementation for TinyFusion compatibility"""
-        def __init__(
-            self,
-            input_size=32,
-            patch_size=2,
-            in_channels=4,
-            hidden_size=1152,
-            depth=28,
-            num_heads=16,
-            mlp_ratio=4.0,
-            num_classes=1000,
-            learn_sigma=True,
-        ):
-            super().__init__()
-            self.input_size = input_size
-            self.patch_size = patch_size
-            self.in_channels = in_channels
-            self.out_channels = in_channels * 2 if learn_sigma else in_channels
-            self.num_heads = num_heads
-
-            # Patch embedding
-            self.x_embedder = nn.Conv2d(in_channels, hidden_size, kernel_size=patch_size, stride=patch_size, bias=True)
-            
-            # Positional embedding (fixed size, will be interpolated as needed)
-            self.base_input_size = input_size
-            num_patches = (input_size // patch_size) ** 2
-            self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, hidden_size), requires_grad=False)
-            
-            # Time embedding
-            self.t_embedder = nn.Sequential(
-                nn.Linear(hidden_size, hidden_size),
-                nn.SiLU(),
-                nn.Linear(hidden_size, hidden_size),
-            )
-            
-            # Class embedding
-            self.y_embedder = nn.Embedding(num_classes, hidden_size)
-            
-            # Transformer blocks
-            self.blocks = nn.ModuleList([
-                nn.TransformerEncoderLayer(
-                    d_model=hidden_size,
-                    nhead=num_heads,
-                    dim_feedforward=int(hidden_size * mlp_ratio),
-                    dropout=0.0,
-                    activation="gelu",
-                    batch_first=True,
-                ) for _ in range(depth)
-            ])
-            
-            # Final layer
-            self.final_layer = nn.Sequential(
-                nn.LayerNorm(hidden_size),
-                nn.Linear(hidden_size, patch_size * patch_size * self.out_channels, bias=True)
-            )
-            
-            self.initialize_weights()
-
-        def initialize_weights(self):
-            """Initialize weights"""
-            # Initialize positional embedding
-            torch.nn.init.normal_(self.pos_embed, std=0.02)
-            
-            # Initialize patch embedding like nn.Linear (instead of nn.Conv2d)
-            w = self.x_embedder.weight.data
-            torch.nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
-            torch.nn.init.constant_(self.x_embedder.bias, 0)
-
-        def get_positional_embedding(self, H, W):
-            """Get positional embedding interpolated to match input size"""
-            target_patches = (H // self.patch_size) * (W // self.patch_size)
-            
-            if target_patches == self.pos_embed.shape[1]:
-                return self.pos_embed
-            
-            # Need to interpolate positional embedding
-            pos_embed = self.pos_embed
-            
-            # Reshape to 2D grid
-            base_size = int(self.pos_embed.shape[1] ** 0.5)
-            pos_embed_2d = pos_embed.reshape(1, base_size, base_size, -1).permute(0, 3, 1, 2)
-            
-            # Interpolate to target size
-            target_h = H // self.patch_size
-            target_w = W // self.patch_size
-            pos_embed_resized = F.interpolate(
-                pos_embed_2d, 
-                size=(target_h, target_w), 
-                mode='bilinear', 
-                align_corners=False
-            )
-            
-            # Reshape back to sequence format
-            pos_embed_resized = pos_embed_resized.permute(0, 2, 3, 1).reshape(1, target_patches, -1)
-            
-            return pos_embed_resized
-
-        def forward(self, x, t, y):
-            """
-            Forward pass of DiT.
-            x: (N, C, H, W) tensor of spatial inputs (images or latents)
-            t: (N,) tensor of diffusion timesteps
-            y: (N,) tensor of class labels
-            """
-            H_in, W_in = x.shape[-2:]
-            # Patch embedding
-            x = self.x_embedder(x)  # (N, hidden_size, H/patch_size, W/patch_size)
-            N, C, H, W = x.shape
-            x = x.flatten(2).transpose(1, 2)  # (N, num_patches, hidden_size)
-            
-            # Add positional embedding (dynamically sized)
-            pos_embed = self.get_positional_embedding(H_in, W_in)
-            x = x + pos_embed
-            
-            # Get hidden_size from the module shapes
-            hidden_size = self.x_embedder.weight.shape[0]  # This is equivalent to hidden_size
-            
-            # Time embedding
-            t_emb = self.t_embedder(timestep_embedding(t, hidden_size))
-            t_emb = t_emb.unsqueeze(1)  # (N, 1, hidden_size)
-            
-            # Class embedding
-            y_emb = self.y_embedder(y).unsqueeze(1)  # (N, 1, hidden_size)
-            
-            # Add conditioning
-            x = x + t_emb + y_emb
-            
-            # Transformer blocks
-            for block in self.blocks:
-                x = block(x)
-            
-            # Final layer
-            x = self.final_layer(x)  # (N, num_patches, patch_size^2 * out_channels)
-            
-            # Reshape to image format
-            p = self.patch_size
-            x = x.reshape(x.shape[0], H, W, p, p, self.out_channels)
-            x = x.permute(0, 5, 1, 3, 2, 4).contiguous()
-            x = x.reshape(x.shape[0], self.out_channels, H * p, W * p)
-            
-            return x
-
-    def timestep_embedding(timesteps, dim, max_period=10000):
-        """Create sinusoidal timestep embeddings."""
-        half = dim // 2
-        freqs = torch.exp(
-            -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
-        ).to(device=timesteps.device)
-        args = timesteps[:, None].float() * freqs[None]
-        embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
-        if dim % 2:
-            embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
-        return embedding
-
-    # DiT model configurations as a function that returns the appropriate DiT model
-    DiTConfigs = {
-        "DiT-XL/2": lambda **kwargs: DiT(depth=28, hidden_size=1152, patch_size=2, num_heads=16, **kwargs),
-        "DiT-XL/4": lambda **kwargs: DiT(depth=28, hidden_size=1152, patch_size=4, num_heads=16, **kwargs),
-        "DiT-XL/8": lambda **kwargs: DiT(depth=28, hidden_size=1152, patch_size=8, num_heads=16, **kwargs),
-        "DiT-L/2": lambda **kwargs: DiT(depth=24, hidden_size=1024, patch_size=2, num_heads=16, **kwargs),
-        "DiT-L/4": lambda **kwargs: DiT(depth=24, hidden_size=1024, patch_size=4, num_heads=16, **kwargs),
-        "DiT-L/8": lambda **kwargs: DiT(depth=24, hidden_size=1024, patch_size=8, num_heads=16, **kwargs),
-        "DiT-B/2": lambda **kwargs: DiT(depth=12, hidden_size=768, patch_size=2, num_heads=12, **kwargs),
-        "DiT-B/4": lambda **kwargs: DiT(depth=12, hidden_size=768, patch_size=4, num_heads=12, **kwargs),
-        "DiT-B/8": lambda **kwargs: DiT(depth=12, hidden_size=768, patch_size=8, num_heads=12, **kwargs),
-        "DiT-S/2": lambda **kwargs: DiT(depth=12, hidden_size=384, patch_size=2, num_heads=6, **kwargs),
-        "DiT-S/4": lambda **kwargs: DiT(depth=12, hidden_size=384, patch_size=4, num_heads=6, **kwargs),
-        "DiT-S/8": lambda **kwargs: DiT(depth=12, hidden_size=384, patch_size=8, num_heads=6, **kwargs),
-        "DiT-D14/2": lambda **kwargs: DiT(depth=14, hidden_size=384, patch_size=2, num_heads=6, **kwargs),
-        "tinyfusion_mini": lambda **kwargs: DiT(depth=8, hidden_size=256, patch_size=4, num_heads=4, **kwargs),
-    }
+except ImportError as err:
+    raise ImportError(
+        "Failed to import TinyFusion models from the external implementation. "
+        "Ensure TinyFusion is installed or the submodule is initialized."
+    ) from err
+finally:
+    if restore_local_models:
+        sys.modules["models"] = existing_models_module
 
 
 @dataclass
@@ -240,12 +99,14 @@ class TemporalPostProcessor(nn.Module):
 
     def __init__(self, channels: int, kernel_size: int = 3):
         super().__init__()
-        padding = kernel_size // 2
+        # Use 'same' padding mode to ensure output has same temporal dimension as input
+        # This prevents shape mismatches when using even kernel sizes (e.g., kernel_size=2)
+        self.kernel_size = kernel_size
         self.conv = nn.Conv3d(
             channels,
             channels,
             kernel_size=(kernel_size, 1, 1),
-            padding=(padding, 0, 0),
+            padding='same',  # Automatically handles padding to maintain shape
             bias=False,
         )
         nn.init.dirac_(self.conv.weight)
@@ -263,187 +124,7 @@ class TinyFusionVideoWrapper(nn.Module):
         in_channels: int = 3,
         out_channels: int = 3,
         text_dim: Optional[int] = None,
-        variant: str = "tinyfusion_mini",
-        checkpoint_path: Optional[str] = None,
-        freeze_backbone: bool = True,
-        enable_temporal_post: bool = True,
-        temporal_kernel: int = 3,
-        frame_chunk_size: int = 8,  # Add chunking parameter
-    ) -> None:
-        super().__init__()
-        self.video_size = video_size
-        self.frames, self.height, self.width = video_size
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.text_dim = text_dim
-        self.variant = variant
-        self.checkpoint_path = checkpoint_path
-        self.frame_chunk_size = frame_chunk_size
-
-        self.backbone = self._load_pretrained_backbone(variant, checkpoint_path)
-        if freeze_backbone:
-            for param in self.backbone.parameters():
-                param.requires_grad = False
-
-        # TinyFusion is unconditional; keep interface but ignore text embeddings.
-        self.text_conditioner = IdentityConditioner(text_dim or 0)
-
-        self.temporal_post = (
-            TemporalPostProcessor(out_channels, temporal_kernel)
-            if enable_temporal_post
-            else nn.Identity()
-        )
-
-    def _load_pretrained_backbone(self, variant: str, checkpoint_path: str) -> nn.Module:
-        """Load pretrained TinyFusion backbone with careful state dict handling"""
-        print(f"Loading TinyFusion backbone: {variant}")
-        
-        # Create model with our target configuration
-        if variant in DiTConfigs:
-            # Call the lambda function to create the model
-            backbone = DiTConfigs[variant](
-                input_size=self.height,  # Use actual input size
-                in_channels=self.in_channels,
-                num_classes=1000,  # Standard ImageNet classes
-            )
-        else:
-            print(f"Unknown variant {variant}, using default DiT-B/4")
-            backbone = DiTConfigs["DiT-B/4"](
-                input_size=self.height,
-                in_channels=self.in_channels,
-                num_classes=1000,
-            )
-
-        def forward(self, x, t, y):
-            """
-            Forward pass of DiT.
-            x: (N, C, H, W) tensor of spatial inputs (images or latents)
-            t: (N,) tensor of diffusion timesteps
-            y: (N,) tensor of class labels
-            """
-            H_in, W_in = x.shape[-2:]
-            # Patch embedding
-            x = self.x_embedder(x)  # (N, hidden_size, H/patch_size, W/patch_size)
-            N, C, H, W = x.shape
-            x = x.flatten(2).transpose(1, 2)  # (N, num_patches, hidden_size)
-            
-            # Add positional embedding (dynamically sized)
-            pos_embed = self.get_positional_embedding(H_in, W_in)
-            x = x + pos_embed
-            
-            # Get hidden_size from the module shapes
-            hidden_size = self.x_embedder.weight.shape[0]  # This is equivalent to hidden_size
-            
-            # Time embedding
-            t_emb = self.t_embedder(timestep_embedding(t, hidden_size))
-            t_emb = t_emb.unsqueeze(1)  # (N, 1, hidden_size)
-            
-            # Class embedding
-            y_emb = self.y_embedder(y).unsqueeze(1)  # (N, 1, hidden_size)
-            
-            # Add conditioning
-            x = x + t_emb + y_emb
-            
-            # Transformer blocks
-            for block in self.blocks:
-                x = block(x)
-            
-            # Final layer
-            x = self.final_layer(x)  # (N, num_patches, patch_size^2 * out_channels)
-            
-            # Reshape to image format
-            p = self.patch_size
-            x = x.reshape(x.shape[0], H, W, p, p, self.out_channels)
-            x = x.permute(0, 5, 1, 3, 2, 4).contiguous()
-            x = x.reshape(x.shape[0], self.out_channels, H * p, W * p)
-            
-            return x
-
-    def timestep_embedding(timesteps, dim, max_period=10000):
-        """Create sinusoidal timestep embeddings."""
-        half = dim // 2
-        freqs = torch.exp(
-            -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
-        ).to(device=timesteps.device)
-        args = timesteps[:, None].float() * freqs[None]
-        embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
-        if dim % 2:
-            embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
-        return embedding
-
-    # DiT model configurations as a function that returns the appropriate DiT model
-    DiTConfigs = {
-        "DiT-XL/2": lambda **kwargs: DiT(depth=28, hidden_size=1152, patch_size=2, num_heads=16, **kwargs),
-        "DiT-XL/4": lambda **kwargs: DiT(depth=28, hidden_size=1152, patch_size=4, num_heads=16, **kwargs),
-        "DiT-XL/8": lambda **kwargs: DiT(depth=28, hidden_size=1152, patch_size=8, num_heads=16, **kwargs),
-        "DiT-L/2": lambda **kwargs: DiT(depth=24, hidden_size=1024, patch_size=2, num_heads=16, **kwargs),
-        "DiT-L/4": lambda **kwargs: DiT(depth=24, hidden_size=1024, patch_size=4, num_heads=16, **kwargs),
-        "DiT-L/8": lambda **kwargs: DiT(depth=24, hidden_size=1024, patch_size=8, num_heads=16, **kwargs),
-        "DiT-B/2": lambda **kwargs: DiT(depth=12, hidden_size=768, patch_size=2, num_heads=12, **kwargs),
-        "DiT-B/4": lambda **kwargs: DiT(depth=12, hidden_size=768, patch_size=4, num_heads=12, **kwargs),
-        "DiT-B/8": lambda **kwargs: DiT(depth=12, hidden_size=768, patch_size=8, num_heads=12, **kwargs),
-        "DiT-S/2": lambda **kwargs: DiT(depth=12, hidden_size=384, patch_size=2, num_heads=6, **kwargs),
-        "DiT-S/4": lambda **kwargs: DiT(depth=12, hidden_size=384, patch_size=4, num_heads=6, **kwargs),
-        "DiT-S/8": lambda **kwargs: DiT(depth=12, hidden_size=384, patch_size=8, num_heads=6, **kwargs),
-        "DiT-D14/2": lambda **kwargs: DiT(depth=14, hidden_size=384, patch_size=2, num_heads=6, **kwargs),
-        "tinyfusion_mini": lambda **kwargs: DiT(depth=8, hidden_size=256, patch_size=4, num_heads=4, **kwargs),
-    }
-
-
-@dataclass
-class TinyFusionConfig:
-    """Configuration parameters for the TinyFusion video wrapper."""
-
-    video_size: Tuple[int, int, int] = (28, 128, 128)  # (frames, height, width)
-    in_channels: int = 3
-    out_channels: int = 3
-    variant: str = "tinyfusion_mini"
-    checkpoint_path: Optional[str] = None
-    freeze_backbone: bool = True
-    enable_temporal_post: bool = True
-    temporal_kernel: int = 3
-
-
-class IdentityConditioner(nn.Module):
-    """Fallback layer when the backbone is unconditional."""
-
-    def __init__(self, cond_dim: int):
-        super().__init__()
-        self.cond_dim = cond_dim
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x
-
-
-class TemporalPostProcessor(nn.Module):
-    """Simple temporal smoothing module applied after per-frame inference."""
-
-    def __init__(self, channels: int, kernel_size: int = 3):
-        super().__init__()
-        padding = kernel_size // 2
-        self.conv = nn.Conv3d(
-            channels,
-            channels,
-            kernel_size=(kernel_size, 1, 1),
-            padding=(padding, 0, 0),
-            bias=False,
-        )
-        nn.init.dirac_(self.conv.weight)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.conv(x)
-
-
-class TinyFusionVideoWrapper(nn.Module):
-    """Video diffusion wrapper around TinyFusion 2D UNet backbones."""
-
-    def __init__(
-        self,
-        video_size: Tuple[int, int, int] = (28, 128, 128),
-        in_channels: int = 3,
-        out_channels: int = 3,
-        text_dim: Optional[int] = None,
-        variant: str = "tinyfusion_mini",
+        variant: str = "DiT-D14/2",
         checkpoint_path: Optional[str] = None,
         freeze_backbone: bool = True,
         enable_temporal_post: bool = True,
@@ -543,34 +224,116 @@ class TinyFusionVideoWrapper(nn.Module):
                             
                             elif key == 'pos_embed':
                                 # Positional embedding size mismatch
+                                # Handle both sequence length and hidden dimension mismatches
                                 if len(checkpoint_shape) == 3 and len(model_shape) == 3:
                                     checkpoint_seq_len = checkpoint_shape[1]
+                                    checkpoint_hidden = checkpoint_shape[2]
                                     model_seq_len = model_shape[1]
+                                    model_hidden = model_shape[2]
                                     
+                                    adapted_embed = value
+                                    
+                                    # Step 1: Handle sequence length mismatch
                                     if checkpoint_seq_len < model_seq_len:
-                                        # Pad with zeros
+                                        # Pad sequence length with zeros
                                         pad_size = model_seq_len - checkpoint_seq_len
-                                        padded = torch.cat([
-                                            value,
-                                            torch.zeros(checkpoint_shape[0], pad_size, checkpoint_shape[2])
+                                        adapted_embed = torch.cat([
+                                            adapted_embed,
+                                            torch.zeros(checkpoint_shape[0], pad_size, checkpoint_hidden)
                                         ], dim=1)
-                                        adapted_state[key] = padded
-                                        print(f"Adapted {key}: {checkpoint_shape} -> {model_shape} (padded)")
                                     elif checkpoint_seq_len > model_seq_len:
-                                        # Truncate
-                                        adapted_state[key] = value[:, :model_seq_len, :].clone()
-                                        print(f"Adapted {key}: {checkpoint_shape} -> {model_shape} (truncated)")
-                                    else:
-                                        skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
+                                        # Truncate sequence length
+                                        adapted_embed = adapted_embed[:, :model_seq_len, :]
+                                    
+                                    # Step 2: Handle hidden dimension mismatch
+                                    if checkpoint_hidden < model_hidden:
+                                        # Pad hidden dimension with zeros
+                                        pad_size = model_hidden - checkpoint_hidden
+                                        adapted_embed = torch.cat([
+                                            adapted_embed,
+                                            torch.zeros(adapted_embed.shape[0], adapted_embed.shape[1], pad_size)
+                                        ], dim=2)
+                                    elif checkpoint_hidden > model_hidden:
+                                        # Truncate hidden dimension
+                                        adapted_embed = adapted_embed[:, :, :model_hidden]
+                                    
+                                    adapted_state[key] = adapted_embed
+                                    print(f"Adapted {key}: {checkpoint_shape} -> {adapted_embed.shape} -> {model_shape}")
                                 else:
                                     skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
                             
                             elif key == 'y_embedder.weight':
                                 # Class embedding mismatch (1001 vs 1000 classes)
-                                if checkpoint_shape[0] > model_shape[0]:
-                                    # Truncate extra classes
-                                    adapted_state[key] = value[:model_shape[0], :].clone()
-                                    print(f"Adapted {key}: {checkpoint_shape} -> {model_shape} (truncated classes)")
+                                if len(checkpoint_shape) == 2 and len(model_shape) == 2:
+                                    # Handle both dimensions for embedding weights
+                                    adapted_weight = value
+                                    
+                                    # Handle num_embeddings (dimension 0)
+                                    if checkpoint_shape[0] > model_shape[0]:
+                                        adapted_weight = adapted_weight[:model_shape[0], :]
+                                    elif checkpoint_shape[0] < model_shape[0]:
+                                        # Pad with zeros for missing embeddings
+                                        pad_size = model_shape[0] - checkpoint_shape[0]
+                                        adapted_weight = torch.cat([
+                                            adapted_weight,
+                                            torch.zeros(pad_size, checkpoint_shape[1])
+                                        ], dim=0)
+                                    
+                                    # Handle embedding_dim (dimension 1)
+                                    if checkpoint_shape[1] > model_shape[1]:
+                                        adapted_weight = adapted_weight[:, :model_shape[1]]
+                                    elif checkpoint_shape[1] < model_shape[1]:
+                                        # Pad with zeros for missing dimensions
+                                        pad_size = model_shape[1] - checkpoint_shape[1]
+                                        adapted_weight = torch.cat([
+                                            adapted_weight,
+                                            torch.zeros(adapted_weight.shape[0], pad_size)
+                                        ], dim=1)
+                                    
+                                    adapted_state[key] = adapted_weight
+                                    print(f"Adapted {key}: {checkpoint_shape} -> {adapted_weight.shape}")
+                                else:
+                                    skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
+                            
+                            elif 't_embedder' in key and 'weight' in key:
+                                # Time embedder linear layer weight mismatch
+                                if len(checkpoint_shape) == 2 and len(model_shape) == 2:
+                                    adapted_weight = value
+                                    
+                                    # Handle input dimension (dimension 1 for weight matrix)
+                                    if checkpoint_shape[1] > model_shape[1]:
+                                        adapted_weight = adapted_weight[:, :model_shape[1]]
+                                    elif checkpoint_shape[1] < model_shape[1]:
+                                        pad_size = model_shape[1] - checkpoint_shape[1]
+                                        adapted_weight = torch.cat([
+                                            adapted_weight,
+                                            torch.zeros(checkpoint_shape[0], pad_size)
+                                        ], dim=1)
+                                    
+                                    # Handle output dimension (dimension 0)
+                                    if checkpoint_shape[0] > model_shape[0]:
+                                        adapted_weight = adapted_weight[:model_shape[0], :]
+                                    elif checkpoint_shape[0] < model_shape[0]:
+                                        pad_size = model_shape[0] - checkpoint_shape[0]
+                                        adapted_weight = torch.cat([
+                                            adapted_weight,
+                                            torch.zeros(pad_size, adapted_weight.shape[1])
+                                        ], dim=0)
+                                    
+                                    adapted_state[key] = adapted_weight
+                                    print(f"Adapted {key}: {checkpoint_shape} -> {adapted_weight.shape}")
+                                else:
+                                    skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
+                            
+                            elif 't_embedder' in key and 'bias' in key:
+                                # Time embedder bias mismatch
+                                if len(checkpoint_shape) == 1 and len(model_shape) == 1:
+                                    if checkpoint_shape[0] > model_shape[0]:
+                                        adapted_state[key] = value[:model_shape[0]]
+                                    elif checkpoint_shape[0] < model_shape[0]:
+                                        pad_size = model_shape[0] - checkpoint_shape[0]
+                                        adapted_state[key] = torch.cat([value, torch.zeros(pad_size)])
+                                    print(f"Adapted {key}: {checkpoint_shape} -> {model_shape}")
                                 else:
                                     skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
                             

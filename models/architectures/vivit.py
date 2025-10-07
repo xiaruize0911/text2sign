@@ -392,16 +392,12 @@ class ViViT(nn.Module):
         ])
         
         # Feature upsampler to convert features back to video frames
-        # Improved final projection for better spatial detail
+        # Replace with a simpler final projection since we now preserve spatial structure
         self.final_projection = nn.Sequential(
             nn.Conv2d(self.feature_dim, self.feature_dim // 2, kernel_size=3, padding=1),
             nn.GroupNorm(_get_group_count(self.feature_dim // 2), self.feature_dim // 2),
             nn.GELU(),
-            nn.Dropout2d(dropout * 0.5),  # Light dropout for regularization
-            nn.Conv2d(self.feature_dim // 2, self.feature_dim // 4, kernel_size=3, padding=1),
-            nn.GroupNorm(_get_group_count(self.feature_dim // 4), self.feature_dim // 4),
-            nn.GELU(),
-            nn.Conv2d(self.feature_dim // 4, out_channels, kernel_size=1),  # 1x1 conv for final projection
+            nn.Conv2d(self.feature_dim // 2, out_channels, kernel_size=3, padding=1),
         )
         
         # Final temporal processing with 3D convolutions
@@ -411,10 +407,6 @@ class ViViT(nn.Module):
             nn.GELU(),
             nn.Conv3d(out_channels * 2, out_channels, kernel_size=(3, 3, 3), padding=(1, 1, 1)),
         )
-        
-        # Learnable output scaling to handle noise prediction at different timesteps
-        # Initialize to 0.5 to start with moderate scaling
-        self.output_scale = nn.Parameter(torch.ones(1) * 0.5)
         
         # Initialize weights
         self._initialize_weights()
@@ -484,8 +476,7 @@ class ViViT(nn.Module):
         temporal_features = frame_features.unsqueeze(2).expand(-1, -1, num_patches, -1)
         
         # Combine spatial and temporal information
-        # Increased temporal modulation weight for stronger temporal conditioning
-        enhanced_features = features + temporal_features * 0.5  # Stronger weight for temporal modulation
+        enhanced_features = features + temporal_features * 0.1  # Small weight for temporal modulation
         
         # === SPATIAL RECONSTRUCTION ===
         # Reshape for spatial upsampling, preserving patch-level spatial structure
@@ -538,13 +529,9 @@ class ViViT(nn.Module):
         # Apply 3D convolution for temporal consistency
         final_output = self.temporal_conv(video_output)
         
-        # Apply learnable output scaling
-        # This is crucial for noise prediction - allows model to learn appropriate magnitude
-        final_output = final_output * self.output_scale
-        
-        # REMOVED residual connection as it can interfere with noise prediction
-        # The model should learn to predict the noise directly, not add it to the input
-        # Residual connections work well for image generation but not for noise prediction
+        # Residual connection if input and output have same channels
+        if self.in_channels == self.out_channels:
+            final_output = final_output + x
         
         return final_output
 
