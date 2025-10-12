@@ -2,8 +2,21 @@
 
 This module adapts the TinyFusion 2D diffusion backbone (https://github.com/VainF/TinyFusion)
 so it can be plugged into the Text2Sign training pipeline. The wrapper handles
-loading the pretrained TinyFusion checkpoints (either via torch.hub or a local
-checkpoint path) and runs the network frame-by-frame while keeping the overall
+loading the pretrained TinyFusion checkpoints (either via torch.hub or a local                            elif 'x_embedder' in key and 'weight' in key:
+                                # Input channel mismatch (4 -> 3 channels)
+                                # Handle both x_embedder.weight and x_embedder.proj.weight
+                                if len(checkpoint_shape) == 4 and len(model_shape) == 4:
+                                    if checkpoint_shape[1] == 4 and model_shape[1] == 3:
+                                        # Take first 3 channels and renormalize
+                                        adapted_weight = value[:, :3, :, :].clone()
+                                        # Renormalize to maintain output magnitude
+                                        adapted_weight = adapted_weight * (4.0 / 3.0)
+                                        adapted_state[key] = adapted_weight
+                                        print(f"Adapted {key}: {checkpoint_shape} -> {adapted_weight.shape} (channel reduction + renormalization)")
+                                    else:
+                                        skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
+                                else:
+                                    skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")int path) and runs the network frame-by-frame while keeping the overall
 video tensor shape compatible with the rest of the codebase.
 """
 
@@ -11,6 +24,8 @@ from __future__ import annotations
 
 import os
 import sys
+import logging
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -69,6 +84,90 @@ finally:
         sys.modules["models"] = existing_models_module
 
 
+logger = logging.getLogger(__name__)
+
+try:
+    from torch.amp import autocast as _torch_amp_autocast
+except ImportError:  # pragma: no cover - older PyTorch fallback
+    _torch_amp_autocast = None
+
+
+def _preferred_amp_dtype(device_type: str) -> Optional[torch.dtype]:
+    """Select the ideal autocast dtype for the given device."""
+    if device_type == "cuda":
+        if hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported():
+            return torch.bfloat16
+        return torch.float16
+
+    if device_type == "cpu":
+        if (
+            hasattr(torch.cpu, "is_bf16_supported")
+            and callable(torch.cpu.is_bf16_supported)  # type: ignore[attr-defined]
+            and torch.cpu.is_bf16_supported()  # type: ignore[attr-defined]
+        ):
+            return torch.bfloat16
+
+    return None
+
+
+def _autocast_if_available(device_type: str, target_dtype: Optional[torch.dtype]):
+    """Return an autocast context manager when supported, otherwise a no-op."""
+
+    if target_dtype is None and device_type not in {"cuda", "cpu"}:
+        return nullcontext()
+
+    kwargs = {"device_type": device_type}
+    if target_dtype is not None:
+        kwargs["dtype"] = target_dtype
+
+    try:  # Prefer modern torch.autocast API
+        return torch.autocast(**kwargs)  # type: ignore[arg-type]
+    except (AttributeError, TypeError):
+        pass
+
+    if _torch_amp_autocast is not None:
+        try:
+            return _torch_amp_autocast(**kwargs)
+        except TypeError:
+            kwargs.pop("dtype", None)
+            try:
+                return _torch_amp_autocast(**kwargs)
+            except TypeError:
+                return nullcontext()
+
+    return nullcontext()
+
+
+def _disable_autocast_if_needed(device_type: str):
+    """Return a context manager that disables autocast for stability."""
+    autocast_active = False
+    if hasattr(torch, "is_autocast_enabled"):
+        autocast_active = torch.is_autocast_enabled()
+    elif device_type == "cuda" and hasattr(torch.cuda, "is_autocast_enabled"):
+        autocast_active = torch.cuda.is_autocast_enabled()
+
+    if not autocast_active:
+        return nullcontext()
+
+    # Prefer the generic torch.autocast API when available
+    try:  # pragma: no cover - depends on PyTorch version
+        return torch.autocast(device_type=device_type, enabled=False)  # type: ignore[attr-defined]
+    except AttributeError:
+        pass
+
+    if _torch_amp_autocast is not None:
+        try:
+            return _torch_amp_autocast(device_type=device_type, enabled=False)
+        except TypeError:
+            pass
+
+    if device_type == "cuda" and hasattr(torch.cuda, "amp"):
+        return torch.cuda.amp.autocast(enabled=False)
+    if device_type == "cpu" and hasattr(torch, "cpu") and hasattr(torch.cpu, "amp"):
+        return torch.cpu.amp.autocast(enabled=False)  # type: ignore[attr-defined]
+    return nullcontext()
+
+
 @dataclass
 class TinyFusionConfig:
     """Configuration parameters for the TinyFusion video wrapper."""
@@ -81,6 +180,7 @@ class TinyFusionConfig:
     freeze_backbone: bool = True
     enable_temporal_post: bool = True
     temporal_kernel: int = 3
+    force_fp32_backbone: bool = False
 
 
 class IdentityConditioner(nn.Module):
@@ -130,6 +230,7 @@ class TinyFusionVideoWrapper(nn.Module):
         enable_temporal_post: bool = True,
         temporal_kernel: int = 3,
         frame_chunk_size: int = 8,  # Add chunking parameter
+        force_fp32_backbone: bool = False,
     ) -> None:
         super().__init__()
         self.video_size = video_size
@@ -140,11 +241,32 @@ class TinyFusionVideoWrapper(nn.Module):
         self.variant = variant
         self.checkpoint_path = checkpoint_path
         self.frame_chunk_size = frame_chunk_size
+        self.force_fp32_backbone = force_fp32_backbone
 
         self.backbone = self._load_pretrained_backbone(variant, checkpoint_path)
+        
+        # Important: Only freeze if all weights are properly loaded
+        # Since output layers may be randomly initialized, freezing will prevent learning
         if freeze_backbone:
-            for param in self.backbone.parameters():
-                param.requires_grad = False
+            # Check if critical layers are properly initialized
+            has_random_init = False
+            for name, param in self.backbone.named_parameters():
+                if 'final_layer' in name or 'x_embedder.proj' in name:
+                    # These layers may be randomly initialized
+                    has_random_init = True
+                    break
+            
+            if has_random_init:
+                print("⚠️  Warning: Some layers are randomly initialized. ")
+                print("   Keeping backbone unfrozen to allow training.")
+                print("   Set freeze_backbone=False explicitly to remove this warning.")
+            else:
+                for param in self.backbone.parameters():
+                    param.requires_grad = False
+                print(f"✅ Backbone frozen ({sum(p.numel() for p in self.backbone.parameters()):,} params)")
+        else:
+            trainable = sum(p.numel() for p in self.backbone.parameters() if p.requires_grad)
+            print(f"✅ Backbone trainable ({trainable:,} params)")
 
         # TinyFusion is unconditional; keep interface but ignore text embeddings.
         self.text_conditioner = IdentityConditioner(text_dim or 0)
@@ -338,8 +460,25 @@ class TinyFusionVideoWrapper(nn.Module):
                                     skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
                             
                             elif key.startswith('final_layer.'):
-                                # Output layer mismatch - skip these as they're task-specific
-                                skipped_keys.append(f"{key} (output layer - will be randomly initialized)")
+                                # Output layer mismatch - these are task-specific
+                                # Initialize them properly rather than skipping
+                                # The checkpoint uses different output dimensions (likely for ImageNet)
+                                # We need to train these layers for our task
+                                if 'weight' in key and len(checkpoint_shape) == 2 and len(model_shape) == 2:
+                                    # Try to adapt if possible
+                                    if checkpoint_shape[1] == model_shape[1]:  # Same input dim
+                                        # Initialize with small random values based on checkpoint stats
+                                        init_std = value.std().item()
+                                        adapted_state[key] = torch.randn(model_shape) * init_std * 0.1
+                                        print(f"Initialized {key}: {model_shape} (small random with std={init_std*0.1:.6f})")
+                                    else:
+                                        skipped_keys.append(f"{key} (output layer - incompatible input dim)")
+                                elif 'bias' in key:
+                                    # Initialize bias to zero
+                                    adapted_state[key] = torch.zeros(model_shape)
+                                    print(f"Initialized {key}: {model_shape} (zeros)")
+                                else:
+                                    skipped_keys.append(f"{key} (output layer - will be randomly initialized)")
                             
                             else:
                                 skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
@@ -397,70 +536,130 @@ class TinyFusionVideoWrapper(nn.Module):
             channels == self.in_channels
         ), f"Expected {self.in_channels} channels, got {channels}"
 
-        if height != self.height or width != self.width:
-            x = F.interpolate(
-                x,
-                size=(frames, self.height, self.width),
-                mode="trilinear",
-                align_corners=False,
-            )
-            height, width = self.height, self.width
+        device_type = x.device.type
+        preferred_dtype = (
+            torch.float32 if self.force_fp32_backbone else _preferred_amp_dtype(device_type)
+        )
+        autocast_ctx = (
+            _disable_autocast_if_needed(device_type)
+            if self.force_fp32_backbone
+            else _autocast_if_available(device_type, preferred_dtype)
+        )
 
-        x_reshaped = x.permute(0, 2, 1, 3, 4).reshape(batch * frames, channels, height, width)
-        time_per_frame = time.view(batch, 1).repeat(1, frames).reshape(-1)
+        with autocast_ctx:
+            if self.force_fp32_backbone:
+                x_processed = x.to(torch.float32)
+            else:
+                x_processed = x
 
-        # TinyFusion ignores text embeddings; keep shape compatibility.
-        if text_emb is not None and text_emb.numel() > 0:
-            _ = self.text_conditioner(text_emb)
+            if height != self.height or width != self.width:
+                resize_dtype = x_processed.dtype
+                x_processed = F.interpolate(
+                    x_processed.to(torch.float32),
+                    size=(frames, self.height, self.width),
+                    mode="trilinear",
+                    align_corners=False,
+                ).to(resize_dtype)
+                height, width = self.height, self.width
 
-        # TinyFusion DiT models require class labels (y parameter)
-        # Create dummy class labels for unconditional generation
-        dummy_labels = torch.zeros(batch * frames, dtype=torch.long, device=x.device)
-        
-        # Process frames in chunks to reduce memory usage
-        total_frames = batch * frames
-        predictions = []
-        
-        for i in range(0, total_frames, self.frame_chunk_size):
-            end_idx = min(i + self.frame_chunk_size, total_frames)
-            
-            x_chunk = x_reshaped[i:end_idx]
-            time_chunk = time_per_frame[i:end_idx]
-            dummy_labels_chunk = dummy_labels[i:end_idx]
-            
-            try:
-                pred_chunk = self._process_frame_chunk(x_chunk, time_chunk, dummy_labels_chunk)
-            except TypeError as e:
-                # Fallback for different model signatures
+            if not self.force_fp32_backbone and preferred_dtype is not None:
                 try:
-                    if self.training and hasattr(self.backbone, 'training'):
-                        pred_chunk = checkpoint.checkpoint(
-                            self.backbone,
-                            x_chunk,
-                            time_chunk,
-                            use_reentrant=False
-                        )
+                    x_processed = x_processed.to(preferred_dtype)
+                except RuntimeError:
+                    # Fall back silently if dtype conversion is unsupported
+                    pass
+
+            x_reshaped = x_processed.permute(0, 2, 1, 3, 4).reshape(batch * frames, channels, height, width)
+            time_per_frame = time.view(batch, 1).repeat(1, frames).reshape(-1)
+
+            # TinyFusion ignores text embeddings; keep shape compatibility.
+            if text_emb is not None and text_emb.numel() > 0:
+                _ = self.text_conditioner(text_emb)
+
+            # TinyFusion DiT models require class labels (y parameter)
+            # Create dummy class labels for unconditional generation
+            dummy_labels = torch.zeros(batch * frames, dtype=torch.long, device=x.device)
+
+            # Process frames in chunks to reduce memory usage
+            total_frames = batch * frames
+            predictions = []
+
+            for i in range(0, total_frames, self.frame_chunk_size):
+                end_idx = min(i + self.frame_chunk_size, total_frames)
+
+                x_chunk = x_reshaped[i:end_idx]
+                time_chunk = time_per_frame[i:end_idx]
+                dummy_labels_chunk = dummy_labels[i:end_idx]
+
+                try:
+                    pred_chunk = self._process_frame_chunk(x_chunk, time_chunk, dummy_labels_chunk)
+                except TypeError as e:
+                    # Fallback for different model signatures
+                    try:
+                        if self.training and hasattr(self.backbone, 'training'):
+                            pred_chunk = checkpoint.checkpoint(
+                                self.backbone,
+                                x_chunk,
+                                time_chunk,
+                                use_reentrant=False
+                            )
+                        else:
+                            pred_chunk = self.backbone(x_chunk, time_chunk)
+                    except Exception:
+                        raise RuntimeError(f"Failed to call TinyFusion backbone: {e}") from e
+
+                # Check for NaN/Inf but handle more carefully
+                if torch.isnan(pred_chunk).any() or torch.isinf(pred_chunk).any():
+                    nan_count = torch.isnan(pred_chunk).sum().item()
+                    inf_count = torch.isinf(pred_chunk).sum().item()
+                    total = pred_chunk.numel()
+                    
+                    logger.warning(
+                        f"TinyFusion backbone produced {nan_count} NaN and {inf_count} Inf values "
+                        f"out of {total} ({(nan_count+inf_count)/total*100:.2f}%) in chunk"
+                    )
+                    
+                    # Only replace NaN/Inf, don't zero out everything
+                    # Replace with mean of valid values to preserve signal
+                    valid_mask = ~(torch.isnan(pred_chunk) | torch.isinf(pred_chunk))
+                    if valid_mask.any():
+                        valid_mean = pred_chunk[valid_mask].mean()
+                        pred_chunk = torch.where(valid_mask, pred_chunk, valid_mean)
                     else:
-                        pred_chunk = self.backbone(x_chunk, time_chunk)
-                except Exception:
-                    raise RuntimeError(f"Failed to call TinyFusion backbone: {e}") from e
+                        # If all values are invalid, use small random noise
+                        pred_chunk = torch.randn_like(pred_chunk) * 0.01
+                        logger.error("All values were NaN/Inf - using small random noise")
+
+                predictions.append(pred_chunk)
+
+                # Clear cache to free memory between chunks
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+            # Concatenate all predictions
+            pred = torch.cat(predictions, dim=0)
+
+            if pred.shape[1] != self.out_channels:
+                pred = pred[:, : self.out_channels]
+
+            pred_video = pred.view(batch, frames, self.out_channels, height, width)
+            pred_video = pred_video.permute(0, 2, 1, 3, 4)
+
+            pred_video = self.temporal_post(pred_video)
             
-            predictions.append(pred_chunk)
-            
-            # Clear cache to free memory between chunks
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        
-        # Concatenate all predictions
-        pred = torch.cat(predictions, dim=0)
+            # Final safety check - only replace actual NaN/Inf, not valid values
+            if torch.isnan(pred_video).any() or torch.isinf(pred_video).any():
+                logger.warning("NaN/Inf detected in final output, applying careful fix")
+                valid_mask = ~(torch.isnan(pred_video) | torch.isinf(pred_video))
+                if valid_mask.any():
+                    valid_mean = pred_video[valid_mask].mean()
+                    pred_video = torch.where(valid_mask, pred_video, valid_mean)
+                else:
+                    # Last resort: small random values
+                    pred_video = torch.randn_like(pred_video) * 0.01
 
-        if pred.shape[1] != self.out_channels:
-            pred = pred[:, : self.out_channels]
-
-        pred_video = pred.view(batch, frames, self.out_channels, height, width)
-        pred_video = pred_video.permute(0, 2, 1, 3, 4)
-
-        pred_video = self.temporal_post(pred_video)
+        if pred_video.dtype != x.dtype:
+            pred_video = pred_video.to(x.dtype)
 
         return pred_video
 

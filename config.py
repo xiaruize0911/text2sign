@@ -14,8 +14,8 @@ class Config:
     NUM_WORKERS = 0
 
     # Model input/output dimensions  
-    INPUT_SHAPE = (3, 28, 64, 64)  # (channels, frames, height, width) - Reduced to 64x64 for memory efficiency
-    NUM_FRAMES = 28
+    INPUT_SHAPE = (3, 16, 64, 64)  # (channels, frames, height, width) - Reduced to 64x64 for memory efficiency
+    NUM_FRAMES = 16
     IMAGE_SIZE = 64  # Reduced from 128 to 64 for memory efficiency
     
     # Model architecture selection
@@ -53,10 +53,10 @@ class Config:
     VIVIT_CLASS_DROPOUT_PROB = 0.1  # Dropout probability for classifier-free guidance
 
     # TinyFusion architecture settings (video wrapper around 2D TinyFusion backbone)
-    TINYFUSION_VIDEO_SIZE = (28, 64, 64)  # Reduced from 128x128 to 64x64 for memory efficiency
+    TINYFUSION_VIDEO_SIZE = (16, 64, 64)  # Reduced from 128x128 to 64x64 for memory efficiency
     TINYFUSION_VARIANT = "DiT-D14/2"  # Use DiT-D14/2 which exactly matches the checkpoint architecture
     TINYFUSION_CHECKPOINT = "pretrained/TinyDiT-D14-MaskedKD-500K.pt"  # Pre-trained checkpoint
-    TINYFUSION_FREEZE_BACKBONE = False  # Allow fine-tuning of the pre-trained model
+    TINYFUSION_FREEZE_BACKBONE = False  # Must be False - randomly initialized output layers need training
     TINYFUSION_ENABLE_TEMPORAL_POST = True
     TINYFUSION_TEMPORAL_KERNEL = 2
     
@@ -80,13 +80,13 @@ class Config:
     # Training settings
     LEARNING_RATE = 0.0001  # Higher learning rate for ViT (was 0.00001 for UNet)
     NUM_EPOCHS = 1000
-    GRADIENT_CLIP = 1.0  # Enable gradient clipping for training stability
-    GRADIENT_ACCUMULATION_STEPS = 4  # Increased for memory efficiency while maintaining effective batch size
-    GRADIENT_CHECKPOINTING = True  # Enable gradient checkpointing to reduce memory usage
+    GRADIENT_CLIP = 1 # Enable gradient clipping for training stability
+    GRADIENT_ACCUMULATION_STEPS = 2  # Increased for memory efficiency while maintaining effective batch size
+    GRADIENT_CHECKPOINTING = False  # Enable gradient checkpointing to reduce memory usage
     
     # Memory optimization settings
     USE_MIXED_PRECISION = True  # Enable automatic mixed precision training
-    USE_CPU_OFFLOAD = False  # Offload optimizer states to CPU (if needed)
+    USE_CPU_OFFLOAD = True  # Offload optimizer states to CPU (if needed)
     ENABLE_MEMORY_EFFICIENT_ATTENTION = True  # Use memory-efficient attention implementation
     CLEAR_CACHE_EVERY_STEPS = 1  # Clear CUDA cache every N steps to prevent fragmentation
     PREFETCH_FACTOR = 1  # DataLoader prefetch factor (reduced from default 2)
@@ -144,7 +144,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "tinyfusion_test_1"  # Name for this experiment
+    EXPERIMENT_NAME = "tinyfusion_test_4"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples

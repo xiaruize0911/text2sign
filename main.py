@@ -33,7 +33,7 @@ from dataset import test_dataloader
 from models import test_unet3d
 from models.architectures import test_vit3d, test_dit3d, test_vivit
 from diffusion import test_diffusion
-from utils import get_device_info, print_model_summary
+from utils import get_device_info, print_model_summary, detect_checkpoint_architecture
 
 # Setup logging
 logging.basicConfig(
@@ -50,6 +50,43 @@ def train_model(resume=False):
     """
     logger.info("Starting training...")
     
+    latest_checkpoint = os.path.join(Config.CHECKPOINT_DIR, "latest_checkpoint.pt")
+
+    # When resuming, align the in-memory config with the checkpoint before building the trainer
+    if resume and os.path.exists(latest_checkpoint):
+        logger.info(f"Preparing configuration from checkpoint: {latest_checkpoint}")
+        try:
+            checkpoint_payload = torch.load(latest_checkpoint, map_location="cpu")
+
+            state_dict_keys = checkpoint_payload.get('model_state_dict', {}).keys()
+            detected_arch = detect_checkpoint_architecture(state_dict_keys)
+
+            checkpoint_config = checkpoint_payload.get('config', {})
+            # Restore critical configuration fields if available
+            fields_to_restore = [
+                'MODEL_ARCHITECTURE', 'INPUT_SHAPE', 'NUM_FRAMES', 'IMAGE_SIZE',
+                'EXPERIMENT_NAME', 'CHECKPOINT_DIR', 'LOG_DIR', 'SAMPLES_DIR'
+            ]
+            for field in fields_to_restore:
+                if field in checkpoint_config:
+                    setattr(Config, field, checkpoint_config[field])
+
+            if detected_arch not in (None, "unknown") and detected_arch != Config.MODEL_ARCHITECTURE:
+                logger.warning(
+                    "Architecture mismatch detected before trainer setup – "
+                    f"config has '{Config.MODEL_ARCHITECTURE}', checkpoint has '{detected_arch}'."
+                )
+                Config.MODEL_ARCHITECTURE = detected_arch
+                logger.info(f"Updated Config.MODEL_ARCHITECTURE to '{detected_arch}' for resume")
+
+            # Ensure directory attributes still point to the checkpoint we are resuming from
+            Config.CHECKPOINT_DIR = os.path.dirname(latest_checkpoint)
+            Config.LOG_DIR = checkpoint_config.get('LOG_DIR', Config.LOG_DIR)
+            Config.SAMPLES_DIR = checkpoint_config.get('SAMPLES_DIR', Config.SAMPLES_DIR)
+        except Exception as exc:
+            logger.error(f"Failed to prime configuration from checkpoint: {exc}")
+            logger.warning("Proceeding with current configuration; loading may still fail if incompatible.")
+
     # Clean log directory if not resuming
     if not resume and Config.LOG_DIR and os.path.exists(Config.LOG_DIR):
         logger.info(f"Cleaning previous log directory: {Config.LOG_DIR}")
@@ -62,7 +99,6 @@ def train_model(resume=False):
     # Resume from checkpoint if requested
     if resume:
         # Try to load the latest checkpoint
-        latest_checkpoint = os.path.join(Config.CHECKPOINT_DIR, "latest_checkpoint.pt")
         if os.path.exists(latest_checkpoint):
             logger.info(f"Resuming training from checkpoint: {latest_checkpoint}")
             try:
@@ -103,19 +139,9 @@ def list_checkpoints():
     def detect_checkpoint_arch(checkpoint_path):
         try:
             checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
-            model_keys = list(checkpoint['model_state_dict'].keys())
-            
-            if any('init_conv' in key or 'encoder_resblocks' in key for key in model_keys):
-                return 'unet3d'
-            elif any('vit.embeddings' in key or 'temporal_layers' in key for key in model_keys):
-                return 'vivit'
-            elif any('patch_embed' in key or 'blocks' in key for key in model_keys):
-                return 'vit3d'
-            elif any('dit_blocks' in key or 'x_embedder' in key for key in model_keys):
-                return 'dit3d'
-            else:
-                return 'unknown'
-        except:
+            model_keys = checkpoint['model_state_dict'].keys()
+            return detect_checkpoint_architecture(model_keys)
+        except Exception:
             return 'error'
     
     logger.info("Available checkpoints by architecture:")
@@ -318,10 +344,24 @@ def test_components():
     
     logger.info("All component tests completed successfully!")
 
+def detect_architecture_from_checkpoint(checkpoint_path):
+    """Detect model architecture from checkpoint keys"""
+    if not os.path.exists(checkpoint_path):
+        return None
+
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
+        model_keys = checkpoint['model_state_dict'].keys()
+        arch = detect_checkpoint_architecture(model_keys)
+        return None if arch == "unknown" else arch
+    except Exception as e:
+        logger.warning(f"Could not detect architecture from checkpoint: {e}")
+        return None
+
 def sample_videos(
     checkpoint_path: str,
     num_samples: int = 4,
-    output_dir: str = "samples",
+    output_dir: str = None,
     text_prompt: str = "hello",
     eta: Optional[float] = None,
 ):
@@ -360,65 +400,15 @@ def sample_videos(
         """Detect model architecture from checkpoint keys"""
         if not os.path.exists(checkpoint_path):
             return None
-            
+
         try:
             checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
-            model_keys = list(checkpoint['model_state_dict'].keys())
-            
-            # Check for UNet3D keys
-            if any('init_conv' in key or 'encoder_resblocks' in key for key in model_keys):
-                return 'unet3d'
-            # Check for ViViT keys  
-            elif any('vit.embeddings' in key or 'temporal_layers' in key for key in model_keys):
-                return 'vivit'
-            # Check for ViT3D keys
-            elif any('patch_embed' in key or 'blocks' in key for key in model_keys):
-                return 'vit3d'
-            # Check for DiT3D keys
-            elif any('dit_blocks' in key or 'x_embedder' in key for key in model_keys):
-                return 'dit3d'
-            else:
-                return None
+            model_keys = checkpoint['model_state_dict'].keys()
+            arch = detect_checkpoint_architecture(model_keys)
+            return None if arch == "unknown" else arch
         except Exception as e:
             logger.warning(f"Could not detect architecture from checkpoint: {e}")
             return None
-    
-    # Auto-detect and fix architecture mismatch
-    detected_arch = detect_architecture_from_checkpoint(checkpoint_path)
-    if detected_arch and detected_arch != Config.MODEL_ARCHITECTURE:
-        logger.warning(f"Architecture mismatch detected!")
-        logger.warning(f"Config has: {Config.MODEL_ARCHITECTURE}, Checkpoint has: {detected_arch}")
-        logger.info(f"Automatically switching to {detected_arch} architecture for sampling")
-        Config.MODEL_ARCHITECTURE = detected_arch
-    
-    # Auto-detect temporal layer count for ViViT models
-    if detected_arch == 'vivit' or Config.MODEL_ARCHITECTURE == 'vivit':
-        def detect_temporal_layers_from_checkpoint(checkpoint_path):
-            """Detect required number of temporal layers from checkpoint"""
-            try:
-                checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
-                state_dict = checkpoint['model_state_dict']
-                temporal_keys = [k for k in state_dict.keys() if 'temporal_layers.' in k or 'film_layers.' in k]
-                
-                max_temporal_idx = -1
-                max_film_idx = -1
-                for key in temporal_keys:
-                    if 'temporal_layers.' in key:
-                        idx = int(key.split('temporal_layers.')[1].split('.')[0])
-                        max_temporal_idx = max(max_temporal_idx, idx)
-                    elif 'film_layers.' in key:
-                        idx = int(key.split('film_layers.')[1].split('.')[0])
-                        max_film_idx = max(max_film_idx, idx)
-                
-                return max(max_temporal_idx, max_film_idx) + 1 if max(max_temporal_idx, max_film_idx) >= 0 else None
-            except Exception as e:
-                logger.warning(f"Could not detect temporal layers from checkpoint: {e}")
-                return None
-        
-        detected_temporal_layers = detect_temporal_layers_from_checkpoint(checkpoint_path)
-        if detected_temporal_layers and detected_temporal_layers != Config.VIVIT_NUM_TEMPORAL_LAYERS:
-            logger.info(f"Adjusting temporal layers: {Config.VIVIT_NUM_TEMPORAL_LAYERS} → {detected_temporal_layers}")
-            Config.VIVIT_NUM_TEMPORAL_LAYERS = detected_temporal_layers
     
     # Load model with correct architecture
     from diffusion import create_diffusion_model
@@ -428,8 +418,15 @@ def sample_videos(
     # --- Load Checkpoint with Error Handling ---
     try:
         if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE, weights_only=True)
-            model.load_state_dict(checkpoint['model_state_dict'])
+            checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE)
+            
+            # Fix for state_dict key mismatch
+            state_dict = checkpoint['model_state_dict']
+            if all(key.startswith('model.') for key in state_dict.keys()):
+                logger.info("Removing 'model.' prefix from state_dict keys")
+                state_dict = {k.replace('model.', '', 1): v for k, v in state_dict.items()}
+
+            model.load_state_dict(state_dict)
             epoch = checkpoint.get('epoch', 'unknown')
             step = checkpoint.get('global_step', 'unknown')
             logger.info(f"Loaded checkpoint: {checkpoint_path} (Epoch: {epoch}, Step: {step})")
@@ -437,6 +434,7 @@ def sample_videos(
             logger.warning(f"Checkpoint not found: {checkpoint_path}. Using random weights.")
     except Exception as e:
         logger.error(f"❌ Critical error loading checkpoint: {e}")
+        logger.info("Please ensure that the MODEL_ARCHITECTURE in config.py matches the checkpoint.")
         return # Exit if checkpoint fails to load
     
     # --- Generate Samples ---
@@ -457,24 +455,6 @@ def sample_videos(
 
         # --- Shape Validation ---
         expected_shape = (num_samples, *Config.INPUT_SHAPE)
-        actual_shape = tuple(samples.shape)
-        
-        if actual_shape != expected_shape:
-            logger.warning(f"Shape mismatch detected:")
-            logger.warning(f"  Generated: {actual_shape}")
-            logger.warning(f"  Expected:  {expected_shape}")
-            logger.warning(f"This usually means config dimensions don't match the trained model")
-            logger.warning(f"Consider running: python main.py fix-config --checkpoint {checkpoint_path}")
-            
-            # Update config dynamically for this session
-            if len(actual_shape) == 5:  # (batch, channels, frames, height, width)
-                Config.INPUT_SHAPE = actual_shape[1:]  # Remove batch dimension
-                Config.NUM_FRAMES = actual_shape[2]
-                Config.IMAGE_SIZE = actual_shape[3]  # Assume square images
-                logger.info(f"Temporarily updated config to match model output: {Config.INPUT_SHAPE}")
-        
-        assert len(samples.shape) == 5, f"Expected 5D tensor (batch, channels, frames, height, width), got {samples.shape}"
-
     # --- Save Samples as GIFs ---
     import numpy as np
     import imageio
@@ -575,7 +555,7 @@ def main():
     
     # Sample command
     sample_parser = subparsers.add_parser("sample", help="Generate sample videos")
-    sample_parser.add_argument("--checkpoint", type=str, default="checkpoints/text2sign_experiment_vivit_4/latest_checkpoint.pt",
+    sample_parser.add_argument("--checkpoint", type=str, default="checkpoints/tinyfusion_test_4/latest_checkpoint.pt",
                               help="Path to model checkpoint")
     sample_parser.add_argument("--num_samples", type=int, default=4,
                               help="Number of samples to generate")
@@ -610,6 +590,7 @@ def main():
     elif args.command == "test":
         test_components()
     elif args.command == "sample":
+        print(f"Loading from {args.checkpoint}")
         sample_videos(args.checkpoint, args.num_samples, args.output_dir, args.text, args.eta)
     elif args.command == "visualize":
         visualize_model()

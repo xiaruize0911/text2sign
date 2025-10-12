@@ -3,8 +3,10 @@ from .gif import (
     save_video_as_gif, load_gif_as_tensor, create_video_grid, 
     get_device_info, setup_logging_dirs, EarlyStopping, print_model_summary
 )
+from .checkpoint_utils import detect_checkpoint_architecture
 
 __all__ = [
     'save_video_as_gif', 'load_gif_as_tensor', 'create_video_grid',
-    'get_device_info', 'setup_logging_dirs', 'EarlyStopping', 'print_model_summary'
+    'get_device_info', 'setup_logging_dirs', 'EarlyStopping', 'print_model_summary',
+    'detect_checkpoint_architecture'
 ]

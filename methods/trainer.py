@@ -20,6 +20,7 @@ from config import Config
 from dataset import create_dataloader
 from diffusion import create_diffusion_model
 from schedulers.lr_schedulers import create_lr_scheduler, log_lr_schedule
+from utils import detect_checkpoint_architecture
 from utils.tensorboard_logger import TensorBoardLogger, create_tensorboard_logger
 import logging
 import utils.gif as gif_utils
@@ -186,22 +187,12 @@ class Trainer:
             checkpoint = torch.load(filepath, map_location=self.device, weights_only=True)
             
             # Check for architecture mismatch and warn user
-            model_keys = list(checkpoint['model_state_dict'].keys())
+            model_keys = checkpoint['model_state_dict'].keys()
             current_arch = self.config.MODEL_ARCHITECTURE
-            
-            # Detect checkpoint architecture
-            if any('init_conv' in key or 'encoder_resblocks' in key for key in model_keys):
-                checkpoint_arch = 'unet3d'
-            elif any('vit.embeddings' in key or 'temporal_layers' in key for key in model_keys):
-                checkpoint_arch = 'vivit'
-            elif any('patch_embed' in key or 'blocks' in key for key in model_keys):
-                checkpoint_arch = 'vit3d'
-            elif any('dit_blocks' in key or 'x_embedder' in key for key in model_keys):
-                checkpoint_arch = 'dit3d'
-            else:
-                checkpoint_arch = 'unknown'
-            
-            if checkpoint_arch != 'unknown' and checkpoint_arch != current_arch:
+
+            checkpoint_arch = detect_checkpoint_architecture(model_keys)
+
+            if checkpoint_arch not in ('unknown', None) and checkpoint_arch != current_arch:
                 logger.error(f"Architecture mismatch: Config={current_arch}, Checkpoint={checkpoint_arch}")
                 logger.error(f"Please change CONFIG.MODEL_ARCHITECTURE to '{checkpoint_arch}' or use a {current_arch} checkpoint")
                 return
@@ -527,6 +518,13 @@ class Trainer:
             dict: Training metrics
         """
         self.model.train()
+        
+        # WORKAROUND: Set backbone to eval mode to prevent NaN from BatchNorm/LayerNorm instability
+        # This keeps dropout/etc in train mode but stabilizes normalization layers
+        if hasattr(self.model, 'model') and hasattr(self.model.model, 'backbone'):
+            self.model.model.backbone.eval()
+            logger.info("Set backbone to eval mode to prevent NaN from normalization layers")
+        
         epoch_loss = 0.0
         num_batches = 0
         epoch_grad_norm = 0.0
@@ -563,6 +561,20 @@ class Trainer:
             else:
                 loss, predicted_noise, noise = self.model(videos, texts)
             
+            # Check for NaN/Inf in loss immediately after forward pass
+            if torch.isnan(loss) or torch.isinf(loss):
+                logger.error(f"NaN/Inf loss detected at step {self.global_step} AFTER forward pass")
+                logger.error(f"  Input video range: [{videos.min().item():.3f}, {videos.max().item():.3f}]")
+                logger.error(f"  Predicted noise range: [{predicted_noise.min().item():.3f}, {predicted_noise.max().item():.3f}]")
+                logger.error(f"  Actual noise range: [{noise.min().item():.3f}, {noise.max().item():.3f}]")
+                logger.error(f"  Has NaN in pred_noise: {torch.isnan(predicted_noise).any().item()}")
+                logger.error(f"  Has NaN in noise: {torch.isnan(noise).any().item()}")
+                # Skip this batch - no backward was called, so no need to update scaler
+                self.optimizer.zero_grad()
+                self.accumulation_step = 0
+                self.global_step += 1
+                continue
+            
             # Scale loss by accumulation steps for correct gradients
             scaled_loss = loss / self.config.GRADIENT_ACCUMULATION_STEPS
             
@@ -586,31 +598,53 @@ class Trainer:
             else:
                 scaled_loss.backward()
             
+            # Check for NaN in gradients immediately after backward
+            has_nan_grad = False
+            for name, param in self.model.named_parameters():
+                if param.grad is not None and (torch.isnan(param.grad).any() or torch.isinf(param.grad).any()):
+                    logger.error(f"NaN/Inf gradient in {name} at step {self.global_step} after backward")
+                    has_nan_grad = True
+                    break
+            
+            if has_nan_grad:
+                logger.error("NaN gradients detected immediately after backward pass, skipping batch")
+                self.optimizer.zero_grad()
+                self.accumulation_step = 0
+                self.global_step += 1
+                continue
+            
             # Increment accumulation step
             self.accumulation_step += 1
             
             # Only perform optimizer step when accumulation is complete
             if self.accumulation_step == self.config.GRADIENT_ACCUMULATION_STEPS:
+                optimizer_step_performed = False
+
                 # Unscale gradients before clipping if using AMP
                 if self.use_amp:
                     self.scaler.unscale_(self.optimizer)
 
                 # Gradient clipping (applied to accumulated gradients)
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
-                
+
                 # Check for NaN gradients
                 if torch.isnan(grad_norm) or torch.isinf(grad_norm):
                     print(f"NaN/Inf gradient norm detected at step {self.global_step}, zeroing gradients")
                     self.optimizer.zero_grad()
                     self.accumulation_step = 0  # Reset accumulation
+                    self.global_step += 1
                     continue
                 
                 # Optimizer step (applies accumulated gradients)
                 if self.use_amp:
                     self.scaler.step(self.optimizer)
-                    self.scaler.update()
+                    optimizer_step_performed = True
                 else:
                     self.optimizer.step()
+                    optimizer_step_performed = True
+
+                if self.use_amp and optimizer_step_performed:
+                    self.scaler.update()
                 
                 # Update learning rate
                 if self.scheduler is not None:
