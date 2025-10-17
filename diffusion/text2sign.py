@@ -58,14 +58,20 @@ class DiffusionModel(nn.Module):
         self.alphas_cumprod_prev = self.alphas_cumprod_prev.to(device)
         
         # Precompute frequently used values
-        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
-        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
+        self.sqrt_alphas_cumprod = torch.sqrt(torch.clamp(self.alphas_cumprod, min=1e-12))
+        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(torch.clamp(1.0 - self.alphas_cumprod, min=1e-12))
         
         # Posterior variance for reverse sampling
         self.posterior_variance = self.betas * (1.0 - self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
         self.posterior_variance = torch.clamp(self.posterior_variance, min=1e-6)
         
         print(f"✅ Diffusion model initialized with {noise_scheduler} scheduler (T={timesteps})")
+        print(f"   Training timesteps: {self.timesteps}")
+        print(f"   Inference timesteps: {self.inference_timesteps}")
+        if self.inference_timesteps == self.timesteps:
+            print(f"   ✅ Sampling schedule MATCHES training schedule perfectly")
+        else:
+            print(f"   ⚠️  Sampling uses accelerated schedule ({self.inference_timesteps} steps)")
         if text_encoder is not None:
             print(f"✅ Text-conditioned mode enabled")
         
@@ -88,8 +94,8 @@ class DiffusionModel(nn.Module):
             noise = torch.randn_like(x_start)
 
         alpha_bar_t = self.alphas_cumprod[t].view(-1, *([1] * (x_start.ndim - 1)))
-        sqrt_alpha_bar_t = torch.sqrt(alpha_bar_t)
-        sqrt_one_minus_alpha_bar_t = torch.sqrt(1.0 - alpha_bar_t)
+        sqrt_alpha_bar_t = torch.sqrt(torch.clamp(alpha_bar_t, min=1e-12))
+        sqrt_one_minus_alpha_bar_t = torch.sqrt(torch.clamp(1.0 - alpha_bar_t, min=1e-12))
         
         x_noisy = sqrt_alpha_bar_t * x_start + sqrt_one_minus_alpha_bar_t * noise
 
@@ -114,8 +120,15 @@ class DiffusionModel(nn.Module):
         - x_0 = (x_t - sqrt(1 - α̅_t) * ε_θ(x_t, t)) / sqrt(α̅_t)  [predicted clean sample]
         - σ_t = η * sqrt((1 - α̅_{t-1}) / (1 - α̅_t)) * sqrt(1 - α̅_t / α̅_{t-1})  [stochasticity]
         - η = 0 gives deterministic DDIM, η = 1 gives DDPM-like stochastic sampling
+        
+        NOTE: All calculations are performed in float32 for numerical precision.
+        Only the model forward pass may use float16 for flash attention efficiency.
         """
         with torch.no_grad():
+            # Store original dtype and ensure we work in float32 for precision
+            original_dtype = x.dtype
+            x_fp32 = x.to(torch.float32)
+            
             # Encode text conditioning
             text_emb = None
             if text is not None and self.text_encoder is not None:
@@ -127,16 +140,16 @@ class DiffusionModel(nn.Module):
                 text_emb = self.text_encoder(text_batch).to(x.device)
 
             # Predict noise ε_θ(x_t, t)
-            predicted_noise = self.model(x, t, text_emb)
-            if predicted_noise.shape != x.shape:
-                predicted_noise = F.interpolate(
-                    predicted_noise, size=x.shape[2:], mode="trilinear", align_corners=False
-                )
+            # Only convert to model dtype (potentially float16) for the forward pass
+            # The model internally uses autocast for flash attention when needed
+            predicted_noise = self.model(x_fp32, t, text_emb)
+            # Ensure output is in float32 for precise calculations
+            predicted_noise = predicted_noise.to(torch.float32)
 
-            # Reshape for broadcasting
-            shape = (-1,) + (1,) * (x.ndim - 1)
+            # Reshape for broadcasting (all in float32)
+            shape = (-1,) + (1,) * (x_fp32.ndim - 1)
             
-            # Get α̅_t
+            # Get α̅_t (all schedule tensors are already float32)
             alpha_prod_t = self.alphas_cumprod[t].view(shape)
             sqrt_alpha_prod_t = self.sqrt_alphas_cumprod[t].view(shape)
             sqrt_one_minus_alpha_prod_t = self.sqrt_one_minus_alphas_cumprod[t].view(shape)
@@ -145,10 +158,10 @@ class DiffusionModel(nn.Module):
             prev_t_clamped = prev_t.clamp(min=0)
             alpha_prod_prev = self.alphas_cumprod[prev_t_clamped].view(shape)
             alpha_prod_prev[prev_t < 0] = 1.0
-            sqrt_alpha_prod_prev = torch.sqrt(alpha_prod_prev)
+            sqrt_alpha_prod_prev = torch.sqrt(torch.clamp(alpha_prod_prev, min=1e-12))
 
-            # Predict x_0 from x_t
-            pred_x0 = (x - sqrt_one_minus_alpha_prod_t * predicted_noise) / sqrt_alpha_prod_t
+            # Predict x_0 from x_t (all float32 operations)
+            pred_x0 = (x_fp32 - sqrt_one_minus_alpha_prod_t * predicted_noise) / sqrt_alpha_prod_t
             pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
 
             # Compute stochasticity σ_t = η * sqrt(β̃_t) where β̃_t is posterior variance
@@ -161,13 +174,15 @@ class DiffusionModel(nn.Module):
             # Direction pointing to x_t coefficient
             direction_coeff = torch.sqrt(torch.clamp(1.0 - alpha_prod_prev - sigma_t**2, min=1e-12))
 
-            # Sample noise for stochastic sampling
-            noise = torch.randn_like(x) if eta_value > 0 and (prev_t >= 0).any() else torch.zeros_like(x)
+            # Sample noise for stochastic sampling (in float32)
+            noise = torch.randn_like(x_fp32) if eta_value > 0 and (prev_t >= 0).any() else torch.zeros_like(x_fp32)
 
             # DDIM update: x_{t-1} = sqrt(α̅_{t-1}) * x_0 + sqrt(1 - α̅_{t-1} - σ_t²) * ε + σ_t * z
+            # All operations in float32 for maximum precision
             prev_sample = sqrt_alpha_prod_prev * pred_x0 + direction_coeff * predicted_noise + sigma_t * noise
 
-            return prev_sample
+            # Convert back to original dtype only at the very end
+            return prev_sample.to(original_dtype)
         
     @torch.no_grad()
     def p_sample(
@@ -199,8 +214,8 @@ class DiffusionModel(nn.Module):
         if self.text_encoder is not None and text is None:
             print("⚠️ Warning: Text encoder exists but no text provided. Using unconditional sampling.")
 
-        # Initialize from pure noise: x_T ~ N(0, I)
-        x = torch.randn(shape, device=device)
+        # Initialize from pure noise: x_T ~ N(0, I) in float32 for precision
+        x = torch.randn(shape, device=device, dtype=torch.float32)
 
         # Configure inference timesteps
         if num_inference_steps is None:
@@ -208,11 +223,13 @@ class DiffusionModel(nn.Module):
         num_inference_steps = max(1, min(num_inference_steps, self.timesteps))
 
         # Generate timestep schedule
+        # IMPORTANT: When num_inference_steps == self.timesteps, we use the EXACT same schedule as training
+        # This ensures the sampling beta schedule matches the training beta schedule perfectly
         if num_inference_steps == self.timesteps:
-            # Full schedule: [T-1, T-2, ..., 1, 0]
+            # Full schedule: [T-1, T-2, ..., 1, 0] - matches training exactly
             timesteps = torch.arange(self.timesteps - 1, -1, -1, device=device, dtype=torch.long)
         else:
-            # Sparse schedule for accelerated sampling
+            # Sparse schedule for accelerated sampling (not recommended for best quality)
             timesteps = torch.linspace(self.timesteps - 1, 0, steps=num_inference_steps, device=device)
             timesteps = torch.round(timesteps).long().clamp(0, self.timesteps - 1)
             timesteps = torch.unique_consecutive(timesteps)

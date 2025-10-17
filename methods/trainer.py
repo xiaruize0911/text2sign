@@ -249,6 +249,16 @@ class Trainer:
                 
             # Note: For ε-parameterization, do NOT clamp samples during generation
             # This allows the model to learn the proper data distribution naturally
+        
+        # Restore training mode
+        self.model.train()
+        
+        # CRITICAL FIX: Restore backbone to eval mode to prevent NaN from BatchNorm/LayerNorm instability
+        # This must be done after switching back to train mode, otherwise the backbone will be in train mode
+        if hasattr(self.model, 'model') and hasattr(self.model.model, 'backbone'):
+            self.model.model.backbone.eval()
+            logger.debug("Restored backbone to eval mode after sample generation")
+        
         return samples
     
     def save_samples_as_gifs(self, samples: torch.Tensor, step: int):

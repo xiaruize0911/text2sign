@@ -10,8 +10,8 @@ class Config:
     
     # Data settings
     DATA_ROOT = "training_data"
-    BATCH_SIZE = 1
-    NUM_WORKERS = 0
+    BATCH_SIZE = 4
+    NUM_WORKERS = 4
 
     # Model input/output dimensions  
     INPUT_SHAPE = (3, 16, 64, 64)  # (channels, frames, height, width) - Reduced to 64x64 for memory efficiency
@@ -56,7 +56,7 @@ class Config:
     TINYFUSION_VIDEO_SIZE = (16, 64, 64)  # Reduced from 128x128 to 64x64 for memory efficiency
     TINYFUSION_VARIANT = "DiT-D14/2"  # Use DiT-D14/2 which exactly matches the checkpoint architecture
     TINYFUSION_CHECKPOINT = "pretrained/TinyDiT-D14-MaskedKD-500K.pt"  # Pre-trained checkpoint
-    TINYFUSION_FREEZE_BACKBONE = False  # Must be False - randomly initialized output layers need training
+    TINYFUSION_FREEZE_BACKBONE = False 
     TINYFUSION_ENABLE_TEMPORAL_POST = True
     TINYFUSION_TEMPORAL_KERNEL = 2
     
@@ -68,7 +68,7 @@ class Config:
     
     # Diffusion process settings
     TIMESTEPS = 50  # Number of diffusion timesteps for training
-    INFERENCE_TIMESTEPS = 50  # Reduced timesteps for faster sampling (20x speedup)
+    INFERENCE_TIMESTEPS = 50  
     BETA_START = 0.01  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
     
@@ -144,7 +144,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "tinyfusion_test_4"  # Name for this experiment
+    EXPERIMENT_NAME = "tinyfusion_test_5"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples

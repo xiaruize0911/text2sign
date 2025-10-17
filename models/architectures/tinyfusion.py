@@ -645,7 +645,19 @@ class TinyFusionVideoWrapper(nn.Module):
             pred_video = pred.view(batch, frames, self.out_channels, height, width)
             pred_video = pred_video.permute(0, 2, 1, 3, 4)
 
+            # Apply temporal post-processing
             pred_video = self.temporal_post(pred_video)
+            
+            # Upsample spatial dimensions if backbone downsampled them
+            # DiT models with patch_size > 1 downsample the spatial dimensions
+            if pred_video.shape[-2:] != (self.height, self.width):
+                original_dtype = pred_video.dtype
+                pred_video = F.interpolate(
+                    pred_video.to(torch.float32),
+                    size=(pred_video.shape[2], self.height, self.width),  # (frames, height, width)
+                    mode="trilinear",
+                    align_corners=False,
+                ).to(original_dtype)
             
             # Final safety check - only replace actual NaN/Inf, not valid values
             if torch.isnan(pred_video).any() or torch.isinf(pred_video).any():
