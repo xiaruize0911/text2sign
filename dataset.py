@@ -75,6 +75,16 @@ class SignLanguageDataset(Dataset):
             if not frames:
                 raise ValueError("No frames found in GIF")
             frames = np.array(frames)  # Shape: (num_frames, height, width, channels)
+            # Ensure RGBA channels
+            if frames.ndim == 3:
+                frames = np.expand_dims(frames, axis=-1)
+            if frames.shape[-1] == 1:
+                frames = np.repeat(frames, 4, axis=-1)
+            elif frames.shape[-1] == 3:
+                alpha_channel = np.full((*frames.shape[:-1], 1), 255, dtype=frames.dtype)
+                frames = np.concatenate([frames, alpha_channel], axis=-1)
+            elif frames.shape[-1] > 4:
+                frames = frames[..., :4]
             # Convert to torch tensor and normalize to [0, 1]
             frames = torch.from_numpy(frames).float() / 255.0
             # Normalize to [-1, 1] for diffusion models
@@ -108,7 +118,8 @@ class SignLanguageDataset(Dataset):
         except Exception as e:
             logger.error(f"Error loading {gif_path}: {e}")
             # Return a dummy tensor if loading fails (channels, frames, height, width)
-            dummy_frames = torch.zeros(3, 28, 128, 128)
+            from config import Config
+            dummy_frames = torch.zeros(*Config.INPUT_SHAPE)
             return dummy_frames, "error"
 
 class CenterCropTransform:

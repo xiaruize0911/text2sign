@@ -101,20 +101,16 @@ class SpatialTemporalAttention(nn.Module):
 
 class ViTBackboneExtractor(nn.Module):
     """Efficient ViT backbone feature extractor with patch-level features"""
-    def __init__(self, in_channels: int = 3, freeze_backbone: bool = False):
+    def __init__(self, in_channels: int = 4, freeze_backbone: bool = False):
         super().__init__()
+        self.in_channels = in_channels
         
         # Load pretrained ViT-B/16
         self.vit = vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
         
-        # Modify input projection for arbitrary number of channels
+        # Modify input projection for arbitrary number of channels while preserving pretrained weights
         if in_channels != 3:
-            self.vit.conv_proj = nn.Conv2d(
-                in_channels, 
-                self.vit.conv_proj.out_channels, 
-                kernel_size=16, 
-                stride=16
-            )
+            self._adjust_input_projection()
         
         # Extract useful attributes
         self.embed_dim = self.vit.conv_proj.out_channels
@@ -131,6 +127,27 @@ class ViTBackboneExtractor(nn.Module):
         # Store encoder layers for accessing intermediate features
         self.encoder_layers = self.vit.encoder.layers
         
+    def _adjust_input_projection(self):
+        old_proj = self.vit.conv_proj
+        new_proj = nn.Conv2d(
+            self.in_channels,
+            old_proj.out_channels,
+            kernel_size=old_proj.kernel_size,
+            stride=old_proj.stride,
+            bias=old_proj.bias is not None,
+        )
+        with torch.no_grad():
+            new_proj.weight.zero_()
+            copy_channels = min(old_proj.weight.shape[1], self.in_channels)
+            new_proj.weight[:, :copy_channels] = old_proj.weight[:, :copy_channels]
+            if self.in_channels > old_proj.weight.shape[1]:
+                extra = self.in_channels - old_proj.weight.shape[1]
+                repeat_source = old_proj.weight[:, :extra]
+                new_proj.weight[:, old_proj.weight.shape[1]:old_proj.weight.shape[1] + extra] = repeat_source
+            if old_proj.bias is not None:
+                new_proj.bias.copy_(old_proj.bias)
+        self.vit.conv_proj = new_proj
+
     def forward(self, x: torch.Tensor, return_patches: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Extract features from ViT backbone
@@ -285,8 +302,8 @@ class ViT3D(nn.Module):
     """
     
     def __init__(self, 
-                 in_channels: int = 3, 
-                 out_channels: int = 3, 
+                 in_channels: int = 4, 
+                 out_channels: int = 4, 
                  frames: int = 28,
                  height: int = 128, 
                  width: int = 128, 
@@ -509,7 +526,7 @@ def test_vit3d():
     
     # Test parameters
     batch_size = 2
-    channels, frames, height, width = 3, 16, 128, 128  # Smaller for testing
+    channels, frames, height, width = 4, 16, 128, 128  # Smaller for testing
     time_dim = 128
     text_dim = 256
     

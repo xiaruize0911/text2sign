@@ -56,13 +56,15 @@ class DiTBackboneExtractor(nn.Module):
     def __init__(self, 
                  freeze_backbone: bool = True,
                  input_size: int = 256,
-                 patch_size: int = 2):
+                 patch_size: int = 2,
+                 in_channels: int = 4):
         super().__init__()
         
         self.model_size = "DiT-XL-2-256"  # Fixed to HuggingFace pretrained model
         self.input_size = input_size
         self.patch_size = patch_size
         self.freeze_backbone = freeze_backbone
+        self.in_channels = in_channels
         
         # Create base DiT model (we'll load pretrained weights automatically)
         self.dit_config = self._get_dit_config("DiT-XL-2-256")
@@ -70,6 +72,7 @@ class DiTBackboneExtractor(nn.Module):
         
         # Load pretrained weights automatically
         self._load_pretrained_weights()
+        self._adjust_patch_embed_channels()
         
         # Extract useful attributes
         self.embed_dim = self.dit_config['hidden_size']
@@ -94,31 +97,36 @@ class DiTBackboneExtractor(nn.Module):
         config = self.dit_config
         
         # Create backbone components as a simple class
+        in_channels = self.in_channels
+
         class DiTBackbone(nn.Module):
-            def __init__(self, config, input_size):
+            def __init__(self, config, input_size, in_channels):
                 super().__init__()
                 # Patch embedding (2D for now, we'll extend to 3D)
-                self.patch_embed = nn.Conv2d(3, config['hidden_size'], 
-                                           kernel_size=config['patch_size'], 
-                                           stride=config['patch_size'])
-                
+                self.patch_embed = nn.Conv2d(
+                    in_channels,
+                    config['hidden_size'],
+                    kernel_size=config['patch_size'],
+                    stride=config['patch_size'],
+                )
+
                 # Positional embedding
                 num_patches = (input_size // config['patch_size']) ** 2
                 self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, config['hidden_size']))
-                
+
                 # Transformer blocks
                 self.blocks = nn.ModuleList([
                     DiTBlock(config['hidden_size'], config['num_heads'], mlp_ratio=4.0)
                     for _ in range(config['depth'])
                 ])
-                
+
                 # Time embedder
                 self.t_embedder = TimestepEmbedder(config['hidden_size'])
-                
+
                 # Initialize positional embeddings
                 nn.init.normal_(self.pos_embed, std=0.02)
-        
-        return DiTBackbone(config, self.input_size)
+
+        return DiTBackbone(config, self.input_size, in_channels)
     
     def _load_pretrained_weights(self):
         """Load pretrained DiT-XL-2-256 weights from HuggingFace"""
@@ -196,6 +204,36 @@ class DiTBackboneExtractor(nn.Module):
         except Exception as e:
             print(f"⚠️  Failed to load pretrained weights: {e}")
             print("🔧 Continuing with random initialization")
+
+    def _adjust_patch_embed_channels(self):
+        """Ensure patch embedding accepts the configured number of channels."""
+        patch_embed = self.backbone.patch_embed
+        if patch_embed.weight.shape[1] == self.in_channels:
+            return
+
+        old_weight = patch_embed.weight.detach()
+        out_channels = old_weight.shape[0]
+        old_in_channels = old_weight.shape[1]
+        new_conv = nn.Conv2d(
+            self.in_channels,
+            out_channels,
+            kernel_size=patch_embed.kernel_size,
+            stride=patch_embed.stride,
+            bias=patch_embed.bias is not None,
+        )
+
+        with torch.no_grad():
+            new_conv.weight.zero_()
+            copy_channels = min(old_in_channels, self.in_channels)
+            new_conv.weight[:, :copy_channels] = old_weight[:, :copy_channels]
+            if self.in_channels > old_in_channels:
+                extra = self.in_channels - old_in_channels
+                repeat_source = old_weight[:, :extra]
+                new_conv.weight[:, old_in_channels:old_in_channels + extra] = repeat_source
+            if patch_embed.bias is not None:
+                new_conv.bias.copy_(patch_embed.bias.detach())
+
+        self.backbone.patch_embed = new_conv
     
     def forward(self, x: torch.Tensor, t: torch.Tensor, return_features: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -698,8 +736,8 @@ class DiT3D(nn.Module):
         self,
         video_size: Tuple[int, int, int] = (16, 224, 224),  # (frames, height, width)
         patch_size: Tuple[int, int, int] = (2, 16, 16),      # (pF, pH, pW) - only spatial used for DiT
-        in_channels: int = 3,
-        out_channels: int = 3,
+    in_channels: int = 4,
+    out_channels: int = 4,
         freeze_dit_backbone: bool = True,  # Option to freeze pretrained backbone
         text_dim: Optional[int] = None,
         num_classes: int = 1000,
@@ -719,7 +757,8 @@ class DiT3D(nn.Module):
         self.dit_backbone = DiTBackboneExtractor(
             freeze_backbone=freeze_dit_backbone,
             input_size=max(self.height, self.width),  # Use larger dimension
-            patch_size=self.spatial_patch_size
+            patch_size=self.spatial_patch_size,
+            in_channels=self.in_channels
         )
         
         self.feature_dim = self.dit_backbone.embed_dim

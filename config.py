@@ -14,7 +14,7 @@ class Config:
     NUM_WORKERS = 4
 
     # Model input/output dimensions  
-    INPUT_SHAPE = (3, 16, 64, 64)  # (channels, frames, height, width) - Reduced to 64x64 for memory efficiency
+    INPUT_SHAPE = (4, 16, 64, 64)  # (channels, frames, height, width) - Reduced to 64x64 for memory efficiency
     NUM_FRAMES = 16
     IMAGE_SIZE = 64  # Reduced from 128 to 64 for memory efficiency
     
@@ -24,7 +24,7 @@ class Config:
     # UNet3D architecture settings
     UNET_DIM = 16
     UNET_DIM_MULTS = (1, 2)
-    UNET_CHANNELS = 3
+    UNET_CHANNELS = 4
     UNET_TIME_DIM = 16
     
     # ViT architecture settings
@@ -53,7 +53,7 @@ class Config:
     VIVIT_CLASS_DROPOUT_PROB = 0.1  # Dropout probability for classifier-free guidance
 
     # TinyFusion architecture settings (video wrapper around 2D TinyFusion backbone)
-    TINYFUSION_VIDEO_SIZE = (16, 64, 64)  # Reduced from 128x128 to 64x64 for memory efficiency
+    TINYFUSION_VIDEO_SIZE = (16, 64, 64)  # Video size (frames, height, width) for RGBA inputs
     TINYFUSION_VARIANT = "DiT-D14/2"  # Use DiT-D14/2 which exactly matches the checkpoint architecture
     TINYFUSION_CHECKPOINT = "pretrained/TinyDiT-D14-MaskedKD-500K.pt"  # Pre-trained checkpoint
     TINYFUSION_FREEZE_BACKBONE = False 
@@ -144,7 +144,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "tinyfusion_test_5"  # Name for this experiment
+    EXPERIMENT_NAME = "tinyfusion_test_6"  # Name for this experiment
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
@@ -192,8 +192,8 @@ class Config:
     ENABLE_GRADIENT_HISTOGRAMS = False   # Disabled - memory intensive
     ENABLE_PARAMETER_TRACKING = False    # Disabled - memory intensive
     ENABLE_VIDEO_LOGGING = True         # Keep enabled for essential monitoring
-    ENABLE_NOISE_VISUALIZATION = False   # Disabled - memory intensive
-    ENABLE_PERFORMANCE_PROFILING = False # Disabled - memory intensive
+    ENABLE_NOISE_VISUALIZATION = True   # Disabled - memory intensive
+    ENABLE_PERFORMANCE_PROFILING = True # Disabled - memory intensive
     ENABLE_LOSS_COMPONENT_TRACKING = True # Keep for loss monitoring
     ENABLE_GRADIENT_FLOW_ANALYSIS = True  # Temporarily enabled to check gradients
     ENABLE_MEMORY_TRACKING = True        # Keep for memory monitoring

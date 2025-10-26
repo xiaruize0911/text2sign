@@ -43,6 +43,15 @@ def load_gif_as_tensor(filepath: str) -> torch.Tensor:
     # Load GIF
     frames = imageio.mimread(filepath)
     frames = np.array(frames)
+    if frames.ndim == 3:
+        frames = np.expand_dims(frames, axis=-1)
+    if frames.shape[-1] == 1:
+        frames = np.repeat(frames, 4, axis=-1)
+    elif frames.shape[-1] == 3:
+        alpha_channel = np.full((*frames.shape[:-1], 1), 255, dtype=frames.dtype)
+        frames = np.concatenate([frames, alpha_channel], axis=-1)
+    elif frames.shape[-1] > 4:
+        frames = frames[..., :4]
     
     # Convert to torch tensor and normalize to [-1, 1] (matching dataset)
     frames = torch.from_numpy(frames).float() / 255.0

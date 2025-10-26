@@ -173,8 +173,8 @@ class TinyFusionConfig:
     """Configuration parameters for the TinyFusion video wrapper."""
 
     video_size: Tuple[int, int, int] = (28, 128, 128)  # (frames, height, width)
-    in_channels: int = 3
-    out_channels: int = 3
+    in_channels: int = 4
+    out_channels: int = 4
     variant: str = "DiT-S/2"
     checkpoint_path: Optional[str] = None
     freeze_backbone: bool = True
@@ -221,8 +221,8 @@ class TinyFusionVideoWrapper(nn.Module):
     def __init__(
         self,
         video_size: Tuple[int, int, int] = (28, 128, 128),
-        in_channels: int = 3,
-        out_channels: int = 3,
+    in_channels: int = 4,
+    out_channels: int = 4,
         text_dim: Optional[int] = None,
         variant: str = "DiT-D14/2",
         checkpoint_path: Optional[str] = None,
@@ -335,12 +335,14 @@ class TinyFusionVideoWrapper(nn.Module):
                             adapted_state[key] = value
                         else:
                             # Handle specific mismatches
-                            if key == 'x_embedder.weight':
-                                # Input channel mismatch (4 -> 3 channels)
+                            if 'x_embedder' in key and 'weight' in key and len(checkpoint_shape) == 4:
+                                # Handle projection weights that expect 4 input channels (RGBA) vs our 3 (RGB)
                                 if checkpoint_shape[1] == 4 and model_shape[1] == 3:
-                                    # Take first 3 channels
-                                    adapted_state[key] = value[:, :3, :, :].clone()
-                                    print(f"Adapted {key}: {checkpoint_shape} -> {model_shape} (channel reduction)")
+                                    adapted = value[:, :3, :, :].clone()
+                                    # Renormalize magnitude to compensate for dropped channel
+                                    adapted *= (checkpoint_shape[1] / model_shape[1])
+                                    adapted_state[key] = adapted
+                                    print(f"Adapted {key}: {checkpoint_shape} -> {adapted.shape} -> {model_shape} (channel reduction)")
                                 else:
                                     skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
                             

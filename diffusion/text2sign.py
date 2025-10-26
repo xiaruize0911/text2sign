@@ -14,6 +14,7 @@ from typing import Tuple, Optional
 from tqdm import tqdm
 
 from schedulers.noise_schedulers import create_noise_scheduler
+from config import Config
 
 class DiffusionModel(nn.Module):
     """
@@ -37,6 +38,7 @@ class DiffusionModel(nn.Module):
         noise_scheduler: str = "linear",
         device: torch.device = torch.device("cpu"),
         text_encoder=None,
+        input_shape: Optional[Tuple[int, ...]] = None,
         **scheduler_kwargs,
     ):
         super().__init__()
@@ -46,6 +48,12 @@ class DiffusionModel(nn.Module):
         self.device = device
         self.noise_scheduler_type = noise_scheduler
         self.text_encoder = text_encoder
+        if input_shape is not None:
+            if len(input_shape) != 4:
+                raise ValueError("input_shape must be a 4-tuple of (channels, frames, height, width)")
+            self.input_shape = tuple(int(dim) for dim in input_shape)
+        else:
+            self.input_shape = None
         
         # Initialize noise scheduler
         self.noise_scheduler = create_noise_scheduler(noise_scheduler, timesteps, **scheduler_kwargs)
@@ -261,9 +269,9 @@ class DiffusionModel(nn.Module):
         self,
         text: str,
         batch_size: int = 1,
-        num_frames: int = 28,
-        height: int = 128,
-        width: int = 128,
+        num_frames: Optional[int] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
         deterministic: bool = False,
         num_inference_steps: Optional[int] = None,
         eta: Optional[float] = None,
@@ -282,10 +290,28 @@ class DiffusionModel(nn.Module):
             eta: DDIM stochasticity coefficient
 
         Returns:
-            Generated video tensor of shape (batch_size, 3, num_frames, height, width) in range [-1, 1]
+            Generated video tensor of shape (batch_size, channels, num_frames, height, width) in range [-1, 1]
         """
-        shape = (batch_size, 3, num_frames, height, width)
-        return self.p_sample(
+        # Derive default spatial-temporal dimensions from Config when not provided
+        default_shape = self.input_shape or getattr(Config, "INPUT_SHAPE", None)
+        if default_shape is None or len(default_shape) != 4:
+            raise ValueError("Config.INPUT_SHAPE must be defined as (channels, frames, height, width)")
+
+        channels, default_frames, default_height, default_width = default_shape
+
+        if num_frames is None:
+            num_frames = default_frames
+        if height is None:
+            height = default_height
+        if width is None:
+            width = default_width
+
+        num_frames = int(num_frames)
+        height = int(height)
+        width = int(width)
+
+        shape = (batch_size, channels, num_frames, height, width)
+        samples = self.p_sample(
             shape,
             device=self.device,
             text=text,
@@ -293,6 +319,12 @@ class DiffusionModel(nn.Module):
             num_inference_steps=num_inference_steps,
             eta=eta,
         )
+        if samples.shape != shape:
+            raise RuntimeError(
+                f"Generated sample shape {samples.shape} does not match expected {shape}. "
+                "Check model output dimensions and Config.INPUT_SHAPE."
+            )
+        return samples
     
     def forward(self, x: torch.Tensor, text: Optional[str] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -391,6 +423,7 @@ def create_diffusion_model(config) -> DiffusionModel:
         noise_scheduler=config.NOISE_SCHEDULER,
         device=config.DEVICE,
         text_encoder=text_encoder,
+        input_shape=getattr(config, 'INPUT_SHAPE', None),
         **scheduler_kwargs
     )
     

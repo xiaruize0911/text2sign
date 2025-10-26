@@ -86,7 +86,7 @@ class AttentionBlock3D(nn.Module):
         return out + residual
 
 class UNet3D(nn.Module):
-    def __init__(self, in_channels: int = 3, out_channels: int = 3, dim: int = 32, dim_mults: Tuple[int, ...] = (1, 2, 4), time_dim: int = 128, text_dim: Optional[int] = None):
+    def __init__(self, in_channels: int = 4, out_channels: int = 4, dim: int = 32, dim_mults: Tuple[int, ...] = (1, 2, 4), time_dim: int = 128, text_dim: Optional[int] = None):
         super().__init__()
         dims = [dim * mult for mult in dim_mults]
         encoder_dims = [(dim, dims[0])] + list(zip(dims[:-1], dims[1:]))
@@ -162,7 +162,7 @@ def count_parameters(model: nn.Module) -> int:
 def test_unet3d():
     print("Testing UNet3D model...")
     batch_size = 2
-    channels, frames, height, width = 3, 28, 128, 128
+    channels, frames, height, width = 4, 28, 128, 128
     model = UNet3D(in_channels=channels, out_channels=channels, dim=32, dim_mults=(1,2,4), time_dim=128)
     x = torch.randn(batch_size, channels, frames, height, width)
     time = torch.randint(0, 1000, (batch_size,))

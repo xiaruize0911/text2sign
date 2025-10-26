@@ -212,7 +212,7 @@ def fix_config_architecture(checkpoint_path):
                 if 'final_conv' in key and 'weight' in key:
                     # final_conv usually has shape (out_channels, in_channels, ...)
                     out_channels = tensor.shape[0]
-                    if out_channels == 3:  # RGB channels
+                    if out_channels == 4:  # RGBA channels
                         logger.info(f"Detected UNet3D output channels: {out_channels}")
                     break
         
@@ -245,10 +245,10 @@ def fix_config_architecture(checkpoint_path):
         if target_arch == 'unet3d':
             # Update INPUT_SHAPE
             shape_pattern = r'INPUT_SHAPE\s*=\s*\([^)]+\)'
-            shape_replacement = 'INPUT_SHAPE = (3, 28, 128, 128)'
+            shape_replacement = 'INPUT_SHAPE = (4, 28, 128, 128)'
             if re.search(shape_pattern, config_content):
                 config_content = re.sub(shape_pattern, shape_replacement, config_content)
-                updates_made.append("INPUT_SHAPE = (3, 28, 128, 128)")
+                updates_made.append("INPUT_SHAPE = (4, 28, 128, 128)")
             
             # Update NUM_FRAMES
             frames_pattern = r'NUM_FRAMES\s*=\s*\d+'

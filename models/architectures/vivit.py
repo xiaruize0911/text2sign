@@ -83,10 +83,11 @@ class FiLMLayer(nn.Module):
 
 class ViViTBackboneExtractor(nn.Module):
     """ViViT-inspired backbone feature extractor using frame-wise ViT processing"""
-    def __init__(self, model_name: str = "google/vivit-b-16x2-kinetics400", freeze_backbone: bool = True):
+    def __init__(self, model_name: str = "google/vivit-b-16x2-kinetics400", freeze_backbone: bool = True, input_channels: int = 4):
         super().__init__()
         self.model_name = model_name
         self.freeze_backbone = freeze_backbone
+        self.input_channels = input_channels
         
         try:
             # Loading ViViT model silently
@@ -105,7 +106,7 @@ class ViViTBackboneExtractor(nn.Module):
                 config = ViTConfig(
                     image_size=224,
                     patch_size=16,
-                    num_channels=3,
+                    num_channels=input_channels,
                     hidden_size=768,
                     num_hidden_layers=12,
                     num_attention_heads=12,
@@ -117,6 +118,7 @@ class ViViTBackboneExtractor(nn.Module):
                 )
                 self.vit = ViTModel(config)
                 # ViT model created with default configuration
+            self._adjust_input_projection()
             
             # Store model dimensions
             self.embed_dim = self.vit.config.hidden_size  # 768 for ViT-B
@@ -137,6 +139,33 @@ class ViViTBackboneExtractor(nn.Module):
             print(f"❌ Failed to initialize ViT model: {e}")
             raise RuntimeError(f"Could not initialize ViT model: {e}")
     
+    def _adjust_input_projection(self):
+        """Adapt ViT patch projection to accept the configured input channels."""
+        try:
+            projection = self.vit.embeddings.patch_embeddings.projection
+        except AttributeError:
+            return
+
+        if projection.weight.shape[1] == self.input_channels:
+            return
+
+        with torch.no_grad():
+            old_weight = projection.weight
+            out_channels, old_in_channels = old_weight.shape[:2]
+            new_weight = old_weight.new_zeros(out_channels, self.input_channels, *old_weight.shape[2:])
+            copy_channels = min(old_in_channels, self.input_channels)
+            new_weight[:, :copy_channels] = old_weight[:, :copy_channels]
+            if self.input_channels > old_in_channels:
+                extra = self.input_channels - old_in_channels
+                repeat_source = old_weight[:, :extra]
+                new_weight[:, old_in_channels:old_in_channels + extra] = repeat_source
+            projection.weight = nn.Parameter(new_weight)
+            if projection.bias is not None:
+                projection.bias = nn.Parameter(projection.bias.clone())
+
+        if hasattr(self.vit.config, "num_channels"):
+            self.vit.config.num_channels = self.input_channels
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass through ViViT backbone with proper temporal processing
@@ -148,6 +177,8 @@ class ViViTBackboneExtractor(nn.Module):
             features: (batch, frames * spatial_patches, embed_dim) - Patch-level features with temporal context
         """
         batch_size, channels, frames, height, width = x.shape
+        if channels != self.input_channels:
+            raise ValueError(f"Expected {self.input_channels} channels for ViViT backbone, got {channels}")
         
         # Reshape video to process all frames together: (batch*frames, channels, height, width)
         x_frames = x.permute(0, 2, 1, 3, 4).contiguous()  # (batch, frames, channels, height, width)
@@ -336,8 +367,8 @@ class ViViT(nn.Module):
     def __init__(
         self,
         video_size: Tuple[int, int, int] = (16, 64, 64),  # (frames, height, width)
-        in_channels: int = 3,
-        out_channels: int = 3,
+        in_channels: int = 4,
+        out_channels: int = 4,
         time_dim: int = 768,
         text_dim: Optional[int] = None,
         model_name: str = "google/vivit-b-16x2-kinetics400",
@@ -362,7 +393,7 @@ class ViViT(nn.Module):
         self.class_dropout_prob = class_dropout_prob
         
         # ViViT backbone for spatial-temporal feature extraction
-        self.backbone = ViViTBackboneExtractor(model_name, freeze_backbone)
+        self.backbone = ViViTBackboneExtractor(model_name, freeze_backbone, input_channels=in_channels)
         self.feature_dim = self.backbone.embed_dim  # 768 for ViViT-B
         
         # Time embedding
@@ -554,7 +585,7 @@ def test_vivit():
     
     # Test parameters
     batch_size = 2
-    channels, frames, height, width = 3, 16, 64, 64
+    channels, frames, height, width = 4, 16, 64, 64
     time_dim = 768
     text_dim = 768
     
