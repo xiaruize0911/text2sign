@@ -1,0 +1,64 @@
+Successfully imported TinyFusion models from external directory
+Starting debug script...
+Loading TinyFusion backbone: DiT-D14/2
+Loading checkpoint from: pretrained/TinyDiT-D14-MaskedKD-500K.pt
+Attempting to load checkpoint file into memory... (this may take a moment)
+✅ Checkpoint file loaded successfully.
+Adapted pos_embed: torch.Size([1, 256, 1152]) -> torch.Size([1, 1024, 1152]) -> torch.Size([1, 1024, 1152])
+Successfully loaded 152 parameters from checkpoint
+✅ Backbone trainable (340,162,592 params)
+Backbone created successfully!
+Running training simulation for 5 steps...
+Processing chunk 0/32
+Processing chunk 4/32
+Processing chunk 8/32
+Processing chunk 12/32
+Processing chunk 16/32
+Processing chunk 20/32
+Processing chunk 24/32
+Processing chunk 28/32
+/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/conv.py:605: UserWarning: Using padding='same' with even kernel lengths and odd dilation may require a zero-padded copy of the input be created (Triggered internally at ../aten/src/ATen/native/Convolution.cpp:1040.)
+  return F.conv3d(
+Step 1: Loss=2.202319, Grad Norm=86290.423119
+  Pred: mean=0.024688, std=1.093086
+Processing chunk 0/32
+Processing chunk 4/32
+Processing chunk 8/32
+Processing chunk 12/32
+Processing chunk 16/32
+Processing chunk 20/32
+Processing chunk 24/32
+Processing chunk 28/32
+Step 2: Loss=4.421795, Grad Norm=14047444.289159
+  Pred: mean=0.064315, std=1.846732
+Processing chunk 0/32
+Processing chunk 4/32
+Processing chunk 8/32
+Processing chunk 12/32
+Processing chunk 16/32
+Processing chunk 20/32
+Processing chunk 24/32
+Processing chunk 28/32
+Step 3: Loss=1.214429, Grad Norm=4873.784426
+  Pred: mean=0.049258, std=0.460709
+Processing chunk 0/32
+Processing chunk 4/32
+Processing chunk 8/32
+Processing chunk 12/32
+Processing chunk 16/32
+Processing chunk 20/32
+Processing chunk 24/32
+Processing chunk 28/32
+Step 4: Loss=1.636562, Grad Norm=6661.507209
+  Pred: mean=0.025041, std=0.798002
+Processing chunk 0/32
+Processing chunk 4/32
+Processing chunk 8/32
+Processing chunk 12/32
+Processing chunk 16/32
+Processing chunk 20/32
+Processing chunk 24/32
+Processing chunk 28/32
+Step 5: Loss=1.475533, Grad Norm=1613386.543856
+  Pred: mean=-0.088881, std=0.685699
+Debug script finished successfully!

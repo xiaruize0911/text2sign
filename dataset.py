@@ -30,23 +30,27 @@ class SignLanguageDataset(Dataset):
         self.transform = transform
         self.num_frames = num_frames
         
-        # Find all GIF files with progress bar
+        # Find all GIF files
         print(f"Scanning for GIF files in {data_root}...")
         gif_pattern = os.path.join(data_root, "*.gif")
-        self.gif_files = glob.glob(gif_pattern)
-        self.gif_files.sort()  # Ensure consistent ordering
+        gif_files = glob.glob(gif_pattern)
         
-        # Validate that corresponding text files exist
+        # Find all Text files to avoid checking existence one by one
+        print(f"Scanning for Text files in {data_root}...")
+        txt_pattern = os.path.join(data_root, "*.txt")
+        txt_files = set(glob.glob(txt_pattern))
+        
+        # Validate pairs
         print("Validating dataset files...")
         valid_files = []
-        for gif_file in tqdm(self.gif_files, desc="Validating files", unit="file"):
-            text_file = gif_file.replace('.gif', '.txt')
-            if os.path.exists(text_file):
-                valid_files.append(gif_file)
-            else:
-                print(f"Warning: Missing text file for {gif_file}")
         
-        self.gif_files = valid_files
+        # Fast validation using set lookup
+        for gif_file in tqdm(gif_files, desc="Validating files", unit="file"):
+            text_file = gif_file.replace('.gif', '.txt')
+            if text_file in txt_files:
+                valid_files.append(gif_file)
+        
+        self.gif_files = sorted(valid_files)
         print(f"Found {len(self.gif_files)} valid GIF-text pairs in {data_root}")
         
     def __len__(self) -> int:
@@ -78,8 +82,15 @@ class SignLanguageDataset(Dataset):
             # Ensure RGBA channels
             if frames.ndim == 3:
                 frames = np.expand_dims(frames, axis=-1)
+            
             if frames.shape[-1] == 1:
                 frames = np.repeat(frames, 4, axis=-1)
+            elif frames.shape[-1] == 2:
+                # Grayscale + Alpha -> RGBA
+                # L, A -> R=L, G=L, B=L, A=A
+                gray = frames[..., 0:1]
+                alpha = frames[..., 1:2]
+                frames = np.concatenate([gray, gray, gray, alpha], axis=-1)
             elif frames.shape[-1] == 3:
                 alpha_channel = np.full((*frames.shape[:-1], 1), 255, dtype=frames.dtype)
                 frames = np.concatenate([frames, alpha_channel], axis=-1)

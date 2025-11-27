@@ -59,9 +59,28 @@ class Trainer:
         if hasattr(config, 'DETERMINISTIC') and config.DETERMINISTIC:
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
+            logger.info("Running in deterministic mode (slower)")
+        else:
+            torch.backends.cudnn.deterministic = False
+            torch.backends.cudnn.benchmark = True
+            logger.info("Enabled CUDNN benchmark for performance")
         
         self.config = config
         self.model = model
+        
+        # Compile model backbone if available (PyTorch 2.0+)
+        # NOTE: Compilation is disabled by default to prevent initialization hangs
+        # Enable with: torch.compile(model) if you need performance optimization
+        if False and hasattr(torch, 'compile') and config.DEVICE.type == 'cuda':
+            try:
+                logger.info("Compiling model backbone with torch.compile...")
+                # Compile the backbone model inside DiffusionModel
+                if hasattr(self.model, 'model'):
+                    self.model.model = torch.compile(self.model.model)
+                    logger.info("Model backbone compiled successfully!")
+            except Exception as e:
+                logger.warning(f"Could not compile model: {e}")
+
         self.dataloader = dataloader
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -197,7 +216,79 @@ class Trainer:
                 logger.error(f"Please change CONFIG.MODEL_ARCHITECTURE to '{checkpoint_arch}' or use a {current_arch} checkpoint")
                 return
             
-            self.model.load_state_dict(checkpoint['model_state_dict'])
+            # Adapt state dict for channel mismatches (RGB -> RGBA)
+            state_dict = checkpoint['model_state_dict']
+            model_state = self.model.state_dict()
+            adapted_state = {}
+            
+            for key, value in state_dict.items():
+                if key in model_state:
+                    checkpoint_shape = value.shape
+                    model_shape = model_state[key].shape
+                    
+                    if checkpoint_shape == model_shape:
+                        adapted_state[key] = value
+                    else:
+                        # Handle channel expansion from RGB (3) to RGBA (4)
+                        if 'x_embedder.proj.weight' in key and len(checkpoint_shape) == 4:
+                            if checkpoint_shape[1] == 3 and model_shape[1] == 4:
+                                logger.info(f"Adapting {key}: {checkpoint_shape} -> {model_shape} (RGB → RGBA)")
+                                adapted = torch.zeros(model_shape, dtype=value.dtype, device=value.device)
+                                adapted[:, :3, :, :] = value
+                                adapted[:, 3:4, :, :] = value.mean(dim=1, keepdim=True)
+                                adapted *= (3.0 / 4.0)
+                                adapted_state[key] = adapted
+                            else:
+                                logger.warning(f"Skipping {key}: incompatible shapes")
+                                adapted_state[key] = model_state[key]  # Keep random init
+                        
+                        elif 'final_layer.linear.weight' in key:
+                            if checkpoint_shape[0] == 24 and model_shape[0] == 32:
+                                logger.info(f"Adapting {key}: {checkpoint_shape} -> {model_shape}")
+                                adapted = torch.zeros(model_shape, dtype=value.dtype, device=value.device)
+                                adapted[:24, :] = value
+                                adapted[24:, :] = torch.randn(8, model_shape[1], device=value.device) * value.std() * 0.1
+                                adapted_state[key] = adapted
+                            else:
+                                logger.warning(f"Skipping {key}: incompatible shapes")
+                                adapted_state[key] = model_state[key]
+                        
+                        elif 'final_layer.linear.bias' in key:
+                            if checkpoint_shape[0] == 24 and model_shape[0] == 32:
+                                logger.info(f"Adapting {key}: {checkpoint_shape} -> {model_shape}")
+                                adapted = torch.zeros(model_shape, dtype=value.dtype, device=value.device)
+                                adapted[:24] = value
+                                adapted_state[key] = adapted
+                            else:
+                                logger.warning(f"Skipping {key}: incompatible shapes")
+                                adapted_state[key] = model_state[key]
+                        
+                        elif 'temporal_post.conv.weight' in key:
+                            if checkpoint_shape == torch.Size([3, 3, 2, 1, 1]) and model_shape == torch.Size([4, 4, 2, 1, 1]):
+                                logger.info(f"Adapting {key}: {checkpoint_shape} -> {model_shape}")
+                                adapted = torch.zeros(model_shape, dtype=value.dtype, device=value.device)
+                                adapted[:3, :3, :, :, :] = value
+                                adapted[3:4, :3, :, :, :] = value.mean(dim=0, keepdim=True)
+                                adapted[:3, 3:4, :, :, :] = value.mean(dim=1, keepdim=True)
+                                adapted[3:4, 3:4, :, :, :] = value.mean()
+                                adapted_state[key] = adapted
+                            else:
+                                logger.warning(f"Skipping {key}: incompatible shapes")
+                                adapted_state[key] = model_state[key]
+                        
+                        else:
+                            logger.warning(f"Shape mismatch for {key}: {checkpoint_shape} vs {model_shape}, keeping random init")
+                            adapted_state[key] = model_state[key]
+                else:
+                    logger.warning(f"Key {key} not in current model, skipping")
+            
+            # Load adapted state dict
+            missing, unexpected = self.model.load_state_dict(adapted_state, strict=False)
+            if missing:
+                logger.info(f"Missing keys (randomly initialized): {len(missing)}")
+            if unexpected:
+                logger.warning(f"Unexpected keys: {len(unexpected)}")
+            
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.epoch = checkpoint['epoch']
             self.global_step = checkpoint['global_step']
@@ -529,11 +620,8 @@ class Trainer:
         """
         self.model.train()
         
-        # WORKAROUND: Set backbone to eval mode to prevent NaN from BatchNorm/LayerNorm instability
-        # This keeps dropout/etc in train mode but stabilizes normalization layers
-        if hasattr(self.model, 'model') and hasattr(self.model.model, 'backbone'):
-            self.model.model.backbone.eval()
-            logger.info("Set backbone to eval mode to prevent NaN from normalization layers")
+        # NOTE: Keep model in train mode - normalization layers should be updated
+        # Using layer norm momentum and eps for stability instead
         
         epoch_loss = 0.0
         num_batches = 0
@@ -567,94 +655,36 @@ class Trainer:
             # Forward pass with mixed precision
             if self.use_amp:
                 with autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                    loss, predicted_noise, noise = self.model(videos, texts)
+                    loss, predicted_noise, noise, t = self.model(videos, texts)
             else:
-                loss, predicted_noise, noise = self.model(videos, texts)
-            
-            # Check for NaN/Inf in loss immediately after forward pass
-            if torch.isnan(loss) or torch.isinf(loss):
-                logger.error(f"NaN/Inf loss detected at step {self.global_step} AFTER forward pass")
-                logger.error(f"  Input video range: [{videos.min().item():.3f}, {videos.max().item():.3f}]")
-                logger.error(f"  Predicted noise range: [{predicted_noise.min().item():.3f}, {predicted_noise.max().item():.3f}]")
-                logger.error(f"  Actual noise range: [{noise.min().item():.3f}, {noise.max().item():.3f}]")
-                logger.error(f"  Has NaN in pred_noise: {torch.isnan(predicted_noise).any().item()}")
-                logger.error(f"  Has NaN in noise: {torch.isnan(noise).any().item()}")
-                # Skip this batch - no backward was called, so no need to update scaler
-                self.optimizer.zero_grad()
-                self.accumulation_step = 0
-                self.global_step += 1
-                continue
+                loss, predicted_noise, noise, t = self.model(videos, texts)
             
             # Scale loss by accumulation steps for correct gradients
             scaled_loss = loss / self.config.GRADIENT_ACCUMULATION_STEPS
             
-            # Reduced diagnostic logging - only log critical issues
-            if self.global_step % (self.config.DIAGNOSTIC_LOG_EVERY_STEPS * 5) == 0:
-                with torch.no_grad():
-                    # Check for critical issues only
-                    pred_noise_abs_max = predicted_noise.abs().max().item()
-                    actual_noise_abs_max = noise.abs().max().item()
-                    
-                    # Only log if there's a potential issue
-                    if pred_noise_abs_max > 10.0 or actual_noise_abs_max > 10.0:
-                        print(f"⚠️ [Step {self.global_step}] High noise values detected - pred_max: {pred_noise_abs_max:.2f}, actual_max: {actual_noise_abs_max:.2f}")
-                    
-                    # Essential TensorBoard logging only
-                    self.writer.add_scalar('debug/pred_noise_max', pred_noise_abs_max, self.global_step)
-                    self.writer.add_scalar('debug/actual_noise_max', actual_noise_abs_max, self.global_step)
             # Backward pass with scaled loss
             if self.use_amp:
                 self.scaler.scale(scaled_loss).backward()
             else:
                 scaled_loss.backward()
             
-            # Check for NaN in gradients immediately after backward
-            has_nan_grad = False
-            for name, param in self.model.named_parameters():
-                if param.grad is not None and (torch.isnan(param.grad).any() or torch.isinf(param.grad).any()):
-                    logger.error(f"NaN/Inf gradient in {name} at step {self.global_step} after backward")
-                    has_nan_grad = True
-                    break
-            
-            if has_nan_grad:
-                logger.error("NaN gradients detected immediately after backward pass, skipping batch")
-                self.optimizer.zero_grad()
-                self.accumulation_step = 0
-                self.global_step += 1
-                continue
-            
             # Increment accumulation step
             self.accumulation_step += 1
             
             # Only perform optimizer step when accumulation is complete
             if self.accumulation_step == self.config.GRADIENT_ACCUMULATION_STEPS:
-                optimizer_step_performed = False
-
-                # Unscale gradients before clipping if using AMP
+                # Gradient clipping (applied to accumulated gradients)
                 if self.use_amp:
                     self.scaler.unscale_(self.optimizer)
-
-                # Gradient clipping (applied to accumulated gradients)
+                
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
-
-                # Check for NaN gradients
-                if torch.isnan(grad_norm) or torch.isinf(grad_norm):
-                    print(f"NaN/Inf gradient norm detected at step {self.global_step}, zeroing gradients")
-                    self.optimizer.zero_grad()
-                    self.accumulation_step = 0  # Reset accumulation
-                    self.global_step += 1
-                    continue
                 
                 # Optimizer step (applies accumulated gradients)
                 if self.use_amp:
                     self.scaler.step(self.optimizer)
-                    optimizer_step_performed = True
+                    self.scaler.update()
                 else:
                     self.optimizer.step()
-                    optimizer_step_performed = True
-
-                if self.use_amp and optimizer_step_performed:
-                    self.scaler.update()
                 
                 # Update learning rate
                 if self.scheduler is not None:
@@ -790,7 +820,7 @@ class Trainer:
                 current_lr = self.optimizer.param_groups[0]['lr']
                 progress_bar.set_description(
                     f"Epoch {self.epoch} [Step {self.global_step}] | LR: {current_lr:.2e} - "
-                    f"Loss: {loss.item():.4f}, MSE: {noise_mse.item():.4f}, SNR: {snr.item():.1f}dB"
+                    f"Loss: {loss.item():.4f}, MSE: {noise_mse.item():.4f}, SNR: {snr.item():.1f}dB, t_avg: {t.float().mean().item():.1f}"
                 )
     
 
@@ -858,7 +888,7 @@ class Trainer:
         self.writer.flush()  # Flush configuration immediately
         
         # Log learning rate schedule
-        self.log_lr_schedule()
+        # self.log_lr_schedule()  # Disabled to prevent hanging on startup with large number of steps
         
         try:
             # Create progress bar for epochs

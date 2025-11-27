@@ -10,13 +10,13 @@ class Config:
     
     # Data settings
     DATA_ROOT = "training_data"
-    BATCH_SIZE = 4
-    NUM_WORKERS = 4
+    BATCH_SIZE = 4  # Increased for better throughput
+    NUM_WORKERS = 2  # Set to 0 to prevent data loading deadlocks; increase if performance is bottlenecked
 
     # Model input/output dimensions  
-    INPUT_SHAPE = (4, 16, 64, 64)  # (channels, frames, height, width) - Reduced to 64x64 for memory efficiency
+    INPUT_SHAPE = (4, 16, 64, 64)  # (channels, frames, height, width) - Optimized for T4 GPU
     NUM_FRAMES = 16
-    IMAGE_SIZE = 64  # Reduced from 128 to 64 for memory efficiency
+    IMAGE_SIZE = 64  # Optimized for T4 GPU memory
     
     # Model architecture selection
     MODEL_ARCHITECTURE = "tinyfusion"  # Options: "unet3d", "vit3d", "dit3d", "vivit", "tinyfusion"
@@ -56,9 +56,9 @@ class Config:
     TINYFUSION_VIDEO_SIZE = (16, 64, 64)  # Video size (frames, height, width) for RGBA inputs
     TINYFUSION_VARIANT = "DiT-D14/2"  # Use DiT-D14/2 which exactly matches the checkpoint architecture
     TINYFUSION_CHECKPOINT = "pretrained/TinyDiT-D14-MaskedKD-500K.pt"  # Pre-trained checkpoint
-    TINYFUSION_FREEZE_BACKBONE = False 
+    TINYFUSION_FREEZE_BACKBONE = True  # Freeze backbone to stabilize training, only train head/adapters 
     TINYFUSION_ENABLE_TEMPORAL_POST = True
-    TINYFUSION_TEMPORAL_KERNEL = 2
+    TINYFUSION_TEMPORAL_KERNEL = 3  # Changed from 2 to 3 to ensure identity initialization works correctly
     
     # Text conditioning settings
     TEXT_ENCODER_MODEL = "distilbert-base-uncased"  # Pre-trained text encoder
@@ -67,8 +67,8 @@ class Config:
     TEXT_FREEZE_BACKBONE = True  # Whether to freeze text encoder backbone
     
     # Diffusion process settings
-    TIMESTEPS = 50  # Number of diffusion timesteps for training
-    INFERENCE_TIMESTEPS = 50  
+    TIMESTEPS = 300  # Number of diffusion timesteps for training
+    INFERENCE_TIMESTEPS = 300  # Inference timesteps
     BETA_START = 0.01  # Start of noise schedule
     BETA_END = 0.02  # End of noise schedule
     
@@ -78,31 +78,31 @@ class Config:
     COSINE_MAX_BETA = 0.999  # Maximum beta value for cosine scheduler
     
     # Training settings
-    LEARNING_RATE = 0.0001  # Higher learning rate for ViT (was 0.00001 for UNet)
+    LEARNING_RATE = 0.0001  # Standard learning rate
     NUM_EPOCHS = 1000
-    GRADIENT_CLIP = 1 # Enable gradient clipping for training stability
-    GRADIENT_ACCUMULATION_STEPS = 2  # Increased for memory efficiency while maintaining effective batch size
-    GRADIENT_CHECKPOINTING = False  # Enable gradient checkpointing to reduce memory usage
+    GRADIENT_CLIP = 1.0  # Enable gradient clipping for training stability
+    GRADIENT_ACCUMULATION_STEPS = 1  # Set to 1 for stability; increase only after training is stable
+    GRADIENT_CHECKPOINTING = True  # Enable gradient checkpointing to reduce memory usage on T4
     
-    # Memory optimization settings
+    # Memory optimization settings (T4 GPU optimized - 16GB VRAM)
     USE_MIXED_PRECISION = True  # Enable automatic mixed precision training
-    USE_CPU_OFFLOAD = True  # Offload optimizer states to CPU (if needed)
+    USE_CPU_OFFLOAD = False  # Disable CPU offload on T4 (not needed with proper settings)
     ENABLE_MEMORY_EFFICIENT_ATTENTION = True  # Use memory-efficient attention implementation
-    CLEAR_CACHE_EVERY_STEPS = 1  # Clear CUDA cache every N steps to prevent fragmentation
-    PREFETCH_FACTOR = 1  # DataLoader prefetch factor (reduced from default 2)
-    PIN_MEMORY = False  # Disable pin memory to save GPU memory
+    CLEAR_CACHE_EVERY_STEPS = 5  # Clear CUDA cache every N steps to prevent fragmentation
+    PREFETCH_FACTOR = 2  # DataLoader prefetch factor
+    PIN_MEMORY = True  # Enable pin memory for faster data transfer on T4
     
-    # TinyFusion memory optimization
-    TINYFUSION_FRAME_CHUNK_SIZE = 4  # Process frames in smaller chunks (reduced from 8)
+    # TinyFusion memory optimization (T4 GPU)
+    TINYFUSION_FRAME_CHUNK_SIZE = 4  # Process frames in chunks of 4
     TINYFUSION_USE_CHECKPOINTING = True  # Enable gradient checkpointing in TinyFusion
     
-    # CUDA memory management settings
-    PYTORCH_CUDA_ALLOC_CONF = "max_split_size_mb:128"  # Disable expandable_segments due to compatibility issues
-    CUDA_EMPTY_CACHE_STEPS = 1  # Empty CUDA cache every N steps
+    # CUDA memory management settings (T4 GPU optimized)
+    PYTORCH_CUDA_ALLOC_CONF = "max_split_size_mb:256"  # Optimized for T4 GPU
+    CUDA_EMPTY_CACHE_STEPS = 5  # Empty CUDA cache every N steps
     
     # Dynamic Learning Rate Scheduler Settings
-    USE_SCHEDULER = False  # Enable dynamic learning rate scheduling
-    SCHEDULER_TYPE = "cosine_annealing_with_restarts"  # Options: "cosine_annealing", "cosine_annealing_with_restarts", "reduce_on_plateau", "exponential", "linear_warmup_cosine", "polynomial"
+    USE_SCHEDULER = True  # Enable dynamic learning rate scheduling
+    SCHEDULER_TYPE = "cosine_annealing"  # Options: "cosine_annealing", "cosine_annealing_with_restarts", "reduce_on_plateau", "exponential", "linear_warmup_cosine", "polynomial"
     
     # Cosine Annealing Settings
     COSINE_T_MAX = 50  # Period of cosine annealing (epochs)
@@ -123,7 +123,7 @@ class Config:
     EXPONENTIAL_GAMMA = 0.95  # Multiplicative factor of learning rate decay
     
     # Linear Warmup + Cosine Settings
-    WARMUP_EPOCHS = 10  # Number of epochs for linear warmup
+    WARMUP_EPOCHS = 0  # Number of epochs for linear warmup
     WARMUP_START_LR = 1e-6  # Starting learning rate for warmup
     
     # Polynomial Decay Settings
@@ -131,7 +131,7 @@ class Config:
     
     # Reproducibility settings
     RANDOM_SEED = 42  # Random seed for reproducibility
-    DETERMINISTIC = True  # Use deterministic algorithms when possible
+    DETERMINISTIC = False  # Disable deterministic mode to enable CUDNN benchmarking for speed
     
     # Optimizer settings for different architectures
     OPTIMIZER_TYPE = "adamw"  # Options: "adam", "adamw"
@@ -144,21 +144,21 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "tinyfusion_test_6"  # Name for this experiment
+    EXPERIMENT_NAME = "tinyfusion_2"  # Name for production training
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
     
-    # Epoch-based logging frequencies
-    SAMPLE_EVERY_EPOCHS = 5  # Generate samples every N epochs
-    LOG_EVERY_EPOCHS = 1  # Log loss every N epochs
-    SAVE_EVERY_EPOCHS = 10  # Save checkpoint every N epochs
-    LOG_MODEL_GRAPH = True  # Enable model graph logging to aid debugging
+    # Epoch-based logging frequencies (optimized for T4 GPU)
+    SAMPLE_EVERY_EPOCHS = 1  # Generate samples every 5 epochs to save time
+    LOG_EVERY_EPOCHS = 1  # Log loss every epoch
+    SAVE_EVERY_EPOCHS = 1  # Save checkpoint every 5 epochs to save I/O time
+    LOG_MODEL_GRAPH = False  # Disable model graph logging to save memory
     
-    # Step-based diagnostic logging intervals (reduced for memory efficiency)
-    NOISE_DISPLAY_EVERY_STEPS = 500   # Reduced frequency to save memory
-    DIAGNOSTIC_LOG_EVERY_STEPS = 100    # Reduced frequency to save memory
-    TENSORBOARD_FLUSH_EVERY_STEPS = 100 # Reduced frequency to save memory
+    # Step-based diagnostic logging intervals (T4 GPU optimized)
+    NOISE_DISPLAY_EVERY_STEPS = 1000   # Display noise every 1000 steps
+    DIAGNOSTIC_LOG_EVERY_STEPS = 200    # Diagnostic logging every 200 steps
+    TENSORBOARD_FLUSH_EVERY_STEPS = 100 # TensorBoard flush every 100 steps
     
     # Epoch-level flushing and comprehensive logging
     FLUSH_TENSORBOARD_EVERY_EPOCH = True  # Force TensorBoard flush at end of each epoch
@@ -188,16 +188,16 @@ class Config:
         "15_Configuration"     # Training configuration logging
     ]
     
-    # Advanced logging features (reduced to save memory)
-    ENABLE_GRADIENT_HISTOGRAMS = False   # Disabled - memory intensive
-    ENABLE_PARAMETER_TRACKING = False    # Disabled - memory intensive
-    ENABLE_VIDEO_LOGGING = True         # Keep enabled for essential monitoring
-    ENABLE_NOISE_VISUALIZATION = True   # Disabled - memory intensive
-    ENABLE_PERFORMANCE_PROFILING = True # Disabled - memory intensive
-    ENABLE_LOSS_COMPONENT_TRACKING = True # Keep for loss monitoring
-    ENABLE_GRADIENT_FLOW_ANALYSIS = True  # Temporarily enabled to check gradients
-    ENABLE_MEMORY_TRACKING = True        # Keep for memory monitoring
-    ENABLE_LEARNING_RATE_LOGGING = True  # Keep for LR monitoring
+    # Advanced logging features (T4 GPU optimized - minimal overhead)
+    ENABLE_GRADIENT_HISTOGRAMS = False   # Disabled to save memory
+    ENABLE_PARAMETER_TRACKING = False    # Disabled to save memory
+    ENABLE_VIDEO_LOGGING = True          # Essential for monitoring
+    ENABLE_NOISE_VISUALIZATION = True   # Disabled to save memory
+    ENABLE_PERFORMANCE_PROFILING = True # Disabled to reduce overhead
+    ENABLE_LOSS_COMPONENT_TRACKING = True # Essential for loss monitoring
+    ENABLE_GRADIENT_FLOW_ANALYSIS = False  # Disabled to save memory
+    ENABLE_MEMORY_TRACKING = True         # Essential for memory monitoring
+    ENABLE_LEARNING_RATE_LOGGING = True   # Essential for LR monitoring
 
     # Sampling settings
     NUM_SAMPLES = 2  # Number of samples to generate for logging

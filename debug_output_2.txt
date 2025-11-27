@@ -1,0 +1,34 @@
+Successfully imported TinyFusion models from external directory
+Starting debug script...
+Loading TinyFusion backbone: DiT-D14/2
+Loading checkpoint from: pretrained/TinyDiT-D14-MaskedKD-500K.pt
+Attempting to load checkpoint file into memory... (this may take a moment)
+✅ Checkpoint file loaded successfully.
+Adapted pos_embed: torch.Size([1, 256, 1152]) -> torch.Size([1, 1024, 1152]) -> torch.Size([1, 1024, 1152])
+Successfully loaded 152 parameters from checkpoint
+✅ Backbone trainable (340,162,592 params)
+Backbone created successfully!
+Running training simulation for 10 steps...
+/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/conv.py:605: UserWarning: Using padding='same' with even kernel lengths and odd dilation may require a zero-padded copy of the input be created (Triggered internally at ../aten/src/ATen/native/Convolution.cpp:1040.)
+  return F.conv3d(
+Step 1: Loss=1.620509, Grad Norm=2760.404491
+  Pred: mean=-0.216346, std=0.754109
+Step 2: Loss=2.248219, Grad Norm=31278.749333
+  Pred: mean=-0.006246, std=1.115813
+Step 3: Loss=1.329665, Grad Norm=332.236487
+  Pred: mean=0.038323, std=0.573159
+Step 4: Loss=1.121881, Grad Norm=223.087147
+  Pred: mean=0.061840, std=0.340948
+Step 5: Loss=1.490023, Grad Norm=646343.246033
+  Pred: mean=0.050741, std=0.697238
+Step 6: Loss=2.160807, Grad Norm=5330261.281247
+  Pred: mean=0.214108, std=1.058515
+Step 7: Loss=1.563433, Grad Norm=46284.480408
+  Pred: mean=-0.229478, std=0.716041
+Step 8: Loss=1.155796, Grad Norm=30753.879020
+  Pred: mean=0.112808, std=0.378957
+Step 9: Loss=1.151083, Grad Norm=32.249181
+  Pred: mean=0.061810, std=0.385175
+Step 10: Loss=1.999435, Grad Norm=84403.790944
+  Pred: mean=-0.002753, std=0.997287
+Debug script finished successfully!

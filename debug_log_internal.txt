@@ -1,0 +1,16 @@
+Successfully imported TinyFusion models from external directory
+Starting debug script...
+Loading TinyFusion backbone: DiT-D14/2
+Loading checkpoint from: pretrained/TinyDiT-D14-MaskedKD-500K.pt
+Attempting to load checkpoint file into memory... (this may take a moment)
+✅ Checkpoint file loaded successfully.
+Adapted pos_embed: torch.Size([1, 256, 1152]) -> torch.Size([1, 1024, 1152]) -> torch.Size([1, 1024, 1152])
+Successfully loaded 152 parameters from checkpoint
+✅ Backbone trainable (340,162,592 params)
+Backbone created successfully!
+Running training simulation for 1 steps...
+/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/conv.py:605: UserWarning: Using padding='same' with even kernel lengths and odd dilation may require a zero-padded copy of the input be created (Triggered internally at ../aten/src/ATen/native/Convolution.cpp:1040.)
+  return F.conv3d(
+Step 1: Loss=3.434741, Grad Norm=56129.354773
+  Pred: mean=0.292699, std=1.538787
+Debug script finished successfully!

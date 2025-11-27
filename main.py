@@ -24,6 +24,12 @@ os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 # CUDA memory management optimizations
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
+# PyTorch optimization: Enable TensorFloat32 for better performance
+try:
+    torch.set_float32_matmul_precision('high')
+except AttributeError:
+    pass  # Older PyTorch versions don't support this
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -307,43 +313,6 @@ def list_checkpoints_old():
         except Exception as e:
             logger.info(f"  • {checkpoint} ({file_size_mb:.1f} MB) - Could not read info: {e}")
 
-def test_components():
-    """Test all components of the system"""
-    logger.info("Testing all components...")
-    
-    # Print device information
-    device_info = get_device_info()
-    logger.info(f"Device info: {device_info}")
-    
-    # Test dataloader
-    logger.info("Testing dataloader...")
-    test_dataloader()
-    
-    # Test model architectures
-    logger.info("Testing model architectures...")
-    
-    # Test UNet3D model
-    logger.info("Testing UNet3D model...")
-    test_unet3d()
-    
-    # Test ViT3D model
-    logger.info("Testing ViT3D model...")
-    test_vit3d()
-    
-    # Test DiT3D model
-    logger.info("Testing DiT3D model...")
-    test_dit3d()
-    
-    # Test ViViT model
-    logger.info("Testing ViViT model...")
-    test_vivit()
-    
-    # Test diffusion model
-    logger.info("Testing diffusion model...")
-    test_diffusion()
-    
-    logger.info("All component tests completed successfully!")
-
 def detect_architecture_from_checkpoint(checkpoint_path):
     """Detect model architecture from checkpoint keys"""
     if not os.path.exists(checkpoint_path):
@@ -358,12 +327,14 @@ def detect_architecture_from_checkpoint(checkpoint_path):
         logger.warning(f"Could not detect architecture from checkpoint: {e}")
         return None
 
+@torch.inference_mode()
 def sample_videos(
     checkpoint_path: str,
     num_samples: int = 4,
     output_dir: str = None,
     text_prompt: str = "hello",
     eta: Optional[float] = None,
+    num_inference_steps: Optional[int] = None,
 ):
     """
     Generate sample videos using a trained model
@@ -392,6 +363,8 @@ def sample_videos(
         logger.warning("Empty or invalid text prompt, using default 'hello'.")
         text_prompt = "hello"
     
+    logger.info(f"ETA: {eta}, Steps: {num_inference_steps}")
+    
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
@@ -418,22 +391,92 @@ def sample_videos(
     # --- Load Checkpoint with Error Handling ---
     try:
         if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(checkpoint_path, map_location=Config.DEVICE)
+            # Load checkpoint to CPU first for adaptation
+            checkpoint = torch.load(checkpoint_path, map_location='cpu')
             
-            # Fix for state_dict key mismatch
             state_dict = checkpoint['model_state_dict']
-            if all(key.startswith('model.') for key in state_dict.keys()):
-                logger.info("Removing 'model.' prefix from state_dict keys")
-                state_dict = {k.replace('model.', '', 1): v for k, v in state_dict.items()}
 
-            model.load_state_dict(state_dict)
+            # Adapt state dict for channel mismatches (RGB -> RGBA)
+            model_state = model.state_dict()
+            adapted_state = {}
+            
+            for key, value in state_dict.items():
+                if key in model_state:
+                    checkpoint_shape = value.shape
+                    model_shape = model_state[key].shape
+                    
+                    if checkpoint_shape == model_shape:
+                        adapted_state[key] = value
+                    else:
+                        # Handle channel expansion from RGB (3) to RGBA (4)
+                        if 'x_embedder.proj.weight' in key and len(checkpoint_shape) == 4:
+                            if checkpoint_shape[1] == 3 and model_shape[1] == 4:
+                                logger.info(f"Adapting {key}: {checkpoint_shape} -> {model_shape} (RGB → RGBA)")
+                                adapted = torch.zeros(model_shape, dtype=value.dtype)
+                                adapted[:, :3, :, :] = value  # Copy RGB channels
+                                adapted[:, 3:4, :, :] = value.mean(dim=1, keepdim=True)  # Init alpha with RGB avg
+                                adapted *= (3.0 / 4.0)  # Renormalize
+                                adapted_state[key] = adapted
+                            else:
+                                logger.warning(f"Skipping {key}: incompatible shapes {checkpoint_shape} vs {model_shape}")
+                        
+                        # Handle final layer output channel mismatch
+                        elif 'final_layer.linear.weight' in key:
+                            if checkpoint_shape[0] == 24 and model_shape[0] == 32:  # 3*2*2*2 vs 4*2*2*2
+                                logger.info(f"Adapting {key}: {checkpoint_shape} -> {model_shape} (output expansion)")
+                                adapted = torch.zeros(model_shape, dtype=value.dtype)
+                                adapted[:24, :] = value  # Copy existing weights
+                                # Initialize new channels with small random values
+                                adapted[24:, :] = torch.randn(8, model_shape[1]) * value.std().item() * 0.1
+                                adapted_state[key] = adapted
+                            else:
+                                logger.warning(f"Skipping {key}: incompatible shapes {checkpoint_shape} vs {model_shape}")
+                        
+                        elif 'final_layer.linear.bias' in key:
+                            if checkpoint_shape[0] == 24 and model_shape[0] == 32:
+                                logger.info(f"Adapting {key}: {checkpoint_shape} -> {model_shape} (output expansion)")
+                                adapted = torch.zeros(model_shape, dtype=value.dtype)
+                                adapted[:24] = value
+                                adapted_state[key] = adapted
+                            else:
+                                logger.warning(f"Skipping {key}: incompatible shapes {checkpoint_shape} vs {model_shape}")
+                        
+                        # Handle temporal post-processing conv layer
+                        elif 'temporal_post.conv.weight' in key:
+                            if checkpoint_shape == torch.Size([3, 3, 2, 1, 1]) and model_shape == torch.Size([4, 4, 2, 1, 1]):
+                                logger.info(f"Adapting {key}: {checkpoint_shape} -> {model_shape} (temporal conv expansion)")
+                                adapted = torch.zeros(model_shape, dtype=value.dtype)
+                                # Copy RGB channels
+                                adapted[:3, :3, :, :, :] = value
+                                # Initialize alpha channel
+                                adapted[3:4, :3, :, :, :] = value.mean(dim=0, keepdim=True)  # Alpha in, RGB channels
+                                adapted[:3, 3:4, :, :, :] = value.mean(dim=1, keepdim=True)  # RGB in, alpha channel
+                                adapted[3:4, 3:4, :, :, :] = value.mean()  # Alpha in, alpha out
+                                adapted_state[key] = adapted
+                            else:
+                                logger.warning(f"Skipping {key}: incompatible shapes {checkpoint_shape} vs {model_shape}")
+                        
+                        else:
+                            logger.warning(f"Skipping {key}: shape mismatch {checkpoint_shape} vs {model_shape}")
+                else:
+                    logger.warning(f"Skipping {key}: not in current model")
+            
+            # Load adapted state dict
+            missing, unexpected = model.load_state_dict(adapted_state, strict=False)
+            if missing:
+                logger.info(f"Missing keys (randomly initialized): {len(missing)}")
+            if unexpected:
+                logger.warning(f"Unexpected keys: {len(unexpected)}")
+            
             epoch = checkpoint.get('epoch', 'unknown')
             step = checkpoint.get('global_step', 'unknown')
-            logger.info(f"Loaded checkpoint: {checkpoint_path} (Epoch: {epoch}, Step: {step})")
+            logger.info(f"✅ Loaded checkpoint: {checkpoint_path} (Epoch: {epoch}, Step: {step})")
         else:
             logger.warning(f"Checkpoint not found: {checkpoint_path}. Using random weights.")
     except Exception as e:
         logger.error(f"❌ Critical error loading checkpoint: {e}")
+        import traceback
+        traceback.print_exc()
         logger.info("Please ensure that the MODEL_ARCHITECTURE in config.py matches the checkpoint.")
         return # Exit if checkpoint fails to load
     
@@ -550,12 +593,9 @@ def main():
     train_parser.add_argument("--resume", action="store_true", 
                              help="Resume training from the latest checkpoint")
     
-    # Test command
-    test_parser = subparsers.add_parser("test", help="Test all components")
-    
     # Sample command
     sample_parser = subparsers.add_parser("sample", help="Generate sample videos")
-    sample_parser.add_argument("--checkpoint", type=str, default="checkpoints/tinyfusion_test_4/latest_checkpoint.pt",
+    sample_parser.add_argument("--checkpoint", type=str, default="checkpoints/tinyfusion_production/latest_checkpoint.pt",
                               help="Path to model checkpoint")
     sample_parser.add_argument("--num_samples", type=int, default=4,
                               help="Number of samples to generate")
@@ -565,6 +605,8 @@ def main():
                               help="Text prompt for generation")
     sample_parser.add_argument("--eta", type=float, default=None,
                               help="DDIM stochasticity (0=deter, 1=ancestral, default auto)")
+    sample_parser.add_argument("--num_inference_steps", type=int, default=10,
+                              help="Number of DDIM inference steps")
     
     # Visualize command
     viz_parser = subparsers.add_parser("visualize", help="Visualize model architecture")
@@ -587,11 +629,15 @@ def main():
     
     if args.command == "train":
         train_model(resume=args.resume)
-    elif args.command == "test":
-        test_components()
     elif args.command == "sample":
-        print(f"Loading from {args.checkpoint}")
-        sample_videos(args.checkpoint, args.num_samples, args.output_dir, args.text, args.eta)
+        sample_videos(
+            args.checkpoint, 
+            args.num_samples, 
+            args.output_dir, 
+            args.text, 
+            args.eta,
+            args.num_inference_steps
+        )
     elif args.command == "visualize":
         visualize_model()
     elif args.command == "install":

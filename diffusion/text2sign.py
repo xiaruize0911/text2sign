@@ -109,6 +109,7 @@ class DiffusionModel(nn.Module):
 
         return noise, x_noisy
     
+    @torch.inference_mode()
     def p_sample_step(
         self,
         x: torch.Tensor,
@@ -132,67 +133,67 @@ class DiffusionModel(nn.Module):
         NOTE: All calculations are performed in float32 for numerical precision.
         Only the model forward pass may use float16 for flash attention efficiency.
         """
-        with torch.no_grad():
-            # Store original dtype and ensure we work in float32 for precision
-            original_dtype = x.dtype
-            x_fp32 = x.to(torch.float32)
-            
-            # Encode text conditioning
-            text_emb = None
-            if text is not None and self.text_encoder is not None:
-                batch_size = x.shape[0]
-                text_batch = [text] * batch_size if isinstance(text, str) else list(text)
-                if len(text_batch) != batch_size:
-                    repeats = (batch_size + len(text_batch) - 1) // max(len(text_batch), 1)
-                    text_batch = (text_batch * repeats)[:batch_size]
-                text_emb = self.text_encoder(text_batch).to(x.device)
-
-            # Predict noise ε_θ(x_t, t)
-            # Only convert to model dtype (potentially float16) for the forward pass
-            # The model internally uses autocast for flash attention when needed
-            predicted_noise = self.model(x_fp32, t, text_emb)
-            # Ensure output is in float32 for precise calculations
-            predicted_noise = predicted_noise.to(torch.float32)
-
-            # Reshape for broadcasting (all in float32)
-            shape = (-1,) + (1,) * (x_fp32.ndim - 1)
-            
-            # Get α̅_t (all schedule tensors are already float32)
-            alpha_prod_t = self.alphas_cumprod[t].view(shape)
-            sqrt_alpha_prod_t = self.sqrt_alphas_cumprod[t].view(shape)
-            sqrt_one_minus_alpha_prod_t = self.sqrt_one_minus_alphas_cumprod[t].view(shape)
-
-            # Get α̅_{t-1}, handling the final step (prev_t = -1 → α̅ = 1)
-            prev_t_clamped = prev_t.clamp(min=0)
-            alpha_prod_prev = self.alphas_cumprod[prev_t_clamped].view(shape)
-            alpha_prod_prev[prev_t < 0] = 1.0
-            sqrt_alpha_prod_prev = torch.sqrt(torch.clamp(alpha_prod_prev, min=1e-12))
-
-            # Predict x_0 from x_t (all float32 operations)
-            pred_x0 = (x_fp32 - sqrt_one_minus_alpha_prod_t * predicted_noise) / sqrt_alpha_prod_t
-            pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
-
-            # Compute stochasticity σ_t = η * sqrt(β̃_t) where β̃_t is posterior variance
-            eta_value = 0.0 if deterministic else float(max(eta, 0.0))
-            posterior_variance = (1.0 - alpha_prod_prev) / (1.0 - alpha_prod_t) * (1.0 - alpha_prod_t / alpha_prod_prev)
-            posterior_variance = torch.clamp(posterior_variance, min=1e-12)
-            sigma_t = eta_value * torch.sqrt(posterior_variance)
-            sigma_t = torch.where(prev_t.view(shape) < 0, torch.zeros_like(sigma_t), sigma_t)
-
-            # Direction pointing to x_t coefficient
-            direction_coeff = torch.sqrt(torch.clamp(1.0 - alpha_prod_prev - sigma_t**2, min=1e-12))
-
-            # Sample noise for stochastic sampling (in float32)
-            noise = torch.randn_like(x_fp32) if eta_value > 0 and (prev_t >= 0).any() else torch.zeros_like(x_fp32)
-
-            # DDIM update: x_{t-1} = sqrt(α̅_{t-1}) * x_0 + sqrt(1 - α̅_{t-1} - σ_t²) * ε + σ_t * z
-            # All operations in float32 for maximum precision
-            prev_sample = sqrt_alpha_prod_prev * pred_x0 + direction_coeff * predicted_noise + sigma_t * noise
-
-            # Convert back to original dtype only at the very end
-            return prev_sample.to(original_dtype)
+        # Store original dtype and ensure we work in float32 for precision
+        original_dtype = x.dtype
+        x_fp32 = x.to(torch.float32)
         
-    @torch.no_grad()
+        # Encode text conditioning
+        text_emb = None
+        if text is not None and self.text_encoder is not None:
+            batch_size = x.shape[0]
+            text_batch = [text] * batch_size if isinstance(text, str) else list(text)
+            if len(text_batch) != batch_size:
+                repeats = (batch_size + len(text_batch) - 1) // max(len(text_batch), 1)
+                text_batch = (text_batch * repeats)[:batch_size]
+            text_emb = self.text_encoder(text_batch).to(x.device)
+
+        # Predict noise ε_θ(x_t, t)
+        # Only convert to model dtype (potentially float16) for the forward pass
+        # The model internally uses autocast for flash attention when needed
+        # Ensure time tensor is correct type (long for embeddings)
+        predicted_noise = self.model(x_fp32, t, text_emb)
+        # Ensure output is in float32 for precise calculations
+        predicted_noise = predicted_noise.to(torch.float32)
+
+        # Reshape for broadcasting (all in float32)
+        shape = (-1,) + (1,) * (x_fp32.ndim - 1)
+        
+        # Get α̅_t (all schedule tensors are already float32)
+        alpha_prod_t = self.alphas_cumprod[t].view(shape)
+        sqrt_alpha_prod_t = self.sqrt_alphas_cumprod[t].view(shape)
+        sqrt_one_minus_alpha_prod_t = self.sqrt_one_minus_alphas_cumprod[t].view(shape)
+
+        # Get α̅_{t-1}, handling the final step (prev_t = -1 → α̅ = 1)
+        prev_t_clamped = prev_t.clamp(min=0)
+        alpha_prod_prev = self.alphas_cumprod[prev_t_clamped].view(shape)
+        alpha_prod_prev[prev_t < 0] = 1.0
+        sqrt_alpha_prod_prev = torch.sqrt(torch.clamp(alpha_prod_prev, min=1e-12))
+
+        # Predict x_0 from x_t (all float32 operations)
+        pred_x0 = (x_fp32 - sqrt_one_minus_alpha_prod_t * predicted_noise) / sqrt_alpha_prod_t
+        pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
+
+        # Compute stochasticity σ_t = η * sqrt(β̃_t) where β̃_t is posterior variance
+        eta_value = 0.0 if deterministic else float(max(eta, 0.0))
+        posterior_variance = (1.0 - alpha_prod_prev) / (1.0 - alpha_prod_t) * (1.0 - alpha_prod_t / alpha_prod_prev)
+        posterior_variance = torch.clamp(posterior_variance, min=1e-12)
+        sigma_t = eta_value * torch.sqrt(posterior_variance)
+        sigma_t = torch.where(prev_t.view(shape) < 0, torch.zeros_like(sigma_t), sigma_t)
+
+        # Direction pointing to x_t coefficient
+        direction_coeff = torch.sqrt(torch.clamp(1.0 - alpha_prod_prev - sigma_t**2, min=1e-12))
+
+        # Sample noise for stochastic sampling (in float32)
+        noise = torch.randn_like(x_fp32) if eta_value > 0 and (prev_t >= 0).any() else torch.zeros_like(x_fp32)
+
+        # DDIM update: x_{t-1} = sqrt(α̅_{t-1}) * x_0 + sqrt(1 - α̅_{t-1} - σ_t²) * ε + σ_t * z
+        # All operations in float32 for maximum precision
+        prev_sample = sqrt_alpha_prod_prev * pred_x0 + direction_coeff * predicted_noise + sigma_t * noise
+
+        # Convert back to original dtype only at the very end
+        return prev_sample.to(original_dtype)
+        
+    @torch.inference_mode()
     def p_sample(
         self,
         shape: Tuple[int, ...],
@@ -238,7 +239,9 @@ class DiffusionModel(nn.Module):
             timesteps = torch.arange(self.timesteps - 1, -1, -1, device=device, dtype=torch.long)
         else:
             # Sparse schedule for accelerated sampling (not recommended for best quality)
-            timesteps = torch.linspace(self.timesteps - 1, 0, steps=num_inference_steps, device=device)
+            # Create timesteps on CPU first and then move to device
+            timesteps = torch.linspace(self.timesteps - 1, 0, num_inference_steps, dtype=torch.long, device='cpu').to(self.betas.device)
+
             timesteps = torch.round(timesteps).long().clamp(0, self.timesteps - 1)
             timesteps = torch.unique_consecutive(timesteps)
             # Ensure we end at t=0
@@ -326,7 +329,7 @@ class DiffusionModel(nn.Module):
             )
         return samples
     
-    def forward(self, x: torch.Tensor, text: Optional[str] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, text: Optional[str] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Training forward pass implementing the DDPM loss: L = E[||ε - ε_θ(x_t, t)||²]
         
@@ -351,13 +354,15 @@ class DiffusionModel(nn.Module):
         if text is not None and self.text_encoder is not None:
             text_emb = self.text_encoder(text)
         
-        # Predict noise
+        # Predict noise ε_θ(x_t, t)
+        # Only convert to model dtype (potentially float16) for the forward pass
+        # The model internally uses autocast for flash attention when needed
         predicted_noise = self.model(x_noisy, t, text_emb)
         
         # MSE loss between predicted and actual noise
-        loss = F.mse_loss(predicted_noise, noise)
+        loss = F.mse_loss(predicted_noise.float(), noise.float())
         
-        return loss, predicted_noise, noise
+        return loss, predicted_noise, noise, t
 
 def create_diffusion_model(config) -> DiffusionModel:
     """

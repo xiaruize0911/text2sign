@@ -173,8 +173,8 @@ class TinyFusionConfig:
     """Configuration parameters for the TinyFusion video wrapper."""
 
     video_size: Tuple[int, int, int] = (28, 128, 128)  # (frames, height, width)
-    in_channels: int = 4
-    out_channels: int = 4
+    in_channels: int = 3
+    out_channels: int = 3
     variant: str = "DiT-S/2"
     checkpoint_path: Optional[str] = None
     freeze_backbone: bool = True
@@ -221,8 +221,8 @@ class TinyFusionVideoWrapper(nn.Module):
     def __init__(
         self,
         video_size: Tuple[int, int, int] = (28, 128, 128),
-    in_channels: int = 4,
-    out_channels: int = 4,
+        in_channels: int = 3,
+        out_channels: int = 3,
         text_dim: Optional[int] = None,
         variant: str = "DiT-D14/2",
         checkpoint_path: Optional[str] = None,
@@ -245,31 +245,53 @@ class TinyFusionVideoWrapper(nn.Module):
 
         self.backbone = self._load_pretrained_backbone(variant, checkpoint_path)
         
-        # Important: Only freeze if all weights are properly loaded
-        # Since output layers may be randomly initialized, freezing will prevent learning
+        # Smart freezing: Freeze backbone but keep head/input trainable if needed
         if freeze_backbone:
-            # Check if critical layers are properly initialized
-            has_random_init = False
-            for name, param in self.backbone.named_parameters():
-                if 'final_layer' in name or 'x_embedder.proj' in name:
-                    # These layers may be randomly initialized
-                    has_random_init = True
-                    break
+            print("❄️  Freezing backbone layers...")
+            frozen_count = 0
+            trainable_count = 0
             
-            if has_random_init:
-                print("⚠️  Warning: Some layers are randomly initialized. ")
-                print("   Keeping backbone unfrozen to allow training.")
-                print("   Set freeze_backbone=False explicitly to remove this warning.")
-            else:
-                for param in self.backbone.parameters():
+            for name, param in self.backbone.named_parameters():
+                # Always train the final layer as it's task-specific
+                if 'final_layer' in name:
+                    param.requires_grad = True
+                    trainable_count += param.numel()
+                # Always train the input projection if it was adapted/re-initialized
+                elif 'x_embedder' in name:
+                    param.requires_grad = True
+                    trainable_count += param.numel()
+                # Freeze everything else
+                else:
                     param.requires_grad = False
-                print(f"✅ Backbone frozen ({sum(p.numel() for p in self.backbone.parameters()):,} params)")
+                    frozen_count += param.numel()
+            
+            print(f"✅ Backbone partially frozen: {frozen_count:,} params frozen, {trainable_count:,} params trainable (head + input)")
         else:
             trainable = sum(p.numel() for p in self.backbone.parameters() if p.requires_grad)
-            print(f"✅ Backbone trainable ({trainable:,} params)")
+            print(f"✅ Backbone fully trainable ({trainable:,} params)")
 
-        # TinyFusion is unconditional; keep interface but ignore text embeddings.
-        self.text_conditioner = IdentityConditioner(text_dim or 0)
+        # Determine hidden size from backbone
+        if hasattr(self.backbone, 'hidden_size'):
+            self.hidden_size = self.backbone.hidden_size
+        elif hasattr(self.backbone, 'y_embedder') and hasattr(self.backbone.y_embedder, 'embedding_table'):
+            self.hidden_size = self.backbone.y_embedder.embedding_table.shape[1]
+        else:
+            # Fallback for DiT-XL/2 if detection fails
+            self.hidden_size = 1152 
+            print(f"⚠️ Could not detect hidden size, defaulting to {self.hidden_size}")
+
+        # Text conditioning projection
+        if text_dim is not None and text_dim > 0:
+            self.text_conditioner = nn.Sequential(
+                nn.SiLU(),
+                nn.Linear(text_dim, self.hidden_size)
+            )
+            # Initialize with small random values to ensure gradients flow and outputs differ
+            # This breaks symmetry while keeping the initial effect small
+            nn.init.normal_(self.text_conditioner[1].weight, std=0.02)
+            nn.init.zeros_(self.text_conditioner[1].bias)
+        else:
+            self.text_conditioner = IdentityConditioner(text_dim or 0)
 
         self.temporal_post = (
             TemporalPostProcessor(out_channels, temporal_kernel)
@@ -305,8 +327,10 @@ class TinyFusionVideoWrapper(nn.Module):
                     print("Continuing with randomly initialized model...")
                     return backbone
                 
-                # Load checkpoint
+                # Add a log message before the potentially slow torch.load() call
+                print("Attempting to load checkpoint file into memory... (this may take a moment)")
                 checkpoint = torch.load(checkpoint_path, map_location='cpu')
+                print("✅ Checkpoint file loaded successfully.")
                 
                 # Extract state dict (handle different checkpoint formats)
                 if 'model' in checkpoint:
@@ -335,14 +359,24 @@ class TinyFusionVideoWrapper(nn.Module):
                             adapted_state[key] = value
                         else:
                             # Handle specific mismatches
-                            if 'x_embedder' in key and 'weight' in key and len(checkpoint_shape) == 4:
-                                # Handle projection weights that expect 4 input channels (RGBA) vs our 3 (RGB)
-                                if checkpoint_shape[1] == 4 and model_shape[1] == 3:
-                                    adapted = value[:, :3, :, :].clone()
-                                    # Renormalize magnitude to compensate for dropped channel
-                                    adapted *= (checkpoint_shape[1] / model_shape[1])
-                                    adapted_state[key] = adapted
-                                    print(f"Adapted {key}: {checkpoint_shape} -> {adapted.shape} -> {model_shape} (channel reduction)")
+                            if 'x_embedder' in key and 'weight' in key:
+                                # Input channel mismatch (4 -> 3 channels)
+                                # Handle both x_embedder.weight and x_embedder.proj.weight
+                                if len(checkpoint_shape) == 4 and len(model_shape) == 4:
+                                    if checkpoint_shape[1] == 4 and model_shape[1] == 3:
+                                        # Take first 3 channels
+                                        adapted_state[key] = value[:, :3, :, :].clone()
+                                        print(f"Adapted {key}: {checkpoint_shape} -> {model_shape} (channel reduction)")
+                                    elif checkpoint_shape[1] == 3 and model_shape[1] == 4:
+                                        # 3 -> 4 channels: RGB -> RGBA
+                                        adapted = torch.zeros(model_shape, dtype=value.dtype)
+                                        adapted[:, :3, :, :] = value
+                                        adapted[:, 3:4, :, :] = value.mean(dim=1, keepdim=True)
+                                        adapted *= (3.0 / 4.0)
+                                        adapted_state[key] = adapted
+                                        print(f"Adapted {key}: {checkpoint_shape} -> {model_shape} (RGB -> RGBA expansion)")
+                                    else:
+                                        skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
                                 else:
                                     skipped_keys.append(f"{key} (shape mismatch: {checkpoint_shape} vs {model_shape})")
                             
@@ -471,8 +505,10 @@ class TinyFusionVideoWrapper(nn.Module):
                                     if checkpoint_shape[1] == model_shape[1]:  # Same input dim
                                         # Initialize with small random values based on checkpoint stats
                                         init_std = value.std().item()
-                                        adapted_state[key] = torch.randn(model_shape) * init_std * 0.1
-                                        print(f"Initialized {key}: {model_shape} (small random with std={init_std*0.1:.6f})")
+                                        # Use a much smaller scale to prevent exploding gradients
+                                        scale = min(init_std * 0.1, 0.02)
+                                        adapted_state[key] = torch.randn(model_shape) * scale
+                                        print(f"Initialized {key}: {model_shape} (small random with scale={scale:.6f})")
                                     else:
                                         skipped_keys.append(f"{key} (output layer - incompatible input dim)")
                                 elif 'bias' in key:
@@ -511,19 +547,36 @@ class TinyFusionVideoWrapper(nn.Module):
         
         return backbone
 
-    def _process_frame_chunk(self, x_chunk, time_chunk, dummy_labels_chunk):
-        """Process a chunk of frames through the backbone with gradient checkpointing"""
+    def _process_frame_chunk(self, x_chunk, time_emb_chunk, dummy_labels_chunk, text_c_chunk=None):
+        """Process a chunk of frames through the backbone with gradient checkpointing, using pre-computed time embeddings."""
+        
+        # This is a simplified forward pass of the DiT model, injecting the pre-computed time embedding.
+        def custom_forward(x, t_emb, y, txt=None):
+            x = self.backbone.x_embedder(x) + self.backbone.pos_embed
+            y_emb, _ = self.backbone.y_embedder(y, self.backbone.training)
+            c = t_emb + y_emb
+            if txt is not None:
+                c = c + txt
+            for block in self.backbone.blocks:
+                x = block(x, c)
+            x = self.backbone.final_layer(x, c)
+            return x
+
         if self.training and hasattr(self.backbone, 'training'):
             # Use gradient checkpointing during training to save memory
-            return checkpoint.checkpoint(
-                self.backbone,
-                x_chunk,
-                time_chunk,
-                dummy_labels_chunk,
-                use_reentrant=False
-            )
+            # Ensure at least one input requires grad to avoid checkpoint error (e.g. if backbone is frozen)
+            if x_chunk.requires_grad or time_emb_chunk.requires_grad or (text_c_chunk is not None and text_c_chunk.requires_grad):
+                return checkpoint.checkpoint(
+                    custom_forward,
+                    x_chunk,
+                    time_emb_chunk,
+                    dummy_labels_chunk,
+                    text_c_chunk,
+                    use_reentrant=False
+                )
+            return custom_forward(x_chunk, time_emb_chunk, dummy_labels_chunk, text_c_chunk)
         else:
-            return self.backbone(x_chunk, time_chunk, dummy_labels_chunk)
+            return custom_forward(x_chunk, time_emb_chunk, dummy_labels_chunk, text_c_chunk)
 
     def forward(
         self,
@@ -532,6 +585,9 @@ class TinyFusionVideoWrapper(nn.Module):
         text_emb: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Predict noise for a batch of videos using TinyFusion with memory-efficient processing."""
+
+        # Ensure time tensor is float for embedding calculations
+        time = time.to(torch.float32)
 
         batch, channels, frames, height, width = x.shape
         assert (
@@ -554,16 +610,6 @@ class TinyFusionVideoWrapper(nn.Module):
             else:
                 x_processed = x
 
-            if height != self.height or width != self.width:
-                resize_dtype = x_processed.dtype
-                x_processed = F.interpolate(
-                    x_processed.to(torch.float32),
-                    size=(frames, self.height, self.width),
-                    mode="trilinear",
-                    align_corners=False,
-                ).to(resize_dtype)
-                height, width = self.height, self.width
-
             if not self.force_fp32_backbone and preferred_dtype is not None:
                 try:
                     x_processed = x_processed.to(preferred_dtype)
@@ -572,11 +618,19 @@ class TinyFusionVideoWrapper(nn.Module):
                     pass
 
             x_reshaped = x_processed.permute(0, 2, 1, 3, 4).reshape(batch * frames, channels, height, width)
-            time_per_frame = time.view(batch, 1).repeat(1, frames).reshape(-1)
-
-            # TinyFusion ignores text embeddings; keep shape compatibility.
+            
+            # Handle text embeddings
+            text_c_per_frame = None
             if text_emb is not None and text_emb.numel() > 0:
-                _ = self.text_conditioner(text_emb)
+                # Project text embedding: (batch, text_dim) -> (batch, hidden_size)
+                text_c = self.text_conditioner(text_emb)
+                # Repeat for frames: (batch, hidden_size) -> (batch * frames, hidden_size)
+                text_c_per_frame = text_c.view(batch, 1, -1).repeat(1, frames, 1).reshape(batch * frames, -1)
+            elif text_emb is None:
+                # Only print once per run to avoid spam
+                if not hasattr(self, '_warned_missing_text'):
+                    print("⚠️ Warning: No text embedding provided to TinyFusion forward pass")
+                    self._warned_missing_text = True
 
             # TinyFusion DiT models require class labels (y parameter)
             # Create dummy class labels for unconditional generation
@@ -586,29 +640,22 @@ class TinyFusionVideoWrapper(nn.Module):
             total_frames = batch * frames
             predictions = []
 
+            # Pre-compute timestep embeddings once per batch on the correct device
+            with _disable_autocast_if_needed(device_type):
+                time_emb = self.backbone.t_embedder(time.to(x.device))
+            time_emb_per_frame = time_emb.view(batch, 1, -1).repeat(1, frames, 1).reshape(batch * frames, -1)
+
             for i in range(0, total_frames, self.frame_chunk_size):
+                # print(f"Processing chunk {i}/{total_frames}")
                 end_idx = min(i + self.frame_chunk_size, total_frames)
 
                 x_chunk = x_reshaped[i:end_idx]
-                time_chunk = time_per_frame[i:end_idx]
+                time_emb_chunk = time_emb_per_frame[i:end_idx]
                 dummy_labels_chunk = dummy_labels[i:end_idx]
+                text_c_chunk = text_c_per_frame[i:end_idx] if text_c_per_frame is not None else None
 
-                try:
-                    pred_chunk = self._process_frame_chunk(x_chunk, time_chunk, dummy_labels_chunk)
-                except TypeError as e:
-                    # Fallback for different model signatures
-                    try:
-                        if self.training and hasattr(self.backbone, 'training'):
-                            pred_chunk = checkpoint.checkpoint(
-                                self.backbone,
-                                x_chunk,
-                                time_chunk,
-                                use_reentrant=False
-                            )
-                        else:
-                            pred_chunk = self.backbone(x_chunk, time_chunk)
-                    except Exception:
-                        raise RuntimeError(f"Failed to call TinyFusion backbone: {e}") from e
+                # Pass pre-computed time embeddings to the processing chunk
+                pred_chunk = self._process_frame_chunk(x_chunk, time_emb_chunk, dummy_labels_chunk, text_c_chunk)
 
                 # Check for NaN/Inf but handle more carefully
                 if torch.isnan(pred_chunk).any() or torch.isinf(pred_chunk).any():
@@ -635,17 +682,20 @@ class TinyFusionVideoWrapper(nn.Module):
                 predictions.append(pred_chunk)
 
                 # Clear cache to free memory between chunks
-                if torch.cuda.is_available():
+                if torch.cuda is not None and torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-            # Concatenate all predictions
+            # Concatenate predictions
             pred = torch.cat(predictions, dim=0)
 
-            if pred.shape[1] != self.out_channels:
-                pred = pred[:, : self.out_channels]
+            # Unpatchify to get image-like representation
+            pred = self.backbone.unpatchify(pred)
 
-            pred_video = pred.view(batch, frames, self.out_channels, height, width)
-            pred_video = pred_video.permute(0, 2, 1, 3, 4)
+            # The model outputs both noise and variance, so we split it
+            noise, _ = torch.chunk(pred, 2, dim=1)
+
+            # Reshape to video format
+            pred_video = noise.view(batch, frames, self.in_channels, height, width).permute(0, 2, 1, 3, 4)
 
             # Apply temporal post-processing
             pred_video = self.temporal_post(pred_video)

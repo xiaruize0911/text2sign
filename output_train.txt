@@ -1,0 +1,173 @@
+nohup: ignoring input
+Successfully imported TinyFusion models from external directory
+INFO:__main__:Starting training...
+INFO:__main__:Cleaning previous log directory: logs/tinyfusion_fast_test_2
+✅ Configuration validation passed
+==================================================
+Configuration Settings:
+==================================================
+DATA_ROOT: training_data
+BATCH_SIZE: 4
+NUM_WORKERS: 0
+INPUT_SHAPE: (4, 16, 64, 64)
+NUM_FRAMES: 16
+IMAGE_SIZE: 64
+MODEL_ARCHITECTURE: tinyfusion
+UNET_DIM: 16
+UNET_DIM_MULTS: (1, 2)
+UNET_CHANNELS: 4
+UNET_TIME_DIM: 16
+VIT_EMBED_DIM: 768
+VIT_TIME_DIM: 768
+VIT_IMAGE_SIZE: 224
+VIT_FREEZE_BACKBONE: True
+VIT_DROPOUT: 0.1
+DIT_MODEL_SIZE: DiT3D-XL-2
+DIT_VIDEO_SIZE: (16, 64, 64)
+DIT_PATCH_SIZE: (4, 16, 16)
+DIT_LEARN_SIGMA: False
+DIT_CLASS_DROPOUT_PROB: 0.1
+DIT_NUM_CLASSES: 1000
+VIVIT_MODEL_NAME: google/vivit-b-16x2-kinetics400
+VIVIT_VIDEO_SIZE: (28, 128, 128)
+VIVIT_TIME_DIM: 768
+VIVIT_FREEZE_BACKBONE: True
+VIVIT_NUM_TEMPORAL_LAYERS: 2
+VIVIT_NUM_HEADS: 8
+VIVIT_DROPOUT: 0.1
+VIVIT_CLASS_DROPOUT_PROB: 0.1
+TINYFUSION_VIDEO_SIZE: (16, 64, 64)
+TINYFUSION_VARIANT: DiT-D14/2
+TINYFUSION_CHECKPOINT: pretrained/TinyDiT-D14-MaskedKD-500K.pt
+TINYFUSION_FREEZE_BACKBONE: True
+TINYFUSION_ENABLE_TEMPORAL_POST: True
+TINYFUSION_TEMPORAL_KERNEL: 3
+TEXT_ENCODER_MODEL: distilbert-base-uncased
+TEXT_EMBED_DIM: 768
+TEXT_MAX_LENGTH: 77
+TEXT_FREEZE_BACKBONE: True
+TIMESTEPS: 300
+INFERENCE_TIMESTEPS: 300
+BETA_START: 0.01
+BETA_END: 0.02
+NOISE_SCHEDULER: cosine
+COSINE_S: 0.008
+COSINE_MAX_BETA: 0.999
+LEARNING_RATE: 0.0001
+NUM_EPOCHS: 1000
+GRADIENT_CLIP: 1.0
+GRADIENT_ACCUMULATION_STEPS: 1
+GRADIENT_CHECKPOINTING: True
+USE_MIXED_PRECISION: True
+USE_CPU_OFFLOAD: False
+ENABLE_MEMORY_EFFICIENT_ATTENTION: True
+CLEAR_CACHE_EVERY_STEPS: 5
+PREFETCH_FACTOR: 2
+PIN_MEMORY: True
+TINYFUSION_FRAME_CHUNK_SIZE: 4
+TINYFUSION_USE_CHECKPOINTING: True
+PYTORCH_CUDA_ALLOC_CONF: max_split_size_mb:256
+CUDA_EMPTY_CACHE_STEPS: 5
+USE_SCHEDULER: True
+SCHEDULER_TYPE: cosine_annealing
+COSINE_T_MAX: 50
+COSINE_ETA_MIN: 1e-07
+COSINE_RESTARTS_T_0: 25
+COSINE_RESTARTS_T_MULT: 2
+COSINE_RESTARTS_ETA_MIN: 1e-07
+PLATEAU_FACTOR: 0.5
+PLATEAU_PATIENCE: 15
+PLATEAU_THRESHOLD: 0.0001
+PLATEAU_MIN_LR: 1e-07
+EXPONENTIAL_GAMMA: 0.95
+WARMUP_EPOCHS: 0
+WARMUP_START_LR: 1e-06
+POLYNOMIAL_POWER: 0.9
+RANDOM_SEED: 42
+DETERMINISTIC: False
+OPTIMIZER_TYPE: adamw
+WEIGHT_DECAY: 0.01
+ADAM_BETAS: (0.9, 0.999)
+DEVICE: cpu
+EXPERIMENT_NAME: tinyfusion_fast_test_2
+LOG_DIR: logs/tinyfusion_fast_test_2
+CHECKPOINT_DIR: checkpoints/tinyfusion_fast_test_2
+SAMPLES_DIR: generated_samples/tinyfusion_fast_test_2
+SAMPLE_EVERY_EPOCHS: 5
+LOG_EVERY_EPOCHS: 1
+SAVE_EVERY_EPOCHS: 5
+LOG_MODEL_GRAPH: False
+NOISE_DISPLAY_EVERY_STEPS: 1000
+DIAGNOSTIC_LOG_EVERY_STEPS: 200
+TENSORBOARD_FLUSH_EVERY_STEPS: 100
+FLUSH_TENSORBOARD_EVERY_EPOCH: True
+ENABLE_EPOCH_SUMMARY_LOGGING: True
+ENABLE_REALTIME_METRICS: True
+PARAM_LOG_EVERY_EPOCHS: 10
+SUMMARY_LOG_EVERY_EPOCHS: 10
+TENSORBOARD_LOG_CATEGORIES: ['01_Training', '02_Loss_Components', '03_Epoch_Summary', '04_Learning_Rate', '05_Performance', '06_Diffusion', '07_Noise_Analysis', '08_Model_Architecture', '09_Parameter_Stats', '10_Parameter_Histograms', '11_Gradient_Stats', '12_Generated_Samples', '13_Noise_Visualization', '14_System', '15_Configuration']
+ENABLE_GRADIENT_HISTOGRAMS: False
+ENABLE_PARAMETER_TRACKING: False
+ENABLE_VIDEO_LOGGING: True
+ENABLE_NOISE_VISUALIZATION: True
+ENABLE_PERFORMANCE_PROFILING: True
+ENABLE_LOSS_COMPONENT_TRACKING: True
+ENABLE_GRADIENT_FLOW_ANALYSIS: False
+ENABLE_MEMORY_TRACKING: True
+ENABLE_LEARNING_RATE_LOGGING: True
+NUM_SAMPLES: 2
+SAMPLE_GENERATION_TIMEOUT: 3000
+TENSORBOARD_MAX_QUEUE: 100
+TENSORBOARD_FLUSH_SECS: 30
+TENSORBOARD_FILENAME_SUFFIX: 
+get_learning_rate: <classmethod(<function Config.get_learning_rate at 0x76a9198c0f70>)>
+validate_config: <classmethod(<function Config.validate_config at 0x76a9198c1000>)>
+print_config: <classmethod(<function Config.print_config at 0x76a9198c1090>)>
+get_model_config: <classmethod(<function Config.get_model_config at 0x76a9198c1120>)>
+set_model_architecture: <classmethod(<function Config.set_model_architecture at 0x76a9198c11b0>)>
+get_logging_config: <classmethod(<function Config.get_logging_config at 0x76a9198c1240>)>
+should_log_step: <classmethod(<function Config.should_log_step at 0x76a9198c12d0>)>
+should_log_epoch: <classmethod(<function Config.should_log_epoch at 0x76a9198c1360>)>
+create_tensorboard_writer: <classmethod(<function Config.create_tensorboard_writer at 0x76a9198c13f0>)>
+setup_logging_directories: <classmethod(<function Config.setup_logging_directories at 0x76a9198c1480>)>
+print_logging_status: <classmethod(<function Config.print_logging_status at 0x76a9198c1510>)>
+==================================================
+📊 Setting up data loader...
+Scanning for GIF files in training_data...
+Scanning for Text files in training_data...
+Validating dataset files...
+Validating files:   0%|          | 0/4082 [00:00<?, ?file/s]Validating files: 100%|██████████| 4082/4082 [00:00<00:00, 2242161.99file/s]
+Found 4082 valid GIF-text pairs in training_data
+uintx feature requires torch 2.3+, please upgrade pytorch
+✅ Text encoder initialized: distilbert-base-uncased
+✅ Text encoder created: TextEncoder
+Loading TinyFusion backbone: DiT-D14/2
+Loading checkpoint from: pretrained/TinyDiT-D14-MaskedKD-500K.pt
+Attempting to load checkpoint file into memory... (this may take a moment)
+✅ Checkpoint file loaded successfully.
+Adapted pos_embed: torch.Size([1, 256, 1152]) -> torch.Size([1, 1024, 1152]) -> torch.Size([1, 1024, 1152])
+Successfully loaded 152 parameters from checkpoint
+❄️  Freezing backbone layers...
+✅ Backbone partially frozen: 338,629,248 params frozen, 2,712,992 params trainable (head + input)
+✅ Diffusion model initialized with cosine scheduler (T=300)
+   Training timesteps: 300
+   Inference timesteps: 300
+   ✅ Sampling schedule MATCHES training schedule perfectly
+✅ Text-conditioned mode enabled
+✅ Setup complete: 1020 batches, 3,598,928 parameters on cpu
+⚙️  Setting up optimizer...
+✅ AdamW optimizer ready - LR: 0.0001, Weight Decay: 0.01
+📈 Setting up learning rate scheduler...
+INFO:schedulers.lr_schedulers:Creating cosine_annealing learning rate scheduler
+INFO:schedulers.lr_schedulers:✅ Created cosine_annealing scheduler successfully
+✅ cosine_annealing scheduler created
+🚀 Creating trainer...
+INFO:methods.trainer:Enabled CUDNN benchmark for performance
+INFO:utils.tensorboard_logger:🔍 TensorBoard logger initialized: logs/tinyfusion_fast_test_2
+INFO:methods.trainer:Model graph logging disabled
+✅ Training setup complete!
+INFO:__main__:Starting training for 1000 epochs...
+INFO:methods.trainer:🚀 Starting training...
+INFO:methods.trainer:📊 Config: 1000 epochs, batch size 4 (effective: 4), device: cpu
+Training Progress:   0%|                                                | 0/1000 [00:00<?, ?epoch/s]Training - Epoch 1/1000:   0%|                                          | 0/1000 [00:00<?, ?epoch/s]
+Epoch 0/1000 | LR: 1.00e-04:   0%|          | 0/1020 [00:00<?, ?batch/s][A
