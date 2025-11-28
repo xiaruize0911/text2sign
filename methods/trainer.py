@@ -334,9 +334,9 @@ class Trainer:
             # Use AMP for inference if available and enabled
             if self.use_amp and self.scaler is not None:
                 with autocast(device_type='cuda', dtype=self.amp_dtype):
-                    samples = self.model.p_sample(shape, text=text_prompt)
+                    samples = self.model.p_sample(shape, text=text_prompt, deterministic=True, eta=0.0)
             else:
-                samples = self.model.p_sample(shape, text=text_prompt)
+                samples = self.model.p_sample(shape, text=text_prompt, deterministic=True, eta=0.0)
                 
             # Note: For ε-parameterization, do NOT clamp samples during generation
             # This allows the model to learn the proper data distribution naturally

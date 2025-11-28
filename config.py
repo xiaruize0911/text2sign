@@ -56,7 +56,7 @@ class Config:
     TINYFUSION_VIDEO_SIZE = (16, 64, 64)  # Video size (frames, height, width) for RGBA inputs
     TINYFUSION_VARIANT = "DiT-D14/2"  # Use DiT-D14/2 which exactly matches the checkpoint architecture
     TINYFUSION_CHECKPOINT = "pretrained/TinyDiT-D14-MaskedKD-500K.pt"  # Pre-trained checkpoint
-    TINYFUSION_FREEZE_BACKBONE = True  # Freeze backbone to stabilize training, only train head/adapters 
+    TINYFUSION_FREEZE_BACKBONE = True  # Freeze backbone to allow full fine-tuning on sign language data
     TINYFUSION_ENABLE_TEMPORAL_POST = True
     TINYFUSION_TEMPORAL_KERNEL = 3  # Changed from 2 to 3 to ensure identity initialization works correctly
     
@@ -68,8 +68,8 @@ class Config:
     
     # Diffusion process settings
     TIMESTEPS = 300  # Number of diffusion timesteps for training
-    INFERENCE_TIMESTEPS = 300  # Inference timesteps
-    BETA_START = 0.01  # Start of noise schedule
+    INFERENCE_TIMESTEPS = 50  # Reduced to 50 for faster DDIM sampling
+    BETA_START = 0.0001  # Reduced to standard 1e-4 to prevent information destruction
     BETA_END = 0.02  # End of noise schedule
     
     # Noise scheduler settings
@@ -144,7 +144,7 @@ class Config:
                          "cuda" if torch.cuda.is_available() else "cpu")
     
     # Logging and checkpointing
-    EXPERIMENT_NAME = "tinyfusion_2"  # Name for production training
+    EXPERIMENT_NAME = "tinyfusion_DDIM_1"  # Name for production training
     LOG_DIR = f"logs/{EXPERIMENT_NAME}"  # Directory for TensorBoard logs under logs/
     CHECKPOINT_DIR = f"checkpoints/{EXPERIMENT_NAME}"
     SAMPLES_DIR = f"generated_samples/{EXPERIMENT_NAME}"  # Directory to save generated GIF samples
