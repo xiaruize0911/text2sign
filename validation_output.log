@@ -1,0 +1,1225 @@
+============================================================
+Text-to-Sign Language DDIM Diffusion Model - Validation
+============================================================
+Loading checkpoint from text_to_sign/checkpoints/text2sign_20251212_082647/best_model.pt...
+  Using model config from checkpoint
+  Loaded epoch 58, step 108324
+Loading dataset from /teamspace/studios/this_studio/text2sign/training_data...
+Loaded 409 validation samples
+
+============================================================
+RUNNING FULL MODEL VALIDATION
+============================================================
+
+============================================================
+Evaluating Reconstruction Quality...
+============================================================
+Reconstruction:   0%|          | 0/1 [00:00<?, ?it/s]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:01<01:18,  1.59s/it][A
+Generating sign language:   4%|▍         | 2/50 [00:02<01:04,  1.34s/it][A
+Generating sign language:   6%|▌         | 3/50 [00:03<00:59,  1.26s/it][A
+Generating sign language:   8%|▊         | 4/50 [00:05<00:56,  1.22s/it][A
+Generating sign language:  10%|█         | 5/50 [00:06<00:54,  1.20s/it][A
+Generating sign language:  12%|█▏        | 6/50 [00:07<00:52,  1.20s/it][A
+Generating sign language:  14%|█▍        | 7/50 [00:08<00:51,  1.19s/it][A
+Generating sign language:  16%|█▌        | 8/50 [00:09<00:49,  1.19s/it][A
+Generating sign language:  18%|█▊        | 9/50 [00:10<00:48,  1.18s/it][A
+Generating sign language:  20%|██        | 10/50 [00:12<00:47,  1.18s/it][A
+Generating sign language:  22%|██▏       | 11/50 [00:13<00:45,  1.18s/it][A
+Generating sign language:  24%|██▍       | 12/50 [00:14<00:44,  1.18s/it][A
+Generating sign language:  26%|██▌       | 13/50 [00:15<00:43,  1.18s/it][A
+Generating sign language:  28%|██▊       | 14/50 [00:16<00:42,  1.18s/it][A
+Generating sign language:  30%|███       | 15/50 [00:18<00:41,  1.18s/it][A
+Generating sign language:  32%|███▏      | 16/50 [00:19<00:40,  1.18s/it][A
+Generating sign language:  34%|███▍      | 17/50 [00:20<00:38,  1.18s/it][A
+Generating sign language:  36%|███▌      | 18/50 [00:21<00:37,  1.18s/it][A
+Generating sign language:  38%|███▊      | 19/50 [00:22<00:36,  1.18s/it][A
+Generating sign language:  40%|████      | 20/50 [00:23<00:35,  1.18s/it][A
+Generating sign language:  42%|████▏     | 21/50 [00:25<00:34,  1.18s/it][A
+Generating sign language:  44%|████▍     | 22/50 [00:26<00:33,  1.19s/it][A
+Generating sign language:  46%|████▌     | 23/50 [00:27<00:32,  1.19s/it][A
+Generating sign language:  48%|████▊     | 24/50 [00:28<00:30,  1.19s/it][A
+Generating sign language:  50%|█████     | 25/50 [00:29<00:29,  1.19s/it][A
+Generating sign language:  52%|█████▏    | 26/50 [00:31<00:28,  1.19s/it][A
+Generating sign language:  54%|█████▍    | 27/50 [00:32<00:27,  1.19s/it][A
+Generating sign language:  56%|█████▌    | 28/50 [00:33<00:26,  1.20s/it][A
+Generating sign language:  58%|█████▊    | 29/50 [00:34<00:25,  1.20s/it][A
+Generating sign language:  60%|██████    | 30/50 [00:35<00:23,  1.20s/it][A
+Generating sign language:  62%|██████▏   | 31/50 [00:37<00:22,  1.20s/it][A
+Generating sign language:  64%|██████▍   | 32/50 [00:38<00:21,  1.20s/it][A
+Generating sign language:  66%|██████▌   | 33/50 [00:39<00:20,  1.20s/it][A
+Generating sign language:  68%|██████▊   | 34/50 [00:40<00:19,  1.20s/it][A
+Generating sign language:  70%|███████   | 35/50 [00:41<00:18,  1.20s/it][A
+Generating sign language:  72%|███████▏  | 36/50 [00:43<00:16,  1.20s/it][A
+Generating sign language:  74%|███████▍  | 37/50 [00:44<00:15,  1.20s/it][A
+Generating sign language:  76%|███████▌  | 38/50 [00:45<00:14,  1.20s/it][A
+Generating sign language:  78%|███████▊  | 39/50 [00:46<00:13,  1.21s/it][A
+Generating sign language:  80%|████████  | 40/50 [00:47<00:12,  1.21s/it][A
+Generating sign language:  82%|████████▏ | 41/50 [00:49<00:10,  1.21s/it][A
+Generating sign language:  84%|████████▍ | 42/50 [00:50<00:09,  1.21s/it][A
+Generating sign language:  86%|████████▌ | 43/50 [00:51<00:08,  1.21s/it][A
+Generating sign language:  88%|████████▊ | 44/50 [00:52<00:07,  1.21s/it][A
+Generating sign language:  90%|█████████ | 45/50 [00:53<00:06,  1.21s/it][A
+Generating sign language:  92%|█████████▏| 46/50 [00:55<00:04,  1.21s/it][A
+Generating sign language:  94%|█████████▍| 47/50 [00:56<00:03,  1.21s/it][A
+Generating sign language:  96%|█████████▌| 48/50 [00:57<00:02,  1.21s/it][A
+Generating sign language:  98%|█████████▊| 49/50 [00:58<00:01,  1.21s/it][A
+Generating sign language: 100%|██████████| 50/50 [01:00<00:00,  1.21s/it][AGenerating sign language: 100%|██████████| 50/50 [01:00<00:00,  1.20s/it]
+Reconstruction: 100%|██████████| 1/1 [01:01<00:00, 61.72s/it]Reconstruction: 100%|██████████| 1/1 [01:02<00:00, 62.11s/it]
+
+Reconstruction Results:
+  SSIM: 0.4308 ± 0.1676
+  PSNR: 15.94 ± 0.49 dB
+
+============================================================
+Evaluating Temporal Consistency...
+============================================================
+Temporal Consistency:   0%|          | 0/10 [00:00<?, ?it/s]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.31it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.35it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:13,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.31it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.31it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:13,  3.30it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.30it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  20%|██        | 10/50 [00:03<00:12,  3.31it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.30it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.31it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.32it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.30it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.30it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.31it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:10,  3.30it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.31it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.32it/s][A
+Generating sign language:  40%|████      | 20/50 [00:06<00:09,  3.32it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.31it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.32it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.32it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.31it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.31it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.31it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.31it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.31it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.31it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:09<00:06,  3.31it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.32it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.32it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.32it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.32it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.31it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.31it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.31it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.31it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.31it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:12<00:03,  3.31it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.32it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.32it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.32it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.32it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.32it/s][AGenerating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.32it/s]
+Temporal Consistency:  10%|█         | 1/10 [00:15<02:15, 15.09s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.38it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.34it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.34it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.33it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:05,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Temporal Consistency:  20%|██        | 2/10 [00:30<02:00, 15.04s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.40it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:13,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.35it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.32it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:02,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Temporal Consistency:  30%|███       | 3/10 [00:45<01:45, 15.02s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.41it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:13,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.35it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.34it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Temporal Consistency:  40%|████      | 4/10 [01:00<01:30, 15.01s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.39it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.38it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:13,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.35it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.33it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.34it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Temporal Consistency:  50%|█████     | 5/10 [01:15<01:15, 15.01s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.33it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.32it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.32it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  20%|██        | 10/50 [00:03<00:12,  3.32it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.32it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:06<00:09,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:12<00:03,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s]
+Temporal Consistency:  60%|██████    | 6/10 [01:30<01:00, 15.01s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.34it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.33it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.32it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.32it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.32it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  20%|██        | 10/50 [00:03<00:12,  3.33it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:09<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s]
+Temporal Consistency:  70%|███████   | 7/10 [01:45<00:45, 15.01s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.38it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.35it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.34it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:02,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Temporal Consistency:  80%|████████  | 8/10 [02:00<00:30, 15.01s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.40it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:13,  3.37it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.33it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:05,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:02,  3.34it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Temporal Consistency:  90%|█████████ | 9/10 [02:15<00:15, 15.00s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.35it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.34it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:05,  3.34it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:02,  3.34it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Temporal Consistency: 100%|██████████| 10/10 [02:30<00:00, 15.00s/it]Temporal Consistency: 100%|██████████| 10/10 [02:30<00:00, 15.01s/it]
+
+Temporal Consistency Results:
+  Consistency Score: 1.0000 ± 0.0000
+  Motion Magnitude: 0.0716 ± 0.0252
+
+============================================================
+Evaluating Generation Diversity...
+============================================================
+Generating diverse samples:   0%|          | 0/10 [00:00<?, ?it/s]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.38it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.34it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  20%|██        | 10/50 [00:03<00:12,  3.32it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  40%|████      | 20/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:09<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s]
+Generating diverse samples:  10%|█         | 1/10 [00:15<02:15, 15.01s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.38it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:13,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.35it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.34it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:05,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:02,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.34it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Generating diverse samples:  20%|██        | 2/10 [00:30<02:00, 15.00s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.35it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.34it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.35it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.35it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:02,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Generating diverse samples:  30%|███       | 3/10 [00:45<01:44, 15.00s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.35it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.35it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.34it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:09,  3.32it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:05,  3.34it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:02,  3.34it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Generating diverse samples:  40%|████      | 4/10 [00:59<01:29, 15.00s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.35it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.35it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.33it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.34it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  20%|██        | 10/50 [00:03<00:12,  3.32it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.32it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.32it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.32it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.32it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:12<00:03,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s]
+Generating diverse samples:  50%|█████     | 5/10 [01:15<01:15, 15.00s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.34it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.33it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.33it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.34it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.34it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.32it/s][A
+Generating sign language:  20%|██        | 10/50 [00:03<00:12,  3.31it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.32it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.32it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.32it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.32it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  40%|████      | 20/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:09<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.34it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:15<00:00,  3.33it/s]
+Generating diverse samples:  60%|██████    | 6/10 [01:30<01:00, 15.01s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.35it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.35it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.35it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.34it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:05,  3.34it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:02,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Generating diverse samples:  70%|███████   | 7/10 [01:45<00:45, 15.00s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.39it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.33it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.33it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:05,  3.34it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.34it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Generating diverse samples:  80%|████████  | 8/10 [02:00<00:30, 15.00s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.39it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.34it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.34it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:08,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.34it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:05,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.34it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.34it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.34it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Generating diverse samples:  90%|█████████ | 9/10 [02:15<00:14, 15.00s/it]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:00<00:14,  3.40it/s][A
+Generating sign language:   4%|▍         | 2/50 [00:00<00:14,  3.37it/s][A
+Generating sign language:   6%|▌         | 3/50 [00:00<00:14,  3.36it/s][A
+Generating sign language:   8%|▊         | 4/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  10%|█         | 5/50 [00:01<00:13,  3.36it/s][A
+Generating sign language:  12%|█▏        | 6/50 [00:01<00:13,  3.35it/s][A
+Generating sign language:  14%|█▍        | 7/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  16%|█▌        | 8/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  18%|█▊        | 9/50 [00:02<00:12,  3.34it/s][A
+Generating sign language:  20%|██        | 10/50 [00:02<00:11,  3.33it/s][A
+Generating sign language:  22%|██▏       | 11/50 [00:03<00:11,  3.34it/s][A
+Generating sign language:  24%|██▍       | 12/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  26%|██▌       | 13/50 [00:03<00:11,  3.33it/s][A
+Generating sign language:  28%|██▊       | 14/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  30%|███       | 15/50 [00:04<00:10,  3.33it/s][A
+Generating sign language:  32%|███▏      | 16/50 [00:04<00:10,  3.34it/s][A
+Generating sign language:  34%|███▍      | 17/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  36%|███▌      | 18/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  38%|███▊      | 19/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  40%|████      | 20/50 [00:05<00:09,  3.33it/s][A
+Generating sign language:  42%|████▏     | 21/50 [00:06<00:08,  3.33it/s][A
+Generating sign language:  44%|████▍     | 22/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  46%|████▌     | 23/50 [00:06<00:08,  3.34it/s][A
+Generating sign language:  48%|████▊     | 24/50 [00:07<00:07,  3.34it/s][A
+Generating sign language:  50%|█████     | 25/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  52%|█████▏    | 26/50 [00:07<00:07,  3.33it/s][A
+Generating sign language:  54%|█████▍    | 27/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  56%|█████▌    | 28/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  58%|█████▊    | 29/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  60%|██████    | 30/50 [00:08<00:06,  3.33it/s][A
+Generating sign language:  62%|██████▏   | 31/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  64%|██████▍   | 32/50 [00:09<00:05,  3.34it/s][A
+Generating sign language:  66%|██████▌   | 33/50 [00:09<00:05,  3.33it/s][A
+Generating sign language:  68%|██████▊   | 34/50 [00:10<00:04,  3.33it/s][A
+Generating sign language:  70%|███████   | 35/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  72%|███████▏  | 36/50 [00:10<00:04,  3.34it/s][A
+Generating sign language:  74%|███████▍  | 37/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  76%|███████▌  | 38/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  78%|███████▊  | 39/50 [00:11<00:03,  3.34it/s][A
+Generating sign language:  80%|████████  | 40/50 [00:11<00:03,  3.33it/s][A
+Generating sign language:  82%|████████▏ | 41/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  84%|████████▍ | 42/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  86%|████████▌ | 43/50 [00:12<00:02,  3.33it/s][A
+Generating sign language:  88%|████████▊ | 44/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  90%|█████████ | 45/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  92%|█████████▏| 46/50 [00:13<00:01,  3.33it/s][A
+Generating sign language:  94%|█████████▍| 47/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  96%|█████████▌| 48/50 [00:14<00:00,  3.33it/s][A
+Generating sign language:  98%|█████████▊| 49/50 [00:14<00:00,  3.33it/s][A
+Generating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.33it/s][AGenerating sign language: 100%|██████████| 50/50 [00:14<00:00,  3.34it/s]
+Generating diverse samples: 100%|██████████| 10/10 [02:30<00:00, 15.00s/it]Generating diverse samples: 100%|██████████| 10/10 [02:30<00:00, 15.00s/it]
+
+Diversity Results:
+  Mean Pairwise Distance: 0.0669 ± 0.0558
+  (Higher distance = more diverse generations)
+
+============================================================
+Calculating Fréchet Video Distance (FVD)...
+============================================================
+Collecting videos:   0%|          | 0/1 [00:00<?, ?it/s]Collecting videos: 100%|██████████| 1/1 [00:00<00:00,  1.89it/s]Collecting videos: 100%|██████████| 1/1 [00:00<00:00,  1.19it/s]
+Generating videos...
+Generating:   0%|          | 0/1 [00:00<?, ?it/s]
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s][A
+Generating sign language:   2%|▏         | 1/50 [00:01<00:58,  1.19s/it][A
+Generating sign language:   4%|▍         | 2/50 [00:02<00:57,  1.19s/it][A
+Generating sign language:   6%|▌         | 3/50 [00:03<00:56,  1.19s/it][A
+Generating sign language:   8%|▊         | 4/50 [00:04<00:55,  1.20s/it][A
+Generating sign language:  10%|█         | 5/50 [00:05<00:53,  1.20s/it][A
+Generating sign language:  12%|█▏        | 6/50 [00:07<00:52,  1.20s/it][A
+Generating sign language:  14%|█▍        | 7/50 [00:08<00:51,  1.20s/it][A
+Generating sign language:  16%|█▌        | 8/50 [00:09<00:50,  1.20s/it][A
+Generating sign language:  18%|█▊        | 9/50 [00:10<00:49,  1.20s/it][A
+Generating sign language:  20%|██        | 10/50 [00:11<00:48,  1.20s/it][A
+Generating sign language:  22%|██▏       | 11/50 [00:13<00:46,  1.20s/it][A
+Generating sign language:  24%|██▍       | 12/50 [00:14<00:45,  1.20s/it][A
+Generating sign language:  26%|██▌       | 13/50 [00:15<00:44,  1.20s/it][A
+Generating sign language:  28%|██▊       | 14/50 [00:16<00:43,  1.20s/it][A
+Generating sign language:  30%|███       | 15/50 [00:18<00:42,  1.20s/it][A
+Generating sign language:  32%|███▏      | 16/50 [00:19<00:40,  1.20s/it][A
+Generating sign language:  34%|███▍      | 17/50 [00:20<00:39,  1.20s/it][A
+Generating sign language:  36%|███▌      | 18/50 [00:21<00:38,  1.20s/it][A
+Generating sign language:  38%|███▊      | 19/50 [00:22<00:37,  1.20s/it][A
+Generating sign language:  40%|████      | 20/50 [00:24<00:36,  1.20s/it][A
+Generating sign language:  42%|████▏     | 21/50 [00:25<00:34,  1.20s/it][A
+Generating sign language:  44%|████▍     | 22/50 [00:26<00:33,  1.20s/it][A
+Generating sign language:  46%|████▌     | 23/50 [00:27<00:32,  1.20s/it][A
+Generating sign language:  48%|████▊     | 24/50 [00:28<00:31,  1.20s/it][A
+Generating sign language:  50%|█████     | 25/50 [00:30<00:30,  1.20s/it][A
+Generating sign language:  52%|█████▏    | 26/50 [00:31<00:28,  1.20s/it][A
+Generating sign language:  54%|█████▍    | 27/50 [00:32<00:27,  1.20s/it][A
+Generating sign language:  56%|█████▌    | 28/50 [00:33<00:26,  1.20s/it][A
+Generating sign language:  58%|█████▊    | 29/50 [00:34<00:25,  1.20s/it][A
+Generating sign language:  60%|██████    | 30/50 [00:36<00:24,  1.20s/it][A
+Generating sign language:  62%|██████▏   | 31/50 [00:37<00:22,  1.20s/it][A
+Generating sign language:  64%|██████▍   | 32/50 [00:38<00:21,  1.20s/it][A
+Generating sign language:  66%|██████▌   | 33/50 [00:39<00:20,  1.20s/it][A
+Generating sign language:  68%|██████▊   | 34/50 [00:40<00:19,  1.20s/it][A
+Generating sign language:  70%|███████   | 35/50 [00:42<00:18,  1.20s/it][A
+Generating sign language:  72%|███████▏  | 36/50 [00:43<00:16,  1.20s/it][A
+Generating sign language:  74%|███████▍  | 37/50 [00:44<00:15,  1.20s/it][A
+Generating sign language:  76%|███████▌  | 38/50 [00:45<00:14,  1.20s/it][A
+Generating sign language:  78%|███████▊  | 39/50 [00:46<00:13,  1.20s/it][A
+Generating sign language:  80%|████████  | 40/50 [00:48<00:12,  1.20s/it][A
+Generating sign language:  82%|████████▏ | 41/50 [00:49<00:10,  1.20s/it][A
+Generating sign language:  84%|████████▍ | 42/50 [00:50<00:09,  1.20s/it][A
+Generating sign language:  86%|████████▌ | 43/50 [00:51<00:08,  1.20s/it][A
+Generating sign language:  88%|████████▊ | 44/50 [00:52<00:07,  1.20s/it][A
+Generating sign language:  90%|█████████ | 45/50 [00:54<00:05,  1.20s/it][A
+Generating sign language:  92%|█████████▏| 46/50 [00:55<00:04,  1.20s/it][A
+Generating sign language:  94%|█████████▍| 47/50 [00:56<00:03,  1.20s/it][A
+Generating sign language:  96%|█████████▌| 48/50 [00:57<00:02,  1.20s/it][A
+Generating sign language:  98%|█████████▊| 49/50 [00:58<00:01,  1.20s/it][A
+Generating sign language: 100%|██████████| 50/50 [01:00<00:00,  1.20s/it][AGenerating sign language: 100%|██████████| 50/50 [01:00<00:00,  1.20s/it]
+Generating: 100%|██████████| 1/1 [01:00<00:00, 60.08s/it]Generating: 100%|██████████| 1/1 [01:00<00:00, 60.08s/it]
+Downloading: "https://download.pytorch.org/models/inception_v3_google-0cc3c7bd.pth" to /home/zeus/.cache/torch/hub/checkpoints/inception_v3_google-0cc3c7bd.pth
+  0%|          | 0.00/104M [00:00<?, ?B/s]  5%|▌         | 5.60M/104M [00:00<00:01, 58.7MB/s] 17%|█▋        | 17.6M/104M [00:00<00:00, 98.1MB/s] 30%|███       | 31.6M/104M [00:00<00:00, 120MB/s]  43%|████▎     | 44.4M/104M [00:00<00:00, 126MB/s] 56%|█████▌    | 58.4M/104M [00:00<00:00, 133MB/s] 71%|███████   | 73.8M/104M [00:00<00:00, 143MB/s] 86%|████████▌ | 89.1M/104M [00:00<00:00, 149MB/s]100%|██████████| 104M/104M [00:00<00:00, 137MB/s] 
+
+FVD Results:
+  FVD Score: 157.03
+  (Lower is better, <100 is good, <50 is very good)
+
+============================================================
+Generating Visual Comparisons...
+============================================================
+Generating sign language:   0%|          | 0/50 [00:00<?, ?it/s]Generating sign language:   2%|▏         | 1/50 [00:01<00:57,  1.17s/it]Generating sign language:   4%|▍         | 2/50 [00:02<00:56,  1.18s/it]Generating sign language:   6%|▌         | 3/50 [00:03<00:55,  1.18s/it]Generating sign language:   8%|▊         | 4/50 [00:04<00:54,  1.18s/it]Generating sign language:  10%|█         | 5/50 [00:05<00:53,  1.18s/it]Generating sign language:  12%|█▏        | 6/50 [00:07<00:52,  1.18s/it]Generating sign language:  14%|█▍        | 7/50 [00:08<00:50,  1.19s/it]Generating sign language:  16%|█▌        | 8/50 [00:09<00:49,  1.19s/it]Generating sign language:  18%|█▊        | 9/50 [00:10<00:48,  1.19s/it]Generating sign language:  20%|██        | 10/50 [00:11<00:47,  1.19s/it]Generating sign language:  22%|██▏       | 11/50 [00:13<00:46,  1.19s/it]Generating sign language:  24%|██▍       | 12/50 [00:14<00:45,  1.20s/it]Generating sign language:  26%|██▌       | 13/50 [00:15<00:44,  1.20s/it]Generating sign language:  28%|██▊       | 14/50 [00:16<00:43,  1.20s/it]Generating sign language:  30%|███       | 15/50 [00:17<00:41,  1.20s/it]Generating sign language:  32%|███▏      | 16/50 [00:19<00:40,  1.20s/it]Generating sign language:  34%|███▍      | 17/50 [00:20<00:39,  1.20s/it]Generating sign language:  36%|███▌      | 18/50 [00:21<00:38,  1.20s/it]Generating sign language:  38%|███▊      | 19/50 [00:22<00:37,  1.21s/it]Generating sign language:  40%|████      | 20/50 [00:23<00:36,  1.21s/it]Generating sign language:  42%|████▏     | 21/50 [00:25<00:34,  1.21s/it]Generating sign language:  44%|████▍     | 22/50 [00:26<00:33,  1.21s/it]Generating sign language:  46%|████▌     | 23/50 [00:27<00:32,  1.21s/it]Generating sign language:  48%|████▊     | 24/50 [00:28<00:31,  1.21s/it]Generating sign language:  50%|█████     | 25/50 [00:29<00:30,  1.21s/it]Generating sign language:  52%|█████▏    | 26/50 [00:31<00:29,  1.21s/it]Generating sign language:  54%|█████▍    | 27/50 [00:32<00:27,  1.21s/it]Generating sign language:  56%|█████▌    | 28/50 [00:33<00:26,  1.21s/it]Generating sign language:  58%|█████▊    | 29/50 [00:34<00:25,  1.21s/it]Generating sign language:  60%|██████    | 30/50 [00:35<00:24,  1.21s/it]Generating sign language:  62%|██████▏   | 31/50 [00:37<00:23,  1.21s/it]Generating sign language:  64%|██████▍   | 32/50 [00:38<00:21,  1.21s/it]Generating sign language:  66%|██████▌   | 33/50 [00:39<00:20,  1.21s/it]Generating sign language:  68%|██████▊   | 34/50 [00:40<00:19,  1.21s/it]Generating sign language:  70%|███████   | 35/50 [00:42<00:18,  1.21s/it]Generating sign language:  72%|███████▏  | 36/50 [00:43<00:16,  1.21s/it]Generating sign language:  74%|███████▍  | 37/50 [00:44<00:15,  1.21s/it]Generating sign language:  76%|███████▌  | 38/50 [00:45<00:14,  1.21s/it]Generating sign language:  78%|███████▊  | 39/50 [00:46<00:13,  1.21s/it]Generating sign language:  80%|████████  | 40/50 [00:48<00:12,  1.21s/it]Generating sign language:  82%|████████▏ | 41/50 [00:49<00:10,  1.21s/it]Generating sign language:  84%|████████▍ | 42/50 [00:50<00:09,  1.21s/it]Generating sign language:  86%|████████▌ | 43/50 [00:51<00:08,  1.21s/it]Generating sign language:  88%|████████▊ | 44/50 [00:52<00:07,  1.21s/it]Generating sign language:  90%|█████████ | 45/50 [00:54<00:06,  1.21s/it]Generating sign language:  92%|█████████▏| 46/50 [00:55<00:04,  1.21s/it]Generating sign language:  94%|█████████▍| 47/50 [00:56<00:03,  1.21s/it]Generating sign language:  96%|█████████▌| 48/50 [00:57<00:02,  1.20s/it]Generating sign language:  98%|█████████▊| 49/50 [00:58<00:01,  1.20s/it]Generating sign language: 100%|██████████| 50/50 [01:00<00:00,  1.20s/it]Generating sign language: 100%|██████████| 50/50 [01:00<00:00,  1.20s/it]
+Comparison saved to validation_output/comparison.png
+GIFs saved to validation_output/
+
+============================================================
+VALIDATION SUMMARY
+============================================================
+
+📊 Reconstruction Quality:
+   SSIM: 0.4308 (1.0 = perfect match)
+   PSNR: 15.94 dB (>20 dB is good)
+
+🎬 Temporal Consistency:
+   Score: 1.0000 (higher = smoother)
+
+🎨 Generation Diversity:
+   Variance: 0.0669
+
+📈 Fréchet Video Distance:
+   FVD: 157.03 (lower = better)
+
+✅ Results saved to validation_output/validation_results.json
+📁 Visual comparisons in validation_output/
+
+✅ Validation complete!
