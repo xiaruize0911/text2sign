@@ -119,9 +119,24 @@ class Text2SignPipeline:
             use_gradient_checkpointing=getattr(model_config, 'use_gradient_checkpointing', False),
         )
         
+        # Detect text encoder type from weights
+        text_encoder_state_dict = checkpoint["text_encoder_state_dict"]
+        use_clip = getattr(model_config, "use_clip_text_encoder", False)
+        
+        # Check if weights match CLIP structure
+        has_clip_keys = any("model.text_model" in k for k in text_encoder_state_dict.keys())
+        has_custom_keys = any("token_embedding.weight" in k and "model.text_model" not in k for k in text_encoder_state_dict.keys())
+        
+        if use_clip and not has_clip_keys and has_custom_keys:
+            print("  Note: Config says use_clip_text_encoder=True, but weights appear to be custom TextEncoder")
+            print("  Forcing use_clip=False")
+            use_clip = False
+            # Update config to match
+            model_config.use_clip_text_encoder = False
+
         text_encoder = create_text_encoder(
             model_config,
-            use_clip=getattr(model_config, "use_clip_text_encoder", False),
+            use_clip=use_clip,
         )
         
         scheduler = DDIMScheduler(

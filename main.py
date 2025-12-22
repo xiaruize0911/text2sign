@@ -259,7 +259,7 @@ def test(args):
     
     try:
         scheduler = DDIMScheduler(
-            num_train_timesteps=1000,
+            num_train_timesteps=100,
             beta_schedule="linear",
         )
         
@@ -321,7 +321,7 @@ Examples:
                              help="Base model channels")
     train_parser.add_argument("--num-heads", type=int, default=8,
                              help="Number of attention heads")
-    train_parser.add_argument("--timesteps", type=int, default=1000,
+    train_parser.add_argument("--timesteps", type=int, default=100,
                              help="Number of diffusion timesteps")
     train_parser.add_argument("--beta-schedule", type=str, default="linear",
                              choices=["linear", "cosine"],
@@ -359,7 +359,7 @@ Examples:
     gen_parser.add_argument("--output-dir", type=str, default="Samples",
                            help="Directory to save generated GIFs")
     gen_parser.add_argument("--steps", type=int, default=50,
-                           help="Number of inference steps"
+                           help="Number of inference steps")
     gen_parser.add_argument("--guidance-scale", type=float, default=7.5,
                            help="Classifier-free guidance scale")
     gen_parser.add_argument("--eta", type=float, default=0.0,
