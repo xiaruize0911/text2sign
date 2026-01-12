@@ -1,0 +1,65 @@
+{
+  "model": {
+    "image_size": 64,
+    "num_frames": 16,
+    "in_channels": 3,
+    "model_channels": 96,
+    "channel_mult": [
+      1,
+      2,
+      4
+    ],
+    "num_res_blocks": 2,
+    "attention_resolutions": [
+      8,
+      16
+    ],
+    "num_heads": 6,
+    "use_transformer": true,
+    "transformer_depth": 2,
+    "use_gradient_checkpointing": true,
+    "use_clip_text_encoder": true,
+    "text_embed_dim": 384,
+    "max_text_length": 77,
+    "vocab_size": 49408,
+    "freeze_text_encoder": true,
+    "context_dim": 384
+  },
+  "training": {
+    "data_dir": "text2sign/training_data",
+    "batch_size": 2,
+    "num_workers": 4,
+    "num_epochs": 150,
+    "learning_rate": 5e-05,
+    "weight_decay": 0.01,
+    "warmup_steps": 500,
+    "gradient_accumulation_steps": 8,
+    "max_grad_norm": 1.0,
+    "use_amp": true,
+    "use_ema": false,
+    "ema_decay": 0.9999,
+    "ema_update_every": 10,
+    "checkpoint_dir": "text_to_sign/checkpoints",
+    "save_every": 5,
+    "log_every": 100,
+    "sample_every": 1000,
+    "log_dir": "text_to_sign/logs",
+    "device": "cuda"
+  },
+  "ddim": {
+    "num_train_timesteps": 100,
+    "num_inference_steps": 100,
+    "beta_start": 0.0001,
+    "beta_end": 0.02,
+    "beta_schedule": "linear",
+    "clip_sample": true,
+    "prediction_type": "epsilon"
+  },
+  "generation": {
+    "num_inference_steps": 50,
+    "guidance_scale": 7.5,
+    "eta": 0.0,
+    "output_dir": "text_to_sign/generated",
+    "fps": 8
+  }
+}

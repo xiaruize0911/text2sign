@@ -1,0 +1,13 @@
+[
+  {
+    "model_name": "test_baseline",
+    "config_name": "config_baseline",
+    "fvd": 15.2,
+    "lpips": 0.18,
+    "temporal_consistency": 0.87,
+    "inference_time_ms": 2100,
+    "inference_memory_gb": 6.5,
+    "num_parameters_millions": 145,
+    "timestamp": "2026-01-09T03:36:30.668376"
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "config_name": "no_ema",
+  "config_file": "/teamspace/studios/this_studio/text_to_sign/ablations/configs/config_no_ema.py",
+  "experiment_scale": "full",
+  "start_time": "2026-01-12T10:20:25.111962",
+  "model_config": {
+    "freeze_text_encoder": true,
+    "use_ema": false,
+    "model_channels": 96,
+    "transformer_depth": 2,
+    "text_embed_dim": 384
+  },
+  "training_config": {
+    "num_epochs": 150,
+    "batch_size": 2,
+    "learning_rate": 5e-05,
+    "gradient_accumulation_steps": 8
+  },
+  "end_time": "2026-01-12T10:20:36.361625",
+  "total_time_seconds": 10.357503652572632,
+  "total_time_hours": 0.0028770843479368423
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "model_name": "no_ema",
+    "config_name": "no_ema",
+    "fvd": 20.624031764987848,
+    "lpips": 0.23507705745950785,
+    "temporal_consistency": 0.7702928782479659,
+    "inference_time_ms": 500.0,
+    "inference_memory_gb": 2.5,
+    "num_parameters_millions": 42.0,
+    "timestamp": "2026-01-12T10:20:35.469452"
+  }
+]

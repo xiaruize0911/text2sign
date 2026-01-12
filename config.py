@@ -44,7 +44,7 @@ class DDIMConfig:
     num_inference_steps: int = 100
     beta_start: float = 0.0001
     beta_end: float = 0.02
-    beta_schedule: str = "linear"  # "linear" or "cosine"
+    beta_schedule: str = "cosine"  # "linear" or "cosine" - cosine is better for quality
     clip_sample: bool = True
     prediction_type: str = "epsilon"  # "epsilon" or "v_prediction"
 
@@ -53,7 +53,7 @@ class DDIMConfig:
 class TrainingConfig:
     """Training configuration"""
     # Data
-    data_dir: str = "text2sign/training_data"
+    data_dir: str = "/teamspace/studios/this_studio/text2sign/training_data"
     batch_size: int = 2  # Reduced from 4 for memory
     num_workers: int = 4
     
@@ -61,9 +61,14 @@ class TrainingConfig:
     num_epochs: int = 150  # Increased for more training
     learning_rate: float = 5e-5  # Reduced from 1e-4 for fine-tuning stability
     weight_decay: float = 0.01
-    warmup_steps: int = 500  # Reduced warmup for fine-tuning
+    warmup_steps: int = 2000  # Increased from 500 for better convergence
     gradient_accumulation_steps: int = 8  # Effective batch size = 16
     max_grad_norm: float = 1.0
+    
+    # EMA (Exponential Moving Average) - Critical for quality!
+    use_ema: bool = True
+    ema_decay: float = 0.9999
+    ema_update_every: int = 10
     
     # Mixed precision
     use_amp: bool = True

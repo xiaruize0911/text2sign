@@ -1,0 +1,28 @@
+{
+  "experiment_name": "baseline",
+  "timestamp": "2026-01-09T03:38:08.493310",
+  "training_summary": {},
+  "evaluation_summary": {},
+  "metadata": {
+    "config_name": "baseline",
+    "config_file": "/teamspace/studios/this_studio/text_to_sign/ablations/configs/config_baseline.py",
+    "experiment_scale": "small",
+    "start_time": "2026-01-09T03:38:08.491789",
+    "model_config": {
+      "freeze_text_encoder": true,
+      "use_ema": true,
+      "model_channels": 96,
+      "transformer_depth": 2,
+      "text_embed_dim": 384
+    },
+    "training_config": {
+      "num_epochs": 2,
+      "batch_size": 2,
+      "learning_rate": 5e-05,
+      "gradient_accumulation_steps": 8
+    },
+    "end_time": "2026-01-09T03:38:08.492996",
+    "total_time_seconds": 7.62939453125e-06,
+    "total_time_hours": 2.1192762586805556e-09
+  }
+}

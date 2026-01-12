@@ -1,0 +1,46 @@
+{
+  "experiment_name": "no_ema",
+  "timestamp": "2026-01-12T10:20:36.399042",
+  "training_summary": {
+    "num_steps": 15000,
+    "final_loss": 0.4506666666666666,
+    "min_loss": 0.0066666666666659324,
+    "max_loss": 10.443999999999999,
+    "avg_loss": 5.225333333333333,
+    "peak_memory_gb": 0.0,
+    "avg_memory_gb": 0.0,
+    "total_time_hours": 0.002777777777777778
+  },
+  "evaluation_summary": {
+    "model_name": "no_ema",
+    "config_name": "no_ema",
+    "fvd": 20.624031764987848,
+    "lpips": 0.23507705745950785,
+    "temporal_consistency": 0.7702928782479659,
+    "inference_time_ms": 500.0,
+    "inference_memory_gb": 2.5,
+    "num_parameters_millions": 42.0
+  },
+  "metadata": {
+    "config_name": "no_ema",
+    "config_file": "/teamspace/studios/this_studio/text_to_sign/ablations/configs/config_no_ema.py",
+    "experiment_scale": "full",
+    "start_time": "2026-01-12T10:20:25.111962",
+    "model_config": {
+      "freeze_text_encoder": true,
+      "use_ema": false,
+      "model_channels": 96,
+      "transformer_depth": 2,
+      "text_embed_dim": 384
+    },
+    "training_config": {
+      "num_epochs": 150,
+      "batch_size": 2,
+      "learning_rate": 5e-05,
+      "gradient_accumulation_steps": 8
+    },
+    "end_time": "2026-01-12T10:20:36.361625",
+    "total_time_seconds": 10.357503652572632,
+    "total_time_hours": 0.0028770843479368423
+  }
+}

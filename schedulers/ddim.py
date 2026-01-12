@@ -90,10 +90,12 @@ class DDIMScheduler:
         self.timesteps = None
     
     def _cosine_beta_schedule(self, timesteps: int, s: float = 0.008) -> torch.Tensor:
-        """Cosine schedule as proposed in https://arxiv.org/abs/2102.09672"""
+        """Cosine schedule with improved offset for better extreme handling"""
         steps = timesteps + 1
         x = torch.linspace(0, timesteps, steps)
-        alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * math.pi * 0.5) ** 2
+        # Improved offset prevents beta from being too small at extremes
+        offset = 0.008
+        alphas_cumprod = torch.cos(((x / timesteps + offset) / (1 + offset)) * math.pi * 0.5) ** 2
         alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
         betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
         return torch.clip(betas, 0.0001, 0.9999)

@@ -1,0 +1,2 @@
+model_name,config_name,fvd,lpips,temporal_consistency,inference_time_ms,inference_memory_gb,num_parameters_millions,timestamp
+test_baseline,config_baseline,15.2,0.18,0.87,2100,6.5,145,2026-01-09T03:36:30.668376

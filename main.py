@@ -305,7 +305,7 @@ Examples:
     
     # Train command
     train_parser = subparsers.add_parser("train", help="Train the model")
-    train_parser.add_argument("--data-dir", type=str, default="text2sign/training_data",
+    train_parser.add_argument("--data-dir", type=str, default="/teamspace/studios/this_studio/text2sign/training_data",
                              help="Path to training data directory")
     train_parser.add_argument("--batch-size", type=int, default=4,
                              help="Batch size for training")
@@ -369,7 +369,7 @@ Examples:
     
     # Test command
     test_parser = subparsers.add_parser("test", help="Test data and model")
-    test_parser.add_argument("--data-dir", type=str, default="text2sign/training_data",
+    test_parser.add_argument("--data-dir", type=str, default="/teamspace/studios/this_studio/text2sign/training_data",
                             help="Path to training data directory")
     test_parser.add_argument("--cpu", action="store_true",
                             help="Force CPU testing")

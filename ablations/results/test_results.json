@@ -1,0 +1,39 @@
+{
+  "baseline": {
+    "status": "\u2713 PASSED",
+    "config_path": "/teamspace/studios/this_studio/text_to_sign/ablations/configs/config_baseline.py",
+    "key_settings": {
+      "freeze_text_encoder": true,
+      "use_ema": true,
+      "num_epochs": 150,
+      "batch_size": 2,
+      "learning_rate": 5e-05
+    }
+  },
+  "text_finetuned": {
+    "status": "\u2713 PASSED",
+    "config_path": "/teamspace/studios/this_studio/text_to_sign/ablations/configs/config_text_finetuned.py",
+    "key_settings": {
+      "freeze_text_encoder": false,
+      "use_ema": true,
+      "num_epochs": 150,
+      "batch_size": 2,
+      "learning_rate": 5e-05
+    }
+  },
+  "no_ema": {
+    "status": "\u2713 PASSED",
+    "config_path": "/teamspace/studios/this_studio/text_to_sign/ablations/configs/config_no_ema.py",
+    "key_settings": {
+      "freeze_text_encoder": true,
+      "use_ema": false,
+      "num_epochs": 150,
+      "batch_size": 2,
+      "learning_rate": 5e-05
+    }
+  },
+  "metrics_logger": {
+    "status": "\u2713 PASSED",
+    "log_dir": "/teamspace/studios/this_studio/text_to_sign/ablations/results"
+  }
+}

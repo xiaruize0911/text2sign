@@ -1,0 +1,2 @@
+model_name,config_name,fvd,lpips,temporal_consistency,inference_time_ms,inference_memory_gb,num_parameters_millions,timestamp
+no_ema,no_ema,20.624031764987848,0.23507705745950785,0.7702928782479659,500.0,2.5,42.0,2026-01-12T10:20:35.469452

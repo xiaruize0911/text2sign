@@ -23,6 +23,8 @@ from config import TrainingConfig, ModelConfig, DDIMConfig
 from dataset import get_dataloader
 from models import UNet3D, TextEncoder, create_text_encoder
 from schedulers import DDIMScheduler
+from utils import EMA
+from utils.metrics_logger import MetricsLogger, ExperimentTracker
 
 
 class Trainer:
@@ -79,6 +81,44 @@ class Trainer:
         # TensorBoard writer
         self.writer = SummaryWriter(self.log_dir)
         
+        # Research-grade metrics logging
+        experiment_config = {
+            "model": model_config.__dict__,
+            "training": train_config.__dict__,
+            "ddim": ddim_config.__dict__,
+        }
+        self.metrics_logger = MetricsLogger(
+            log_dir=self.log_dir,
+            experiment_name=self.run_name,
+            config=experiment_config,
+        )
+        
+        # Register experiment
+        self.experiment_tracker = ExperimentTracker(base_dir="text_to_sign/experiments")
+        self.experiment_tracker.register_experiment(
+            experiment_name=self.run_name,
+            config=experiment_config,
+            description=f"Text2Sign training with EMA={getattr(train_config, 'use_ema', True)}, "
+                       f"beta_schedule={ddim_config.beta_schedule}, "
+                       f"lr={train_config.learning_rate}"
+        )
+        
+        # EMA (Exponential Moving Average) for better sample quality
+        self.use_ema = getattr(train_config, 'use_ema', True)
+        if self.use_ema:
+            ema_decay = getattr(train_config, 'ema_decay', 0.9999)
+            ema_update_every = getattr(train_config, 'ema_update_every', 10)
+            self.ema = EMA(
+                self.model,
+                decay=ema_decay,
+                update_every=ema_update_every,
+                device=self.device,
+            )
+            print(f"✅ EMA initialized with decay={ema_decay}, update_every={ema_update_every}")
+        else:
+            self.ema = None
+            print("⚠️  EMA disabled")
+        
         # Training state
         self.global_step = 0
         self.epoch = 0
@@ -94,21 +134,24 @@ class Trainer:
         self.scheduler.sqrt_one_minus_alphas_cumprod = self.scheduler.sqrt_one_minus_alphas_cumprod.to(self.device)
     
     def _create_lr_scheduler(self):
-        """Create learning rate scheduler with warmup"""
-        total_steps = self.train_config.num_epochs * 1000  # Approximate
-        warmup_steps = self.train_config.warmup_steps
+        """Create learning rate scheduler with improved warmup and decay"""
+        # Better estimate of total steps
+        total_steps = self.train_config.num_epochs * 1000  # Will be refined during training
+        warmup_steps = min(self.train_config.warmup_steps, total_steps // 10)  # Cap at 10%
         
+        # Gentler warmup from 0.1% to 100% of LR
         warmup_scheduler = LinearLR(
             self.optimizer,
-            start_factor=0.01,
+            start_factor=0.001,
             end_factor=1.0,
             total_iters=warmup_steps,
         )
         
+        # Cosine decay to 1% of original LR (not 0 for stability)
         cosine_scheduler = CosineAnnealingLR(
             self.optimizer,
             T_max=total_steps - warmup_steps,
-            eta_min=1e-6,
+            eta_min=self.train_config.learning_rate * 0.01,
         )
         
         return SequentialLR(
@@ -185,10 +228,41 @@ class Trainer:
         
         self.lr_scheduler.step()
         
-        return {
+        # Update EMA weights
+        if self.ema is not None:
+            self.ema.update()
+        
+        # Calculate gradient statistics for logging
+        total_grad_norm = 0.0
+        max_grad_norm = 0.0
+        num_params_with_grad = 0
+        
+        for p in list(self.model.parameters()) + list(self.text_encoder.parameters()):
+            if p.grad is not None:
+                param_norm = p.grad.data.norm(2).item()
+                total_grad_norm += param_norm ** 2
+                max_grad_norm = max(max_grad_norm, param_norm)
+                num_params_with_grad += 1
+        
+        total_grad_norm = total_grad_norm ** 0.5
+        avg_grad_norm = total_grad_norm / max(num_params_with_grad, 1)
+        
+        metrics = {
             "loss": loss.item(),
             "lr": self.optimizer.param_groups[0]["lr"],
+            "grad_norm_total": total_grad_norm,
+            "grad_norm_avg": avg_grad_norm,
+            "grad_norm_max": max_grad_norm,
         }
+        
+        # Log to metrics logger
+        self.metrics_logger.log_step(
+            step=self.global_step,
+            metrics=metrics,
+            phase="train"
+        )
+        
+        return metrics
     
     @torch.no_grad()
     def validate(self, val_dataloader) -> float:
@@ -239,6 +313,10 @@ class Trainer:
         """Generate video samples from text prompts"""
         self.model.eval()
         self.text_encoder.eval()
+        
+        # Use EMA weights for better quality
+        if self.ema is not None:
+            self.ema.apply_shadow()
         
         batch_size = len(prompts)
         
@@ -291,6 +369,10 @@ class Trainer:
             # DDIM step
             latents, _ = self.scheduler.step(noise_pred, t, latents, eta=eta)
         
+        # Restore original weights if using EMA
+        if self.ema is not None:
+            self.ema.restore()
+        
         # Denormalize [-1, 1] -> [0, 1]
         videos = (latents + 1) / 2
         videos = videos.clamp(0, 1)
@@ -328,6 +410,7 @@ class Trainer:
             "optimizer_state_dict": self.optimizer.state_dict(),
             "lr_scheduler_state_dict": self.lr_scheduler.state_dict(),
             "scaler_state_dict": self.scaler.state_dict() if self.scaler else None,
+            "ema_state_dict": self.ema.state_dict() if self.ema is not None else None,
             "global_step": self.global_step,
             "epoch": self.epoch,
             "best_loss": self.best_loss,
@@ -375,6 +458,14 @@ class Trainer:
                     print(f"  Loaded gradient scaler state")
                 except Exception as e:
                     print(f"  Warning: Could not load scaler state: {e}")
+            
+            # Load EMA state if available
+            if self.ema is not None and checkpoint.get("ema_state_dict"):
+                try:
+                    self.ema.load_state_dict(checkpoint["ema_state_dict"])
+                    print(f"  ✅ Loaded EMA state")
+                except Exception as e:
+                    print(f"  Warning: Could not load EMA state: {e}")
         
         # Always restore training progress
         self.global_step = checkpoint.get("global_step", 0)
@@ -383,7 +474,15 @@ class Trainer:
         self.best_loss = checkpoint["best_loss"]
     
     def train(self):
-        """Main training loop"""
+        """Main training loop with comprehensive research-grade logging"""
+        print("\n" + "="*70)
+        print("🚀 Starting Training with Research-Grade Logging")
+        print("="*70)
+        print(f"Experiment: {self.run_name}")
+        print(f"Logs: {self.log_dir}")
+        print(f"Checkpoints: {self.checkpoint_dir}")
+        print("="*70 + "\n")
+        
         # Create dataloaders
         train_dataloader = get_dataloader(
             data_dir=self.train_config.data_dir,
@@ -419,7 +518,13 @@ class Trainer:
         
         for epoch in range(self.epoch, self.train_config.num_epochs):
             self.epoch = epoch
+            
+            # Start epoch tracking
+            self.metrics_logger.start_epoch(epoch + 1)
+            
             epoch_loss = 0.0
+            epoch_losses = []  # Track all losses for statistics
+            epoch_grad_norms = []
             num_batches = 0
             
             # Progress bar for epoch
@@ -433,6 +538,8 @@ class Trainer:
                 metrics = self.train_step(batch)
                 
                 epoch_loss += metrics["loss"]
+                epoch_losses.append(metrics["loss"])
+                epoch_grad_norms.append(metrics.get("grad_norm_total", 0))
                 num_batches += 1
                 self.global_step += 1
                 
@@ -446,6 +553,9 @@ class Trainer:
                 if self.global_step % self.train_config.log_every == 0:
                     self.writer.add_scalar("train/loss", metrics["loss"], self.global_step)
                     self.writer.add_scalar("train/lr", metrics["lr"], self.global_step)
+                    self.writer.add_scalar("train/grad_norm_total", metrics.get("grad_norm_total", 0), self.global_step)
+                    self.writer.add_scalar("train/grad_norm_avg", metrics.get("grad_norm_avg", 0), self.global_step)
+                    self.writer.add_scalar("train/grad_norm_max", metrics.get("grad_norm_max", 0), self.global_step)
                 
                 # Generate samples
                 if self.global_step % self.train_config.sample_every == 0:
@@ -471,15 +581,49 @@ class Trainer:
                     except Exception as e:
                         print(f"Error generating samples: {e}")
             
-            # End of epoch
+            # End of epoch - calculate comprehensive statistics
             avg_train_loss = epoch_loss / max(num_batches, 1)
+            
+            # Calculate training statistics
+            train_loss_std = np.std(epoch_losses) if epoch_losses else 0.0
+            train_loss_min = np.min(epoch_losses) if epoch_losses else 0.0
+            train_loss_max = np.max(epoch_losses) if epoch_losses else 0.0
+            avg_grad_norm = np.mean(epoch_grad_norms) if epoch_grad_norms else 0.0
+            max_grad_norm = np.max(epoch_grad_norms) if epoch_grad_norms else 0.0
             
             # Validation
             val_loss = self.validate(val_dataloader)
             
-            # Log epoch metrics
+            # Current learning rate
+            current_lr = self.optimizer.param_groups[0]["lr"]
+            
+            # Epoch metrics for research paper
+            epoch_metrics = {
+                "train_loss_mean": avg_train_loss,
+                "train_loss_std": train_loss_std,
+                "train_loss_min": train_loss_min,
+                "train_loss_max": train_loss_max,
+                "val_loss": val_loss,
+                "learning_rate": current_lr,
+                "grad_norm_avg": avg_grad_norm,
+                "grad_norm_max": max_grad_norm,
+                "num_batches": num_batches,
+                "samples_processed": num_batches * self.train_config.batch_size,
+            }
+            
+            # Add EMA info if available
+            if self.ema is not None:
+                epoch_metrics["ema_step_counter"] = self.ema.step_counter
+            
+            # Log to metrics logger
+            self.metrics_logger.end_epoch(epoch + 1, epoch_metrics)
+            
+            # Log to TensorBoard
             self.writer.add_scalar("epoch/train_loss", avg_train_loss, epoch)
+            self.writer.add_scalar("epoch/train_loss_std", train_loss_std, epoch)
             self.writer.add_scalar("epoch/val_loss", val_loss, epoch)
+            self.writer.add_scalar("epoch/grad_norm_avg", avg_grad_norm, epoch)
+            self.writer.add_scalar("epoch/learning_rate", current_lr, epoch)
             
             print(f"Epoch {epoch + 1} - Train Loss: {avg_train_loss:.4f}, Val Loss: {val_loss:.4f}")
             
@@ -502,9 +646,27 @@ class Trainer:
         # Final checkpoint
         final_path = os.path.join(self.checkpoint_dir, "final_model.pt")
         self.save_checkpoint(final_path)
-        print(f"Training complete! Final model saved to {final_path}")
+        
+        # Save comprehensive training summary
+        summary = self.metrics_logger.save_summary()
+        
+        print("\n" + "="*70)
+        print("🎉 Training Complete!")
+        print("="*70)
+        print(f"Final model: {final_path}")
+        print(f"Best validation loss: {self.best_loss:.4f}")
+        print(f"Total training time: {summary['total_duration_hours']:.2f} hours")
+        print(f"Total steps: {summary['total_steps']}")
+        print(f"Total epochs: {summary['total_epochs']}")
+        print("\nMetrics saved to:")
+        print(f"  - Steps CSV: {self.metrics_logger.step_csv_path}")
+        print(f"  - Epochs CSV: {self.metrics_logger.epoch_csv_path}")
+        print(f"  - Summary JSON: {self.metrics_logger.json_dir / f'{self.run_name}_summary.json'}")
+        print(f"  - TensorBoard: {self.log_dir}")
+        print("="*70 + "\n")
         
         self.writer.close()
+        self.metrics_logger.close()
 
 
 def create_trainer(
