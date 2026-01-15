@@ -720,6 +720,7 @@ class UNet3D(nn.Module):
         use_transformer: bool = True,  # Use enhanced transformer blocks
         transformer_depth: int = 1,  # Depth of transformer blocks
         use_gradient_checkpointing: bool = False,  # Enable gradient checkpointing for memory
+        num_frames: int = 16,  # Number of frames for temporal positional encoding
     ):
         super().__init__()
         
@@ -732,15 +733,22 @@ class UNet3D(nn.Module):
         self.num_heads = num_heads
         self.use_transformer = use_transformer
         self.use_gradient_checkpointing = use_gradient_checkpointing
+        self.num_frames = num_frames
         
         time_embed_dim = model_channels * 4
         self.time_embed_dim = time_embed_dim
         
-        # Time embedding
+        # Diffusion timestep embedding (noise level)
         self.time_embed = nn.Sequential(
             nn.Linear(model_channels, time_embed_dim),
             nn.SiLU(),
             nn.Linear(time_embed_dim, time_embed_dim),
+        )
+        
+        # Temporal positional embedding (frame position in sequence)
+        # This is critical for temporal consistency!
+        self.temporal_pos_embed = nn.Parameter(
+            torch.randn(1, in_channels, num_frames, 1, 1) * 0.02
         )
         
         # Input convolution
@@ -857,9 +865,24 @@ class UNet3D(nn.Module):
         """
         from torch.utils.checkpoint import checkpoint
         
-        # Time embedding
+        # Diffusion timestep embedding (noise level)
         t_emb = get_timestep_embedding(timesteps, self.model_channels)
         t_emb = self.time_embed(t_emb)
+        
+        # Add temporal positional encoding for frame position awareness
+        # This ensures the model knows which frame is which in the sequence
+        B, C, T, H, W = x.shape
+        if T <= self.num_frames:
+            x = x + self.temporal_pos_embed[:, :, :T, :, :]
+        else:
+            # If input has more frames than expected, interpolate positional encoding
+            pos_embed = F.interpolate(
+                self.temporal_pos_embed.squeeze(-1).squeeze(-1),  # (1, C, num_frames)
+                size=T,
+                mode='linear',
+                align_corners=False
+            ).unsqueeze(-1).unsqueeze(-1)  # (1, C, T, 1, 1)
+            x = x + pos_embed
         
         # Downsampling path
         hs = []
@@ -909,6 +932,7 @@ def create_unet(config) -> UNet3D:
         use_transformer=getattr(config, 'use_transformer', True),
         transformer_depth=getattr(config, 'transformer_depth', 1),
         use_gradient_checkpointing=getattr(config, 'use_gradient_checkpointing', False),
+        num_frames=getattr(config, 'num_frames', 16),  # Add num_frames for temporal pos encoding
     )
 
 

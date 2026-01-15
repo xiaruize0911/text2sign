@@ -323,7 +323,7 @@ Examples:
                              help="Number of attention heads")
     train_parser.add_argument("--timesteps", type=int, default=100,
                              help="Number of diffusion timesteps")
-    train_parser.add_argument("--beta-schedule", type=str, default="linear",
+    train_parser.add_argument("--beta-schedule", type=str, default="cosine",
                              choices=["linear", "cosine"],
                              help="Beta schedule type")
     train_parser.add_argument("--prediction-type", type=str, default="epsilon",

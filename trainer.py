@@ -357,7 +357,9 @@ class Trainer:
             if guidance_scale > 1.0:
                 latent_model_input = torch.cat([latents] * 2)
             
-            timestep = torch.tensor([t] * latent_model_input.shape[0], device=self.device)
+            # Convert timestep to int for scheduler.step, keep tensor for model
+            t_int = int(t.item()) if isinstance(t, torch.Tensor) else int(t)
+            timestep = torch.tensor([t_int] * latent_model_input.shape[0], device=self.device)
             
             noise_pred = self.model(latent_model_input, timestep, text_embeddings)
             
@@ -366,8 +368,8 @@ class Trainer:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
             
-            # DDIM step
-            latents, _ = self.scheduler.step(noise_pred, t, latents, eta=eta)
+            # DDIM step - use int timestep for scheduler
+            latents, _ = self.scheduler.step(noise_pred, t_int, latents, eta=eta)
         
         # Restore original weights if using EMA
         if self.ema is not None:
@@ -560,6 +562,7 @@ class Trainer:
                 # Generate samples
                 if self.global_step % self.train_config.sample_every == 0:
                     try:
+                        print(f"\n🎨 Generating samples at step {self.global_step}...")
                         videos = self.generate_samples(
                             sample_prompts[:2],
                             num_inference_steps=50,  # Use 50 steps for quality samples
@@ -578,8 +581,26 @@ class Trainer:
                         if videos.shape[0] > 0:
                             frame = videos[0, :, 0]  # (C, H, W)
                             self.writer.add_image("samples/generated", frame, self.global_step)
+                        
+                        print(f"✅ Samples saved successfully!")
+                        
+                        # Log sample generation success
+                        self.metrics_logger.log_step(
+                            step=self.global_step,
+                            metrics={"sample_generated": 1.0},
+                            phase="generation"
+                        )
                     except Exception as e:
-                        print(f"Error generating samples: {e}")
+                        print(f"❌ Error generating samples at step {self.global_step}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        
+                        # Log sample generation failure
+                        self.metrics_logger.log_step(
+                            step=self.global_step,
+                            metrics={"sample_generated": 0.0, "sample_error": str(e)[:100]},
+                            phase="generation"
+                        )
             
             # End of epoch - calculate comprehensive statistics
             avg_train_loss = epoch_loss / max(num_batches, 1)
