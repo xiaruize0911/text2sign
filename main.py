@@ -21,33 +21,11 @@ def train(args):
     print("=" * 60)
     
     # Create configs
-    model_config = ModelConfig(
-        image_size=args.image_size,
-        num_frames=args.num_frames,
-        model_channels=args.model_channels,
-        num_heads=args.num_heads,
-    )
+    model_config = ModelConfig()
     
-    train_config = TrainingConfig(
-        data_dir=args.data_dir,
-        batch_size=args.batch_size,
-        num_epochs=args.epochs,
-        learning_rate=args.lr,
-        num_workers=args.num_workers,
-        checkpoint_dir=args.checkpoint_dir,
-        log_dir=args.log_dir,
-        save_every=args.save_every,
-        log_every=args.log_every,
-        sample_every=args.sample_every,
-        use_amp=not args.no_amp,
-        device="cuda" if torch.cuda.is_available() and not args.cpu else "cpu",
-    )
+    train_config = TrainingConfig()
     
-    ddim_config = DDIMConfig(
-        num_train_timesteps=args.timesteps,
-        beta_schedule=args.beta_schedule,
-        prediction_type=args.prediction_type,
-    )
+    ddim_config = DDIMConfig()
     
     # Print configuration
     print(f"\nConfiguration:")
@@ -65,8 +43,17 @@ def train(args):
     print(f"  Beta schedule: {ddim_config.beta_schedule}")
     print()
     
+    # Extract run name if resuming
+    run_name = None
+    if args.resume:
+        # Expected path: .../checkpoints/run_name/checkpoint.pt
+        parent_dir = os.path.basename(os.path.dirname(args.resume))
+        if parent_dir and "text2sign_" in parent_dir:
+            run_name = parent_dir
+            print(f"Detected run name from checkpoint: {run_name}")
+    
     # Create trainer
-    trainer = create_trainer(model_config, train_config, ddim_config)
+    trainer = create_trainer(model_config, train_config, ddim_config, run_name=run_name)
     
     # Load checkpoint if provided
     if args.resume:
@@ -321,7 +308,7 @@ Examples:
                              help="Base model channels")
     train_parser.add_argument("--num-heads", type=int, default=8,
                              help="Number of attention heads")
-    train_parser.add_argument("--timesteps", type=int, default=100,
+    train_parser.add_argument("--timesteps", type=int, default=50,
                              help="Number of diffusion timesteps")
     train_parser.add_argument("--beta-schedule", type=str, default="cosine",
                              choices=["linear", "cosine"],
@@ -339,7 +326,7 @@ Examples:
                              help="Save checkpoint every N epochs")
     train_parser.add_argument("--log-every", type=int, default=100,
                              help="Log to TensorBoard every N steps")
-    train_parser.add_argument("--sample-every", type=int, default=1000,
+    train_parser.add_argument("--sample-every", type=int, default=1024,
                              help="Generate samples every N steps")
     train_parser.add_argument("--resume", type=str, default=None,
                              help="Path to checkpoint to resume from")

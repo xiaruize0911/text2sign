@@ -11,16 +11,16 @@ import torch
 class ModelConfig:
     """Model architecture configuration"""
     # Image/Video dimensions
-    image_size: int = 64  # Resize GIFs to 64x64
+    image_size: int = 128  # Increased to 128x128 for clearer hand gestures
     num_frames: int = 16  # Number of frames per video
     in_channels: int = 3  # RGB channels
     
-    # UNet architecture (increased capacity for better quality)
-    model_channels: int = 96  # Increased from 64 for better quality
-    channel_mult: Tuple[int, ...] = (1, 2, 4)  # Depth levels
+    # UNet architecture (scaled for 128x128)
+    model_channels: int = 128  # Increased from 96 for better capacity
+    channel_mult: Tuple[int, ...] = (1, 2, 4, 8)  # Added level for 128x128 resolution
     num_res_blocks: int = 2
-    attention_resolutions: Tuple[int, ...] = (8, 16)
-    num_heads: int = 6  # Increased from 4 for better attention
+    attention_resolutions: Tuple[int, ...] = (4, 8)  # Matches 32x32 and 16x16 feature maps at 128px
+    num_heads: int = 8  # Increased to match 128 channels (16px per head)
     
     # Transformer settings (DiT-style)
     use_transformer: bool = True  # Use enhanced DiT-style transformer blocks
@@ -40,8 +40,8 @@ class ModelConfig:
 @dataclass
 class DDIMConfig:
     """DDIM scheduler configuration"""
-    num_train_timesteps: int = 100
-    num_inference_steps: int = 100
+    num_train_timesteps: int = 1000  # Increased from 50 for much better convergence and quality
+    num_inference_steps: int = 50
     beta_start: float = 0.0001
     beta_end: float = 0.02
     beta_schedule: str = "cosine"  # "linear" or "cosine" - cosine is better for quality
@@ -54,21 +54,21 @@ class TrainingConfig:
     """Training configuration"""
     # Data
     data_dir: str = "/teamspace/studios/this_studio/text2sign/training_data"
-    batch_size: int = 2  # Reduced from 4 for memory
+    batch_size: int = 2  # Reduced for 128x128 VRAM constraints
     num_workers: int = 4
     
     # Training
-    num_epochs: int = 150  # Increased for more training
-    learning_rate: float = 5e-5  # Reduced from 1e-4 for fine-tuning stability
+    num_epochs: int = 150  # Increased for larger model convergence
+    learning_rate: float = 1e-4  
     weight_decay: float = 0.01
-    warmup_steps: int = 2000  # Increased from 500 for better convergence
-    gradient_accumulation_steps: int = 8  # Effective batch size = 16
+    warmup_steps: int = 5000  # Increased warmup for larger architecture stability
+    gradient_accumulation_steps: int = 8  # Effective batch = 16 to maintain stability
     max_grad_norm: float = 1.0
     
     # EMA (Exponential Moving Average) - Critical for quality!
     use_ema: bool = True
     ema_decay: float = 0.9999
-    ema_update_every: int = 10
+    ema_update_every: int = 1  # Fixed: Increasing frequency to match decay (10 was too slow)
     
     # Mixed precision
     use_amp: bool = True
@@ -77,7 +77,7 @@ class TrainingConfig:
     checkpoint_dir: str = "text_to_sign/checkpoints"
     save_every: int = 5  # Save every N epochs
     log_every: int = 100  # Log every N steps
-    sample_every: int = 1000  # Generate samples every N steps
+    sample_every: int = 1024  # Generate samples every N steps
     
     # TensorBoard
     log_dir: str = "text_to_sign/logs"

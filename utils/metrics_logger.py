@@ -121,9 +121,16 @@ class MetricsLogger:
         if self.step_csv_file is None:
             self.step_csv_file = open(self.step_csv_path, 'w', newline='')
             fieldnames = list(log_entry.keys())
-            self.step_csv_writer = csv.DictWriter(self.step_csv_file, fieldnames=fieldnames)
+            # Use extrasaction='ignore' to handle dynamic fields gracefully
+            self.step_csv_writer = csv.DictWriter(
+                self.step_csv_file, 
+                fieldnames=fieldnames,
+                extrasaction='ignore'  # Ignore extra fields instead of raising error
+            )
             self.step_csv_writer.writeheader()
         
+        # Only write fields that exist in the original fieldnames
+        # This prevents crashes when new fields are added later
         self.step_csv_writer.writerow(log_entry)
         self.step_csv_file.flush()  # Ensure immediate write
     

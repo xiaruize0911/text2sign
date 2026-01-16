@@ -239,7 +239,9 @@ class Text2SignPipeline:
             if guidance_scale > 1.0:
                 latent_model_input = torch.cat([latents] * 2)
             
-            timestep = torch.tensor([t] * latent_model_input.shape[0], device=self.device)
+            # Convert timestep to int for scheduler.step, keep tensor for model
+            t_int = int(t.item()) if isinstance(t, torch.Tensor) else int(t)
+            timestep = torch.tensor([t_int] * latent_model_input.shape[0], device=self.device)
             
             # Predict noise
             noise_pred = self.model(latent_model_input, timestep, text_embeddings)
@@ -249,8 +251,8 @@ class Text2SignPipeline:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
             
-            # DDIM step
-            latents, _ = self.scheduler.step(noise_pred, t, latents, eta=eta, generator=generator)
+            # DDIM step - use int timestep for scheduler
+            latents, _ = self.scheduler.step(noise_pred, t_int, latents, eta=eta, generator=generator)
         
         # Denormalize
         videos = (latents + 1) / 2
