@@ -402,12 +402,26 @@ class Text2SignPipeline:
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
     ) -> dict:
-        """Benchmark generation latency and throughput on the current device."""
+        """Benchmark warm-start generation latency and throughput on the current device.
+
+        A single untimed warmup run is executed before measurement so the reported
+        latency reflects steady-state inference rather than first-run overhead such
+        as CUDA kernel selection, allocator growth, or graph compilation.
+        """
         num_inference_steps = num_inference_steps or self.generation_config.num_inference_steps
         guidance_scale = guidance_scale or self.generation_config.guidance_scale
         latencies = []
         peak_memory_gb = None
 
+        warmup_kwargs = {
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "output_type": "tensor",
+        }
+
+        self([prompt], **warmup_kwargs)
+        if self.device == "cuda" or (isinstance(self.device, torch.device) and self.device.type == "cuda"):
+            torch.cuda.synchronize(self.device)
         if self.device == "cuda" or (isinstance(self.device, torch.device) and self.device.type == "cuda"):
             torch.cuda.reset_peak_memory_stats(self.device)
 
@@ -415,12 +429,7 @@ class Text2SignPipeline:
             if self.device == "cuda" or (isinstance(self.device, torch.device) and self.device.type == "cuda"):
                 torch.cuda.synchronize(self.device)
             start = time.perf_counter()
-            self(
-                [prompt],
-                num_inference_steps=num_inference_steps,
-                guidance_scale=guidance_scale,
-                output_type="tensor",
-            )
+            self([prompt], **warmup_kwargs)
             if self.device == "cuda" or (isinstance(self.device, torch.device) and self.device.type == "cuda"):
                 torch.cuda.synchronize(self.device)
                 peak_memory_gb = torch.cuda.max_memory_allocated(self.device) / (1024 ** 3)

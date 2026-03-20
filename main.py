@@ -68,10 +68,14 @@ def train(args):
         train_config.num_workers = args.num_workers
     if args.grad_accum_steps:
         train_config.gradient_accumulation_steps = args.grad_accum_steps
+    if args.max_optimizer_steps is not None:
+        train_config.max_run_optimizer_steps = args.max_optimizer_steps
     if args.split_mode:
         train_config.split_mode = args.split_mode
     if args.text_conditioning_mode:
         model_config.text_conditioning_mode = args.text_conditioning_mode
+    if args.use_length_prefix:
+        model_config.use_length_prefix = True
     if args.clip_trainable_layers is not None:
         model_config.clip_trainable_layers = args.clip_trainable_layers
     if args.precision:
@@ -86,6 +90,10 @@ def train(args):
         train_config.log_every = args.log_every
     if args.sample_every:
         train_config.sample_every = args.sample_every
+    if args.sample_steps is not None:
+        train_config.sample_inference_steps = args.sample_steps
+    if args.sample_guidance_scale is not None:
+        train_config.sample_guidance_scale = args.sample_guidance_scale
     if args.prefetch_factor is not None:
         train_config.dataloader_prefetch_factor = args.prefetch_factor
     if args.no_amp:
@@ -121,6 +129,7 @@ def train(args):
     print(f"  Batch size: {train_config.batch_size}")
     print(f"  Grad accumulation: {train_config.gradient_accumulation_steps}")
     print(f"  Effective batch size: {train_config.batch_size * train_config.gradient_accumulation_steps}")
+    print(f"  Max optimizer steps this run: {train_config.max_run_optimizer_steps}")
     print(f"  Epochs: {train_config.num_epochs}")
     print(f"  Learning rate: {train_config.learning_rate}")
     print(f"  Device: {train_config.device}")
@@ -135,6 +144,9 @@ def train(args):
     print(f"  Conditioning mode: {model_config.text_conditioning_mode}")
     print(f"  Train/val split: {train_config.split_mode}")
     print(f"  CLIP trainable layers: {model_config.clip_trainable_layers}")
+    print(f"  Length prefix conditioning: {model_config.use_length_prefix}")
+    print(f"  Sample inference steps: {train_config.sample_inference_steps}")
+    print(f"  Sample guidance scale: {train_config.sample_guidance_scale}")
     if args.model_size:
         print(f"  Model size preset: {args.model_size}")
         print(f"  Model size detail: {model_size_description}")
@@ -196,6 +208,8 @@ def validate(args):
         num_samples=args.num_samples,
         benchmark_repeats=args.benchmark_repeats,
         enable_backtranslation=not args.skip_backtranslation,
+        eval_num_inference_steps=args.steps,
+        eval_guidance_scale=args.guidance_scale,
         fvd_backbone=args.fvd_backbone,
     )
     
@@ -430,6 +444,8 @@ Examples:
                              help="Number of data loading workers")
     train_parser.add_argument("--grad-accum-steps", type=int, default=None,
                              help="Gradient accumulation steps")
+    train_parser.add_argument("--max-optimizer-steps", type=int, default=None,
+                             help="Stop after this many optimizer steps in the current invocation")
     train_parser.add_argument("--ablation-preset", type=str, default=None,
                              choices=["frozen_clip", "no_text", "random_text", "clip_finetuned_last2"],
                              help="Named conditioning ablation preset")
@@ -441,6 +457,8 @@ Examples:
                              help="Conditioning ablation mode")
     train_parser.add_argument("--clip-trainable-layers", type=int, default=None,
                              help="Unfreeze the last N CLIP encoder layers")
+    train_parser.add_argument("--use-length-prefix", action="store_true",
+                             help="Prefix prompts with a discretized word-count token")
     train_parser.add_argument("--checkpoint-dir", type=str, default=None,
                              help="Directory to save checkpoints")
     train_parser.add_argument("--log-dir", type=str, default=None,
@@ -451,6 +469,10 @@ Examples:
                              help="Log to TensorBoard every N steps")
     train_parser.add_argument("--sample-every", type=int, default=None,
                              help="Generate samples every N steps")
+    train_parser.add_argument("--sample-steps", type=int, default=None,
+                             help="DDIM steps for periodic training-time samples")
+    train_parser.add_argument("--sample-guidance-scale", type=float, default=None,
+                             help="CFG scale for periodic training-time samples")
     train_parser.add_argument("--precision", type=str, default=None,
                              choices=["auto", "fp16", "bf16", "fp32"],
                              help="Precision mode for training")
@@ -516,6 +538,10 @@ Examples:
                            help="Number of samples for evaluation")
     val_parser.add_argument("--benchmark-repeats", type=int, default=5,
                            help="Number of repeated runs for timing benchmark")
+    val_parser.add_argument("--steps", type=int, default=20,
+                           help="Number of inference steps for validation-time generation")
+    val_parser.add_argument("--guidance-scale", type=float, default=5.0,
+                           help="CFG scale for validation-time generation")
     val_parser.add_argument("--fvd-backbone", type=str, default="videomae",
                            choices=["videomae", "r3d_18"],
                            help="Video feature backbone for FVD")

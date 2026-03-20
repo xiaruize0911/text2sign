@@ -1,0 +1,37 @@
+{
+  "variant": "clip_finetuned_last2",
+  "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints_finetune/text2sign_20260319_015042/final_model.pt",
+  "steps": 8,
+  "guidance_scale": 5.0,
+  "conditioning_mode": "normal",
+  "metrics": {
+    "prompt_sensitivity": {
+      "cross_prompt_distance_mean": 0.015266151943554481,
+      "cross_prompt_distance_std": 0.0011080792023612748
+    },
+    "diversity": {
+      "same_prompt_distance_mean": 0.015610779946049055,
+      "same_prompt_distance_std": 0.0008125397251013433
+    },
+    "temporal": {
+      "consistency_mean": 0.9999979738688963,
+      "consistency_std": 1.0674286250071105e-06,
+      "motion_mean": 0.09449491000944568,
+      "motion_std": 0.006945379380247292
+    },
+    "benchmark": {
+      "prompt": "Hello world",
+      "repeats": 2,
+      "latency_mean_sec": 5.46742028349945,
+      "latency_std_sec": 0.005832039500091923,
+      "frames_per_second": 5.852851681546281,
+      "clip_latency_sec": 5.46742028349945,
+      "peak_memory_gb": 3.123870849609375,
+      "num_inference_steps": 8,
+      "guidance_scale": 5.0,
+      "device": "cuda",
+      "device_name": "NVIDIA L4",
+      "torch_version": "2.2.2+cu121"
+    }
+  }
+}

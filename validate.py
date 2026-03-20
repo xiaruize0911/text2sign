@@ -433,6 +433,8 @@ class ModelValidator:
         num_samples: int = 50,
         benchmark_repeats: int = 5,
         enable_backtranslation: bool = True,
+        eval_num_inference_steps: int = 20,
+        eval_guidance_scale: float = 5.0,
         fvd_backbone: str = DEFAULT_FVD_BACKBONE,
     ):
         self.device = device
@@ -440,6 +442,8 @@ class ModelValidator:
         self.data_dir = data_dir
         self.benchmark_repeats = benchmark_repeats
         self.enable_backtranslation = enable_backtranslation
+        self.eval_num_inference_steps = eval_num_inference_steps
+        self.eval_guidance_scale = eval_guidance_scale
         self.project_root = Path(__file__).resolve().parents[1]
         self.artifact_dir = Path(__file__).resolve().parent
         self.fvd_backbone = fvd_backbone
@@ -471,6 +475,16 @@ class ModelValidator:
         print(f"Loaded {len(test_loader.dataset)} validation samples")
         
         self.results = {}
+
+    def _generate_tensor_videos(self, prompts: List[str]) -> torch.Tensor:
+        """Generate tensor videos using shared validation-time settings."""
+        with torch.no_grad():
+            return self.pipeline(
+                prompts,
+                num_inference_steps=self.eval_num_inference_steps,
+                guidance_scale=self.eval_guidance_scale,
+                output_type="tensor",
+            )
 
     def _save_artifact(self, filename: str, payload: Dict) -> Path:
         """Persist JSON artifacts for benchmarking/back-translation and validation."""
@@ -643,13 +657,7 @@ class ModelValidator:
             texts = batch['text']
             
             # Generate videos from the same text prompts (request tensor output)
-            with torch.no_grad():
-                generated = self.pipeline(
-                    texts,
-                    num_inference_steps=50,
-                    guidance_scale=7.5,
-                    output_type="tensor",
-                )  # (B, C, T, H, W) from pipeline
+            generated = self._generate_tensor_videos(texts)  # (B, C, T, H, W) from pipeline
             
             # Ensure generated is on the same device
             if isinstance(generated, torch.Tensor):
@@ -717,13 +725,7 @@ class ModelValidator:
                          "Yes", "No", "Good", "Bad", "Love"]
         
         for prompt in tqdm(sample_prompts, desc="Temporal Consistency"):
-            with torch.no_grad():
-                videos = self.pipeline(
-                    [prompt],
-                    num_inference_steps=50,
-                    guidance_scale=7.5,
-                    output_type="tensor",
-                )
+            videos = self._generate_tensor_videos([prompt])
             
             video = videos[0]  # (C, T, H, W)
             consistency, motion = calculate_temporal_consistency(video)
@@ -782,13 +784,7 @@ class ModelValidator:
         print("Generating videos...")
         for i in tqdm(range(0, len(texts), 4), desc="Generating"):
             batch_texts = texts[i:i+4]
-            with torch.no_grad():
-                generated = self.pipeline(
-                    batch_texts,
-                    num_inference_steps=50,
-                    guidance_scale=7.5,
-                    output_type="tensor",
-                )
+            generated = self._generate_tensor_videos(batch_texts)
             fake_videos.append(generated.cpu())
         
         # Check if we have any videos
@@ -832,13 +828,7 @@ class ModelValidator:
         
         videos = []
         for _ in tqdm(range(num_generations), desc="Generating diverse samples"):
-            with torch.no_grad():
-                video = self.pipeline(
-                    [prompt],
-                    num_inference_steps=50,
-                    guidance_scale=7.5,
-                    output_type="tensor",
-                )
+            video = self._generate_tensor_videos([prompt])
             videos.append(video[0])
         
         videos = torch.stack(videos)  # (N, C, T, H, W)
@@ -868,8 +858,8 @@ class ModelValidator:
         print("Benchmarking Inference...")
         print("="*60)
 
-        num_inference_steps = 50
-        guidance_scale = 7.5
+        num_inference_steps = self.eval_num_inference_steps
+        guidance_scale = self.eval_guidance_scale
         results = self.pipeline.benchmark(
             prompt=prompt,
             repeats=self.benchmark_repeats,
@@ -920,13 +910,7 @@ class ModelValidator:
         predictions = []
         with tempfile.TemporaryDirectory(prefix="text2sign_bt_") as tmp_dir:
             for idx, text in enumerate(tqdm(texts, desc="Back-translation")):
-                with torch.no_grad():
-                    video = self.pipeline(
-                        [text],
-                        num_inference_steps=50,
-                        guidance_scale=7.5,
-                        output_type="tensor",
-                    )[0]
+                video = self._generate_tensor_videos([text])[0]
                 video_path = os.path.join(tmp_dir, f"sample_{idx}.mp4")
                 self._save_video_file(video, video_path)
                 prediction = self._run_glofe_translation(video_path) or ""
@@ -976,13 +960,7 @@ class ModelValidator:
         texts = batch['text'][:4]
         
         # Generate videos
-        with torch.no_grad():
-            generated = self.pipeline(
-                texts,
-                num_inference_steps=50,
-                guidance_scale=7.5,
-                output_type="tensor",
-            )
+        generated = self._generate_tensor_videos(texts)
         
         # Create comparison figure
         fig, axes = plt.subplots(4, 8, figsize=(20, 10))
@@ -1085,13 +1063,7 @@ class ModelValidator:
         gen_videos = []
         for i in tqdm(range(0, len(texts), 4), desc="Generating"):
             batch_texts = texts[i:i+4]
-            with torch.no_grad():
-                generated = self.pipeline(
-                    batch_texts,
-                    num_inference_steps=50,
-                    guidance_scale=7.5,
-                    output_type="tensor",
-                )
+            generated = self._generate_tensor_videos(batch_texts)
             gen_videos.append(generated.cpu())
         
         gen_videos = torch.cat(gen_videos, dim=0)
@@ -1146,6 +1118,7 @@ class ModelValidator:
         print("\n" + "="*60)
         print("RUNNING FULL MODEL VALIDATION")
         print("="*60)
+        print(f"Validation generation settings: steps={self.eval_num_inference_steps}, guidance_scale={self.eval_guidance_scale}")
         
         # Run all evaluations
         self.evaluate_reconstruction()
@@ -1266,6 +1239,10 @@ def main():
                        help='Device to use')
     parser.add_argument('--benchmark-repeats', type=int, default=5,
                        help='Number of repeated runs for latency benchmarking')
+    parser.add_argument('--steps', type=int, default=20,
+                       help='Number of inference steps for validation-time generation')
+    parser.add_argument('--guidance-scale', type=float, default=5.0,
+                       help='CFG scale for validation-time generation')
     parser.add_argument('--fvd-backbone', type=str, default=DEFAULT_FVD_BACKBONE,
                        choices=['videomae', 'r3d_18'],
                        help='Video backbone used for FVD feature extraction')
@@ -1281,6 +1258,8 @@ def main():
         num_samples=args.num_samples,
         benchmark_repeats=args.benchmark_repeats,
         enable_backtranslation=not args.skip_backtranslation,
+        eval_num_inference_steps=args.steps,
+        eval_guidance_scale=args.guidance_scale,
         fvd_backbone=args.fvd_backbone,
     )
     

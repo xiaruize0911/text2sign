@@ -1,0 +1,19 @@
+{
+  "source_artifact": "text_to_sign/backtranslation_results.json",
+  "summary": {
+    "num_samples": 4,
+    "backbone": "GloFE",
+    "device": "cuda",
+    "exact_match": 0.0,
+    "bleu": 0.0,
+    "token_precision": 0.0,
+    "token_recall": 0.0,
+    "token_f1": 0.0,
+    "sequence_similarity": 0.0
+  },
+  "example": {
+    "reference": "This hook, basically is designed, to catch the fish in the corner of the mouth.",
+    "prediction": ""
+  },
+  "note": "Back-translation remains a weak proxy in the current system and is retained mainly to document the negative result for reviewer-facing completeness."
+}

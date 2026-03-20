@@ -1,0 +1,29 @@
+{
+  "exact_match": 0.0,
+  "bleu": 0.0,
+  "token_precision": 0.0,
+  "token_recall": 0.0,
+  "token_f1": 0.0,
+  "sequence_similarity": 0.0,
+  "num_samples": 4,
+  "backbone": "GloFE",
+  "device": "cuda",
+  "examples": [
+    {
+      "reference": "I hope this becomes very popular, here of late, is the circle hooks. Now, circle hooks has been used by Japanese fishermen and longliners for years and years, but in recent years, they've developed lighter, smaller, in shore type hooks, which are very well suited, particularly to folks that are in to the hook and release type fishing.",
+      "prediction": ""
+    },
+    {
+      "reference": "This hook, basically is designed, to catch the fish in the corner of the mouth.",
+      "prediction": ""
+    },
+    {
+      "reference": "Now this type of hook, when you get a bite, you can't jerk the rod to set the hook.",
+      "prediction": ""
+    },
+    {
+      "reference": "You basically just reel down, and get the line tight, and the fish will take off, and when he does, he usually turns, and this hook comes right in the corner of his mouth, and it sort of acts, really like a, kind of like a bottle opener.",
+      "prediction": ""
+    }
+  ]
+}

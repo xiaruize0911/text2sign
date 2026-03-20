@@ -1,0 +1,149 @@
+{
+  "frozen_clip": {
+    "variant": "frozen_clip",
+    "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt",
+    "steps": 8,
+    "guidance_scale": 5.0,
+    "conditioning_mode": "normal",
+    "metrics": {
+      "prompt_sensitivity": {
+        "cross_prompt_distance_mean": 0.015254130431761345,
+        "cross_prompt_distance_std": 0.0011071844485369435
+      },
+      "diversity": {
+        "same_prompt_distance_mean": 0.015599793133636316,
+        "same_prompt_distance_std": 0.0008122021599655571
+      },
+      "temporal": {
+        "consistency_mean": 0.9999979739748059,
+        "consistency_std": 1.0672211499686496e-06,
+        "motion_mean": 0.09445377637542063,
+        "motion_std": 0.0069435837018974
+      },
+      "benchmark": {
+        "prompt": "Hello world",
+        "repeats": 5,
+        "latency_mean_sec": 12.596996582399697,
+        "latency_std_sec": 1.3947133408013805,
+        "frames_per_second": 2.54028805919578,
+        "clip_latency_sec": 12.596996582399697,
+        "peak_memory_gb": 3.1238250732421875,
+        "num_inference_steps": 8,
+        "guidance_scale": 5.0,
+        "device": "cuda",
+        "device_name": "NVIDIA L4"
+      }
+    }
+  },
+  "no_text": {
+    "variant": "no_text",
+    "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt",
+    "steps": 8,
+    "guidance_scale": 5.0,
+    "conditioning_mode": "none",
+    "metrics": {
+      "prompt_sensitivity": {
+        "cross_prompt_distance_mean": 0.02094904302308957,
+        "cross_prompt_distance_std": 0.0009336999723525499
+      },
+      "diversity": {
+        "same_prompt_distance_mean": 0.021161283055941265,
+        "same_prompt_distance_std": 0.0012737189298471507
+      },
+      "temporal": {
+        "consistency_mean": 0.9999578928229667,
+        "consistency_std": 1.0851278619494643e-05,
+        "motion_mean": 0.10800015794173362,
+        "motion_std": 0.004738660874144937
+      },
+      "benchmark": {
+        "prompt": "Hello world",
+        "repeats": 2,
+        "latency_mean_sec": 11.93535760099985,
+        "latency_std_sec": 0.011321431000396842,
+        "frames_per_second": 2.6811094455451667,
+        "clip_latency_sec": 11.93535760099985,
+        "peak_memory_gb": 3.123870849609375,
+        "num_inference_steps": 8,
+        "guidance_scale": 5.0,
+        "device": "cuda",
+        "device_name": "NVIDIA L4",
+        "torch_version": "2.2.2+cu121"
+      }
+    }
+  },
+  "random_text": {
+    "variant": "random_text",
+    "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt",
+    "steps": 8,
+    "guidance_scale": 5.0,
+    "conditioning_mode": "random",
+    "metrics": {
+      "prompt_sensitivity": {
+        "cross_prompt_distance_mean": 0.015257320832461119,
+        "cross_prompt_distance_std": 0.00063121078725511
+      },
+      "diversity": {
+        "same_prompt_distance_mean": 0.015599793133636316,
+        "same_prompt_distance_std": 0.0008122021599655571
+      },
+      "temporal": {
+        "consistency_mean": 0.9999979462246483,
+        "consistency_std": 1.0542381033218849e-06,
+        "motion_mean": 0.09462058021416588,
+        "motion_std": 0.003934641054794851
+      },
+      "benchmark": {
+        "prompt": "Hello world",
+        "repeats": 2,
+        "latency_mean_sec": 5.428351359999851,
+        "latency_std_sec": 0.008010480000393727,
+        "frames_per_second": 5.894975818219858,
+        "clip_latency_sec": 5.428351359999851,
+        "peak_memory_gb": 3.123870849609375,
+        "num_inference_steps": 8,
+        "guidance_scale": 5.0,
+        "device": "cuda",
+        "device_name": "NVIDIA L4",
+        "torch_version": "2.2.2+cu121"
+      }
+    }
+  },
+  "clip_finetuned_last2": {
+    "variant": "clip_finetuned_last2",
+    "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints_finetune/text2sign_20260319_015042/final_model.pt",
+    "steps": 8,
+    "guidance_scale": 5.0,
+    "conditioning_mode": "normal",
+    "metrics": {
+      "prompt_sensitivity": {
+        "cross_prompt_distance_mean": 0.015266151943554481,
+        "cross_prompt_distance_std": 0.0011080792023612748
+      },
+      "diversity": {
+        "same_prompt_distance_mean": 0.015610779946049055,
+        "same_prompt_distance_std": 0.0008125397251013433
+      },
+      "temporal": {
+        "consistency_mean": 0.9999979738688963,
+        "consistency_std": 1.0674286250071105e-06,
+        "motion_mean": 0.09449491000944568,
+        "motion_std": 0.006945379380247292
+      },
+      "benchmark": {
+        "prompt": "Hello world",
+        "repeats": 2,
+        "latency_mean_sec": 5.46742028349945,
+        "latency_std_sec": 0.005832039500091923,
+        "frames_per_second": 5.852851681546281,
+        "clip_latency_sec": 5.46742028349945,
+        "peak_memory_gb": 3.123870849609375,
+        "num_inference_steps": 8,
+        "guidance_scale": 5.0,
+        "device": "cuda",
+        "device_name": "NVIDIA L4",
+        "torch_version": "2.2.2+cu121"
+      }
+    }
+  }
+}

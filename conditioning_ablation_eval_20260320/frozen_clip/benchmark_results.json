@@ -1,0 +1,13 @@
+{
+  "prompt": "Hello world",
+  "repeats": 5,
+  "latency_mean_sec": 12.596996582399697,
+  "latency_std_sec": 1.3947133408013805,
+  "frames_per_second": 2.54028805919578,
+  "clip_latency_sec": 12.596996582399697,
+  "peak_memory_gb": 3.1238250732421875,
+  "num_inference_steps": 8,
+  "guidance_scale": 5.0,
+  "device": "cuda",
+  "device_name": "NVIDIA L4"
+}

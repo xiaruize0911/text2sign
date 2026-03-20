@@ -812,6 +812,14 @@ class Trainer:
         print("="*70)
         print(f"Experiment: {self.run_name}")
         print(f"Logs: {self.log_dir}")
+        sample_prompts = [
+            "Hello",
+            "Thank you",
+            "Please help",
+            "I love you",
+        ]
+        run_optimizer_steps = 0
+        max_run_optimizer_steps = getattr(self.train_config, "max_run_optimizer_steps", None)
         print(f"Checkpoints: {self.checkpoint_dir}")
         print("="*70 + "\n")
         
@@ -916,6 +924,7 @@ class Trainer:
                         epoch_grad_norms.append(metrics.get("grad_norm_total", 0))
                         num_batches += 1
                         self.global_step += 1
+                        run_optimizer_steps += 1
                         
                         # Update progress bar
                         pbar.set_postfix({
@@ -939,8 +948,8 @@ class Trainer:
                                 print(f"\n🎨 Generating samples at step {self.global_step}...")
                                 videos = self.generate_samples(
                                     sample_prompts[:2],
-                                    num_inference_steps=50,  # Use 50 steps for quality samples
-                                    guidance_scale=3.0,
+                                    num_inference_steps=self.train_config.sample_inference_steps,
+                                    guidance_scale=self.train_config.sample_guidance_scale,
                                 )
                                 
                                 # Save samples
@@ -989,6 +998,14 @@ class Trainer:
                                 # Log sample generation failure
                                 self.writer.add_scalar("generation/success", 0.0, self.global_step)
                                 self.writer.flush()
+
+                        if max_run_optimizer_steps is not None and run_optimizer_steps >= max_run_optimizer_steps:
+                            print(
+                                f"\n⏹️ Reached max_run_optimizer_steps={max_run_optimizer_steps}; "
+                                "stopping this training invocation early."
+                            )
+                            self._interrupted = True
+                            break
                 
                 # End of epoch - calculate comprehensive statistics
                 avg_train_loss = epoch_loss / max(num_batches, 1)

@@ -71,6 +71,7 @@ class TrainingConfig:
     weight_decay: float = 0.01
     warmup_steps: int = 1000  # Reduced warmup for 64x64 stability
     gradient_accumulation_steps: int = 8  # Keep effective batch size healthy without VRAM spikes
+    max_run_optimizer_steps: Optional[int] = None  # Stop after this many optimizer steps in the current invocation
     max_grad_norm: float = 0.5  # Reduced from 1.0 for better stability
     
     # EMA (Exponential Moving Average) - Critical for quality!
@@ -100,6 +101,8 @@ class TrainingConfig:
     save_every: int = 5  # Save every N epochs
     log_every: int = 100  # Log every N steps
     sample_every: int = 2048  # Generating samples is expensive; do it less frequently by default
+    sample_inference_steps: int = 20
+    sample_guidance_scale: float = 5.0
     
     # TensorBoard
     log_dir: str = "text_to_sign/logs"
@@ -116,6 +119,7 @@ class GenerationConfig:
     eta: float = 0.0  # 0 for DDIM, 1 for DDPM
     output_dir: str = "text_to_sign/generated"
     fps: int = 8  # Output GIF frame rate
+    cfg_rescale: float = 0.7
 
 
 MODEL_SIZE_PRESETS: Dict[str, Dict[str, object]] = {
