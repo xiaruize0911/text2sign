@@ -165,11 +165,13 @@ class FrozenCLIPTextEncoder(nn.Module):
         self,
         embed_dim: int = 512,
         max_length: int = 77,
+        trainable_layers: int = 0,
     ):
         super().__init__()
         
         self.embed_dim = embed_dim
         self.max_length = max_length
+        self.trainable_layers = max(0, trainable_layers)
         
         try:
             from transformers import CLIPTextModel, CLIPTokenizer
@@ -180,6 +182,14 @@ class FrozenCLIPTextEncoder(nn.Module):
             # Freeze the model
             for param in self.model.parameters():
                 param.requires_grad = False
+
+            if self.trainable_layers > 0:
+                encoder_layers = list(self.model.text_model.encoder.layers)
+                for layer in encoder_layers[-self.trainable_layers:]:
+                    for param in layer.parameters():
+                        param.requires_grad = True
+                for param in self.model.text_model.final_layer_norm.parameters():
+                    param.requires_grad = True
             
             # Project to target dim if needed
             clip_dim = self.model.config.hidden_size
@@ -189,7 +199,10 @@ class FrozenCLIPTextEncoder(nn.Module):
                 self.proj = nn.Identity()
             
             self.use_clip = True
-            print("Using pretrained CLIP text encoder")
+            if self.trainable_layers > 0:
+                print(f"Using CLIP text encoder with last {self.trainable_layers} layers trainable")
+            else:
+                print("Using frozen pretrained CLIP text encoder")
             
         except Exception as e:
             print(f"CLIP not available ({e}), using custom text encoder")
@@ -202,30 +215,40 @@ class FrozenCLIPTextEncoder(nn.Module):
     
     def forward(
         self,
-        tokens: torch.Tensor,
+        tokens: Optional[torch.Tensor] = None,
         text: Optional[list] = None,
     ) -> torch.Tensor:
         """
         Forward pass
         Args:
-            tokens: Pre-tokenized token IDs (B, seq_len) - used if not using CLIP
-            text: List of text strings - used if using CLIP
+            tokens: Pre-tokenized token IDs (B, seq_len)
+            text: List of text strings
         Returns:
             Text embeddings (B, seq_len, embed_dim)
         """
-        if self.use_clip and text is not None:
-            # Tokenize with CLIP tokenizer
-            inputs = self.tokenizer(
-                text,
-                padding="max_length",
-                max_length=self.max_length,
-                truncation=True,
-                return_tensors="pt",
-            )
-            inputs = {k: v.to(next(self.model.parameters()).device) for k, v in inputs.items()}
+        if self.use_clip:
+            if tokens is None and text is not None:
+                # Fallback to tokenizing here if not pre-tokenized
+                inputs = self.tokenizer(
+                    text,
+                    padding="max_length",
+                    max_length=self.max_length,
+                    truncation=True,
+                    return_tensors="pt",
+                )
+                tokens = inputs["input_ids"].to(next(self.model.parameters()).device)
+            elif tokens is not None:
+                # Use pre-tokenized tokens
+                tokens = tokens.to(next(self.model.parameters()).device)
+            else:
+                raise ValueError("Either tokens or text must be provided")
             
-            with torch.no_grad():
-                outputs = self.model(**inputs)
+            if self.trainable_layers == 0:
+                with torch.no_grad():
+                    outputs = self.model(tokens)
+                    hidden_states = outputs.last_hidden_state
+            else:
+                outputs = self.model(tokens)
                 hidden_states = outputs.last_hidden_state
             
             return self.proj(hidden_states)
@@ -239,6 +262,7 @@ def create_text_encoder(config, use_clip: bool = True):
         return FrozenCLIPTextEncoder(
             embed_dim=config.text_embed_dim,
             max_length=config.max_text_length,
+            trainable_layers=getattr(config, "clip_trainable_layers", 0),
         )
     else:
         return TextEncoder(

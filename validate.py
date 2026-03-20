@@ -18,6 +18,13 @@ Note on Sign Language Validation:
 
 import os
 import argparse
+import platform
+import subprocess
+import sys
+import tempfile
+import time
+from collections import Counter
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import json
@@ -31,6 +38,14 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import DataLoader
+from torchvision.models.video import r3d_18
+try:
+    from torchvision.models.video import R3D_18_Weights
+except ImportError:
+    R3D_18_Weights = None
+
+DEFAULT_FVD_BACKBONE = "videomae"
+DEFAULT_VIDEOMAE_MODEL = "MCG-NJU/videomae-base-finetuned-kinetics"
 
 # Local imports
 from config import ModelConfig, DDIMConfig, TrainingConfig
@@ -250,58 +265,102 @@ def calculate_temporal_consistency(video: torch.Tensor) -> float:
     return consistency_score, mean_diff
 
 
-class InceptionV3Features(nn.Module):
-    """Extract features using InceptionV3 for FVD calculation"""
-    def __init__(self):
+class VideoFeatureExtractor(nn.Module):
+    """Extract video-level features for FVD-style evaluation.
+
+    Uses a VideoMAE backbone when available and falls back to R3D-18.
+    """
+
+    def __init__(
+        self,
+        backbone: str = DEFAULT_FVD_BACKBONE,
+        videomae_model_name: str = DEFAULT_VIDEOMAE_MODEL,
+        allow_fallback: bool = True,
+    ):
         super().__init__()
-        try:
-            from torchvision.models import inception_v3, Inception_V3_Weights
-            inception = inception_v3(weights=Inception_V3_Weights.DEFAULT)
-        except:
-            from torchvision.models import inception_v3
-            inception = inception_v3(pretrained=True)
-        
-        # Remove final classification layer
-        self.features = nn.Sequential(
-            inception.Conv2d_1a_3x3,
-            inception.Conv2d_2a_3x3,
-            inception.Conv2d_2b_3x3,
-            nn.MaxPool2d(3, 2),
-            inception.Conv2d_3b_1x1,
-            inception.Conv2d_4a_3x3,
-            nn.MaxPool2d(3, 2),
-            inception.Mixed_5b,
-            inception.Mixed_5c,
-            inception.Mixed_5d,
-            inception.Mixed_6a,
-            inception.Mixed_6b,
-            inception.Mixed_6c,
-            inception.Mixed_6d,
-            inception.Mixed_6e,
-            inception.Mixed_7a,
-            inception.Mixed_7b,
-            inception.Mixed_7c,
-            nn.AdaptiveAvgPool2d((1, 1)),
-        )
-        self.features.eval()
-        
+        self.input_size = 224
+        self.backend = backbone
+        self.videomae_model_name = videomae_model_name
+
+        if backbone == "videomae":
+            try:
+                from transformers import VideoMAEImageProcessor, VideoMAEModel
+
+                self.processor = VideoMAEImageProcessor.from_pretrained(videomae_model_name)
+                self.features = VideoMAEModel.from_pretrained(videomae_model_name).eval()
+
+                processor_size = getattr(self.processor, "size", None)
+                if isinstance(processor_size, dict):
+                    self.input_size = int(
+                        processor_size.get("shortest_edge")
+                        or processor_size.get("height")
+                        or processor_size.get("width")
+                        or 224
+                    )
+
+                self.register_buffer(
+                    "mean",
+                    torch.tensor(self.processor.image_mean, dtype=torch.float32).view(1, 1, 3, 1, 1),
+                )
+                self.register_buffer(
+                    "std",
+                    torch.tensor(self.processor.image_std, dtype=torch.float32).view(1, 1, 3, 1, 1),
+                )
+                self.backend = f"videomae:{videomae_model_name}"
+            except Exception as exc:
+                if not allow_fallback:
+                    raise
+                print(f"VideoMAE backbone unavailable ({exc}); falling back to R3D-18 for FVD.")
+                self._init_r3d()
+        elif backbone == "r3d_18":
+            self._init_r3d()
+        else:
+            raise ValueError(f"Unsupported FVD backbone '{backbone}'")
+
         for param in self.parameters():
             param.requires_grad = False
-    
+
+    def _init_r3d(self):
+        if R3D_18_Weights is not None:
+            backbone = r3d_18(weights=R3D_18_Weights.DEFAULT)
+        else:
+            backbone = r3d_18(pretrained=True)
+        backbone.fc = nn.Identity()
+        self.features = backbone.eval()
+        self.register_buffer("mean", torch.tensor([0.43216, 0.394666, 0.37645]).view(1, 3, 1, 1, 1))
+        self.register_buffer("std", torch.tensor([0.22803, 0.22145, 0.216989]).view(1, 3, 1, 1, 1))
+        self.backend = "r3d_18"
+        self.input_size = 112
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, C, H, W), expects 299x299 input
-        if x.shape[-1] != 299:
-            x = F.interpolate(x, size=(299, 299), mode='bilinear', align_corners=False)
-        
-        # Normalize to ImageNet stats
-        mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(x.device)
-        std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(x.device)
-        x = (x - mean) / std
-        
-        return self.features(x).squeeze(-1).squeeze(-1)
+        # x: (B, C, T, H, W)
+        if self.backend.startswith("videomae"):
+            # VideoMAE expects (B, T, C, H, W)
+            x = x.permute(0, 2, 1, 3, 4)
+            bsz, frames, channels, height, width = x.shape
+            if (height, width) != (self.input_size, self.input_size):
+                x = x.reshape(bsz * frames, channels, height, width)
+                x = F.interpolate(x, size=(self.input_size, self.input_size), mode="bilinear", align_corners=False)
+                x = x.view(bsz, frames, channels, self.input_size, self.input_size)
+            x = (x - self.mean.to(x.device)) / self.std.to(x.device)
+            outputs = self.features(pixel_values=x)
+            if getattr(outputs, "pooler_output", None) is not None:
+                return outputs.pooler_output
+            return outputs.last_hidden_state.mean(dim=1)
+
+        if x.shape[-2:] != (self.input_size, self.input_size):
+            x = F.interpolate(x, size=(x.shape[2], self.input_size, self.input_size), mode='trilinear', align_corners=False)
+        x = (x - self.mean.to(x.device)) / self.std.to(x.device)
+        return self.features(x)
 
 
-def calculate_fvd(real_videos: torch.Tensor, fake_videos: torch.Tensor, device: str = 'cuda') -> float:
+def calculate_fvd(
+    real_videos: torch.Tensor,
+    fake_videos: torch.Tensor,
+    device: str = 'cuda',
+    backbone: str = DEFAULT_FVD_BACKBONE,
+    feature_extractor: Optional[nn.Module] = None,
+) -> float:
     """
     Calculate Fréchet Video Distance (FVD).
     Lower is better.
@@ -310,27 +369,22 @@ def calculate_fvd(real_videos: torch.Tensor, fake_videos: torch.Tensor, device: 
         real_videos: (N, C, T, H, W) real video tensor
         fake_videos: (N, C, T, H, W) generated video tensor
     """
-    feature_extractor = InceptionV3Features().to(device)
-    feature_extractor.eval()
+    if feature_extractor is None:
+        feature_extractor = VideoFeatureExtractor(backbone=backbone).to(device)
+        feature_extractor.eval()
     
     def get_video_features(videos: torch.Tensor) -> np.ndarray:
-        """Extract features from all frames of all videos"""
+        """Extract pooled video features in batches."""
         all_features = []
+        batch_size = min(8, max(1, videos.shape[0]))
         
         with torch.no_grad():
-            for video in videos:
-                # video: (C, T, H, W)
-                video_features = []
-                for t in range(video.shape[1]):
-                    frame = video[:, t].unsqueeze(0).to(device)
-                    feat = feature_extractor(frame)
-                    video_features.append(feat.cpu().numpy())
-                
-                # Average features across time
-                video_features = np.mean(video_features, axis=0)
-                all_features.append(video_features)
+            for start in range(0, videos.shape[0], batch_size):
+                batch = videos[start:start + batch_size].to(device)
+                feats = feature_extractor(batch)
+                all_features.append(feats.cpu().numpy())
         
-        return np.vstack(all_features)
+        return np.concatenate(all_features, axis=0)
     
     # Extract features
     real_features = get_video_features(real_videos)
@@ -377,10 +431,18 @@ class ModelValidator:
         data_dir: str,
         device: str = 'cuda',
         num_samples: int = 50,
+        benchmark_repeats: int = 5,
+        enable_backtranslation: bool = True,
+        fvd_backbone: str = DEFAULT_FVD_BACKBONE,
     ):
         self.device = device
         self.num_samples = num_samples
         self.data_dir = data_dir
+        self.benchmark_repeats = benchmark_repeats
+        self.enable_backtranslation = enable_backtranslation
+        self.project_root = Path(__file__).resolve().parents[1]
+        self.artifact_dir = Path(__file__).resolve().parent
+        self.fvd_backbone = fvd_backbone
         
         # Load configs
         self.model_config = ModelConfig()
@@ -399,6 +461,9 @@ class ModelValidator:
             'image_size': self.model_config.image_size,
             'num_frames': self.model_config.num_frames,
             'train': False,
+            'train_ratio': self.train_config.train_ratio,
+            'split_mode': self.train_config.split_mode,
+            'random_seed': self.train_config.split_seed,
         }
         
         # Create initial dataloader to verify dataset loads
@@ -406,6 +471,129 @@ class ModelValidator:
         print(f"Loaded {len(test_loader.dataset)} validation samples")
         
         self.results = {}
+
+    def _save_artifact(self, filename: str, payload: Dict) -> Path:
+        """Persist JSON artifacts for benchmarking/back-translation and validation."""
+        path = self.artifact_dir / filename
+        with open(path, "w") as f:
+            json.dump(payload, f, indent=2)
+        return path
+
+    def _hardware_info(self) -> Dict[str, Optional[str]]:
+        device_name = None
+        if isinstance(self.device, str) and self.device == "cuda" and torch.cuda.is_available():
+            device_name = torch.cuda.get_device_name(0)
+        elif isinstance(self.device, torch.device) and self.device.type == "cuda" and torch.cuda.is_available():
+            device_name = torch.cuda.get_device_name(self.device)
+        return {
+            "device": str(self.device),
+            "device_name": device_name,
+            "platform": platform.platform(),
+            "torch_version": torch.__version__,
+        }
+
+    def _glofe_paths(self) -> Optional[Dict[str, Path]]:
+        """Return default GloFE resource paths if they exist."""
+        glofe_root = self.project_root / "GloFE"
+        weights = glofe_root / "pretrained_weights/how2sign/vn_model/glofe_vn_how2sign_0224.pt"
+        config = glofe_root / "pretrained_weights/how2sign/vn_model/exp_config.json"
+        tokenizer = glofe_root / "notebooks/how2sign/how2sign-bpe25000-tokenizer-uncased"
+        if all(path.exists() for path in (glofe_root, weights, config, tokenizer)):
+            return {
+                "root": glofe_root,
+                "weights": weights,
+                "config": config,
+                "tokenizer": tokenizer,
+            }
+        return None
+
+    def _tokenize_text(self, text: str) -> List[str]:
+        return [token for token in text.lower().replace("_", " ").split() if token]
+
+    def _sentence_bleu(self, reference: str, prediction: str, max_n: int = 4) -> float:
+        """Compute a lightweight BLEU-style score without extra dependencies."""
+        ref_tokens = self._tokenize_text(reference)
+        pred_tokens = self._tokenize_text(prediction)
+        if not pred_tokens:
+            return 0.0
+
+        clipped_precisions = []
+        for n in range(1, max_n + 1):
+            if len(pred_tokens) < n:
+                clipped_precisions.append(1e-8)
+                continue
+            ref_ngrams = Counter(tuple(ref_tokens[i:i + n]) for i in range(max(len(ref_tokens) - n + 1, 0)))
+            pred_ngrams = Counter(tuple(pred_tokens[i:i + n]) for i in range(len(pred_tokens) - n + 1))
+            overlap = sum(min(count, ref_ngrams[ngram]) for ngram, count in pred_ngrams.items())
+            total = max(sum(pred_ngrams.values()), 1)
+            clipped_precisions.append(max(overlap / total, 1e-8))
+
+        ref_len = len(ref_tokens)
+        pred_len = len(pred_tokens)
+        brevity_penalty = 1.0 if pred_len > ref_len else np.exp(1 - ref_len / max(pred_len, 1))
+        geo_mean = np.exp(np.mean(np.log(clipped_precisions)))
+        return float(brevity_penalty * geo_mean)
+
+    def _score_translation(self, reference: str, prediction: str) -> Dict[str, float]:
+        ref_tokens = self._tokenize_text(reference)
+        pred_tokens = self._tokenize_text(prediction)
+        ref_set = set(ref_tokens)
+        pred_set = set(pred_tokens)
+        overlap = len(ref_set & pred_set)
+        precision = overlap / max(len(pred_set), 1)
+        recall = overlap / max(len(ref_set), 1)
+        f1 = 2 * precision * recall / max(precision + recall, 1e-8)
+        return {
+            "exact_match": float(reference.strip().lower() == prediction.strip().lower()),
+            "bleu": self._sentence_bleu(reference, prediction),
+            "token_precision": precision,
+            "token_recall": recall,
+            "token_f1": f1,
+            "sequence_similarity": SequenceMatcher(None, reference.lower(), prediction.lower()).ratio(),
+        }
+
+    def _save_video_file(self, video: torch.Tensor, path: str, fps: int = 8):
+        """Save a generated tensor video as MP4 for external translators."""
+        import cv2
+
+        video = video.detach().cpu().clamp(0, 1)
+        _, _, height, width = video.shape
+        writer = cv2.VideoWriter(
+            path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            fps,
+            (width, height),
+        )
+        for t in range(video.shape[1]):
+            frame = video[:, t].permute(1, 2, 0).numpy()
+            frame = (frame * 255).astype(np.uint8)
+            writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+        writer.release()
+
+    def _run_glofe_translation(self, video_path: str) -> Optional[str]:
+        """Call the existing GloFE CLI as a subprocess to avoid module-name conflicts."""
+        paths = self._glofe_paths()
+        if paths is None:
+            return None
+
+        cmd = [
+            sys.executable,
+            str(paths["root"] / "inference_glofe.py"),
+            "--weights", str(paths["weights"]),
+            "--config", str(paths["config"]),
+            "--tokenizer", str(paths["tokenizer"]),
+            "--pose_file", video_path,
+            "--device", self.device,
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(paths["root"]))
+        if proc.returncode != 0:
+            print(f"GloFE back-translation failed for {video_path}: {proc.stderr.strip()}")
+            return None
+
+        for line in proc.stdout.splitlines():
+            if "📝 Translation:" in line:
+                return line.split("📝 Translation:", 1)[1].strip()
+        return None
     
     def _get_fresh_dataloader(self):
         """Create a fresh dataloader instance (DataLoaders are single-use iterators)"""
@@ -414,7 +602,7 @@ class ModelValidator:
     def _load_model(self, checkpoint_path: str) -> Text2SignPipeline:
         """Load model from checkpoint using the pipeline's from_pretrained method"""
         # Load checkpoint first to get configs for logging
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
         
         # Use config from checkpoint if available
         if 'model_config' in checkpoint:
@@ -422,6 +610,9 @@ class ModelValidator:
             print(f"  Using model config from checkpoint")
         
         print(f"  Loaded epoch {checkpoint.get('epoch', 'unknown')}, step {checkpoint.get('global_step', 'unknown')}")
+        del checkpoint
+        if isinstance(self.device, str) and self.device == 'cuda' and torch.cuda.is_available():
+            torch.cuda.empty_cache()
         
         # Use the pipeline's from_pretrained method which handles all model creation
         # This ensures the model architecture matches the checkpoint
@@ -609,9 +800,17 @@ class ModelValidator:
         fake_videos = torch.cat(fake_videos, dim=0)
         
         # Calculate FVD
-        fvd = calculate_fvd(real_videos, fake_videos, self.device)
+        fvd = calculate_fvd(
+            real_videos,
+            fake_videos,
+            self.device,
+            backbone=self.fvd_backbone,
+        )
         
-        results = {'fvd': fvd}
+        results = {
+            'fvd': fvd,
+            'backbone': self.fvd_backbone,
+        }
         
         print(f"\nFVD Results:")
         print(f"  FVD Score: {fvd:.2f}")
@@ -661,6 +860,103 @@ class ModelValidator:
         print(f"  (Higher distance = more diverse generations)")
         
         self.results['diversity'] = results
+        return results
+
+    def benchmark_inference(self, prompt: str = "Hello world") -> Dict[str, float]:
+        """Benchmark inference latency and throughput on the current hardware."""
+        print("\n" + "="*60)
+        print("Benchmarking Inference...")
+        print("="*60)
+
+        num_inference_steps = 50
+        guidance_scale = 7.5
+        results = self.pipeline.benchmark(
+            prompt=prompt,
+            repeats=self.benchmark_repeats,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+        )
+        results.update({
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            **self._hardware_info(),
+        })
+
+        print(f"\nInference Benchmark:")
+        print(f"  Mean clip latency: {results['latency_mean_sec']:.3f} s ± {results['latency_std_sec']:.3f}")
+        print(f"  Effective frame throughput: {results['frames_per_second']:.2f} FPS")
+        if results['peak_memory_gb'] is not None:
+            print(f"  Peak GPU memory: {results['peak_memory_gb']:.2f} GB")
+
+        self.results['benchmark'] = results
+        artifact_path = self._save_artifact('benchmark_results.json', results)
+        print(f"  Saved benchmark artifact: {artifact_path}")
+        return results
+
+    def evaluate_backtranslation(self, max_samples: Optional[int] = None) -> Dict[str, float]:
+        """Evaluate semantic faithfulness through GloFE back-translation."""
+        print("\n" + "="*60)
+        print("Evaluating Back-Translation Faithfulness...")
+        print("="*60)
+
+        if not self.enable_backtranslation:
+            print("Back-translation disabled by configuration.")
+            return {}
+
+        if self._glofe_paths() is None:
+            print("GloFE resources not found; skipping back-translation evaluation.")
+            return {}
+
+        max_samples = max_samples or min(12, self.num_samples)
+        val_loader = self._get_fresh_dataloader()
+        texts: List[str] = []
+        for batch in val_loader:
+            texts.extend(batch['text'])
+            if len(texts) >= max_samples:
+                break
+        texts = texts[:max_samples]
+
+        metrics = []
+        predictions = []
+        with tempfile.TemporaryDirectory(prefix="text2sign_bt_") as tmp_dir:
+            for idx, text in enumerate(tqdm(texts, desc="Back-translation")):
+                with torch.no_grad():
+                    video = self.pipeline(
+                        [text],
+                        num_inference_steps=50,
+                        guidance_scale=7.5,
+                        output_type="tensor",
+                    )[0]
+                video_path = os.path.join(tmp_dir, f"sample_{idx}.mp4")
+                self._save_video_file(video, video_path)
+                prediction = self._run_glofe_translation(video_path) or ""
+                predictions.append(prediction)
+                metrics.append(self._score_translation(text, prediction))
+
+        if not metrics:
+            return {}
+
+        results = {
+            key: float(np.mean([metric[key] for metric in metrics]))
+            for key in metrics[0].keys()
+        }
+        results["num_samples"] = len(metrics)
+        results["backbone"] = "GloFE"
+        results["device"] = str(self.device)
+        results["examples"] = [
+            {"reference": ref, "prediction": pred}
+            for ref, pred in list(zip(texts, predictions))[:5]
+        ]
+
+        print(f"\nBack-Translation Results:")
+        print(f"  Exact match: {results['exact_match']:.4f}")
+        print(f"  BLEU: {results['bleu']:.4f}")
+        print(f"  Token F1: {results['token_f1']:.4f}")
+        print(f"  Sequence similarity: {results['sequence_similarity']:.4f}")
+
+        self.results['backtranslation'] = results
+        artifact_path = self._save_artifact('backtranslation_results.json', results)
+        print(f"  Saved back-translation artifact: {artifact_path}")
         return results
     
     def compare_with_training_data(self, output_dir: str = "validation_output"):
@@ -855,12 +1151,18 @@ class ModelValidator:
         self.evaluate_reconstruction()
         self.evaluate_temporal_consistency()
         self.evaluate_diversity()
+        self.benchmark_inference()
         
         # Motion-based evaluation (signer-agnostic, better for sign language)
         try:
             self.evaluate_motion_realism()
         except Exception as e:
             print(f"Motion realism evaluation failed: {e}")
+
+        try:
+            self.evaluate_backtranslation()
+        except Exception as e:
+            print(f"Back-translation evaluation failed: {e}")
         
         # FVD is computationally expensive, make it optional
         try:
@@ -875,6 +1177,8 @@ class ModelValidator:
         results_path = os.path.join(output_dir, 'validation_results.json')
         with open(results_path, 'w') as f:
             json.dump(self.results, f, indent=2)
+
+        self._save_artifact('validation_results.json', self.results)
         
         # Print summary
         print("\n" + "="*60)
@@ -908,6 +1212,19 @@ class ModelValidator:
         if 'fvd' in self.results:
             print(f"\n📈 Fréchet Video Distance:")
             print(f"   FVD: {self.results['fvd']['fvd']:.2f} (lower = better)")
+
+        if 'benchmark' in self.results:
+            b = self.results['benchmark']
+            print(f"\n⚙️  Runtime on current hardware:")
+            print(f"   Clip latency: {b['clip_latency_sec']:.3f} s")
+            print(f"   Effective FPS: {b['frames_per_second']:.2f}")
+
+        if 'backtranslation' in self.results:
+            bt = self.results['backtranslation']
+            print(f"\n🔁 Back-translation faithfulness:")
+            print(f"   Exact match: {bt['exact_match']:.4f}")
+            print(f"   BLEU: {bt['bleu']:.4f}")
+            print(f"   Token F1: {bt['token_f1']:.4f}")
         
         print(f"\n" + "="*60)
         print("INTERPRETATION GUIDE")
@@ -939,7 +1256,7 @@ def main():
     parser = argparse.ArgumentParser(description="Validate Text-to-Sign Diffusion Model")
     parser.add_argument('--checkpoint', type=str, required=True,
                        help='Path to model checkpoint')
-    parser.add_argument('--data-dir', type=str, default='text2sign/training_data',
+    parser.add_argument('--data-dir', type=str, default='/teamspace/studios/this_studio/text_to_sign/training_data',
                        help='Path to training data')
     parser.add_argument('--output-dir', type=str, default='validation_output',
                        help='Output directory for results')
@@ -947,6 +1264,13 @@ def main():
                        help='Number of samples for evaluation')
     parser.add_argument('--device', type=str, default='cuda',
                        help='Device to use')
+    parser.add_argument('--benchmark-repeats', type=int, default=5,
+                       help='Number of repeated runs for latency benchmarking')
+    parser.add_argument('--fvd-backbone', type=str, default=DEFAULT_FVD_BACKBONE,
+                       choices=['videomae', 'r3d_18'],
+                       help='Video backbone used for FVD feature extraction')
+    parser.add_argument('--skip-backtranslation', action='store_true',
+                       help='Skip GloFE back-translation evaluation')
     
     args = parser.parse_args()
     
@@ -955,6 +1279,9 @@ def main():
         data_dir=args.data_dir,
         device=args.device,
         num_samples=args.num_samples,
+        benchmark_repeats=args.benchmark_repeats,
+        enable_backtranslation=not args.skip_backtranslation,
+        fvd_backbone=args.fvd_backbone,
     )
     
     validator.run_full_validation(args.output_dir)

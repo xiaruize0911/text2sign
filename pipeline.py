@@ -4,6 +4,7 @@ End-to-end inference with a trained model
 """
 
 import os
+import time
 from typing import List, Optional, Union
 
 import torch
@@ -52,6 +53,16 @@ class Text2SignPipeline:
         # Set models to eval mode
         self.model.eval()
         self.text_encoder.eval()
+
+    def _apply_conditioning_mode(self, text_embeddings: torch.Tensor) -> torch.Tensor:
+        """Apply conditioning ablation mode without changing public pipeline API."""
+        mode = getattr(self.model_config, "text_conditioning_mode", "normal")
+        if mode == "none":
+            return torch.zeros_like(text_embeddings)
+        if mode == "random" and text_embeddings.shape[0] > 1:
+            perm = torch.randperm(text_embeddings.shape[0], device=text_embeddings.device)
+            return text_embeddings[perm]
+        return text_embeddings
     
     def _move_scheduler_to_device(self):
         """Move scheduler tensors to device"""
@@ -78,7 +89,8 @@ class Text2SignPipeline:
         Returns:
             Text2SignPipeline instance
         """
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        load_device = "cpu"
+        checkpoint = torch.load(checkpoint_path, map_location=load_device)
         
         # Get configs from checkpoint
         model_config = checkpoint.get("model_config", ModelConfig())
@@ -117,6 +129,7 @@ class Text2SignPipeline:
             use_transformer=getattr(model_config, 'use_transformer', True),
             transformer_depth=actual_transformer_depth,  # Use detected depth from weights
             use_gradient_checkpointing=getattr(model_config, 'use_gradient_checkpointing', False),
+            num_frames=getattr(model_config, 'num_frames', 16),
         )
         
         # Detect text encoder type from weights
@@ -170,6 +183,9 @@ class Text2SignPipeline:
         eta: Optional[float] = None,
         generator: Optional[torch.Generator] = None,
         output_type: str = "pil",  # "pil", "tensor", "numpy"
+        callback: Optional[callable] = None,
+        callback_steps: int = 1,
+        cfg_rescale: float = 0.7,  # Guidance rescale factor for better quality at high scales
     ) -> Union[List[List[Image.Image]], torch.Tensor, np.ndarray]:
         """
         Generate sign language video from text prompt
@@ -181,6 +197,9 @@ class Text2SignPipeline:
             eta: Stochasticity parameter (0 = deterministic DDIM)
             generator: Random generator for reproducibility
             output_type: Type of output ("pil", "tensor", "numpy")
+            callback: Optional function called every `callback_steps`
+            callback_steps: Frequency of callback
+            cfg_rescale: Factor to rescale guidance (from Common Diffusion Noise Schedules paper)
         
         Returns:
             Generated videos in requested format
@@ -188,6 +207,15 @@ class Text2SignPipeline:
         # Handle single prompt
         if isinstance(prompt, str):
             prompt = [prompt]
+        
+        # Add length prefix if enabled in model_config
+        model_prompts = prompt
+        if getattr(self.model_config, 'use_length_prefix', False):
+            model_prompts = []
+            for p in prompt:
+                word_count = len(p.split())
+                safe_count = min(word_count, 30)
+                model_prompts.append(f"[LEN_{safe_count}] {p}")
         
         batch_size = len(prompt)
         
@@ -201,10 +229,11 @@ class Text2SignPipeline:
         
         # Tokenize prompts
         if self.use_clip_text_encoder:
-            text_embeddings = self.text_encoder(tokens=None, text=prompt)
+            text_embeddings = self.text_encoder(tokens=None, text=model_prompts)
         else:
-            tokens = self.tokenizer(prompt).to(self.device)
+            tokens = self.tokenizer(model_prompts).to(self.device)
             text_embeddings = self.text_encoder(tokens)
+        text_embeddings = self._apply_conditioning_mode(text_embeddings)
         
         # For classifier-free guidance
         if guidance_scale > 1.0:
@@ -233,7 +262,7 @@ class Text2SignPipeline:
             latents = torch.randn(latents_shape, device=self.device)
         
         # Denoising loop
-        for t in tqdm(self.scheduler.timesteps, desc="Generating sign language", leave=True):
+        for i, t in enumerate(tqdm(self.scheduler.timesteps, desc="Generating sign language", leave=True)):
             latent_model_input = latents
             
             if guidance_scale > 1.0:
@@ -241,7 +270,11 @@ class Text2SignPipeline:
             
             # Convert timestep to int for scheduler.step, keep tensor for model
             t_int = int(t.item()) if isinstance(t, torch.Tensor) else int(t)
-            timestep = torch.tensor([t_int] * latent_model_input.shape[0], device=self.device)
+            timestep = torch.tensor(
+                [t_int] * latent_model_input.shape[0],
+                device=self.device,
+                dtype=torch.long,
+            )
             
             # Predict noise
             noise_pred = self.model(latent_model_input, timestep, text_embeddings)
@@ -250,9 +283,22 @@ class Text2SignPipeline:
             if guidance_scale > 1.0:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+                
+                # CFG Rescale Optimization (helps with over-saturation at high guidance)
+                if cfg_rescale > 0:
+                    std_text = noise_pred_text.std(dim=(1, 2, 3, 4), keepdim=True)
+                    std_cfg = noise_pred.std(dim=(1, 2, 3, 4), keepdim=True).clamp_min(1e-6)
+                    # Rescale the guided noise to match the variance of the conditional one
+                    noise_pred_rescaled = noise_pred * (std_text / std_cfg)
+                    # Linearly interpolate between rescaled and original
+                    noise_pred = cfg_rescale * noise_pred_rescaled + (1 - cfg_rescale) * noise_pred
             
             # DDIM step - use int timestep for scheduler
             latents, _ = self.scheduler.step(noise_pred, t_int, latents, eta=eta, generator=generator)
+
+            # Callback for visualization
+            if callback is not None and i % callback_steps == 0:
+                callback(i, t_int, latents)
         
         # Denormalize
         videos = (latents + 1) / 2
@@ -347,6 +393,51 @@ class Text2SignPipeline:
             print(f"Saved: {filepath}")
         
         return saved_paths
+
+    @torch.no_grad()
+    def benchmark(
+        self,
+        prompt: str = "Hello world",
+        repeats: int = 10,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
+    ) -> dict:
+        """Benchmark generation latency and throughput on the current device."""
+        num_inference_steps = num_inference_steps or self.generation_config.num_inference_steps
+        guidance_scale = guidance_scale or self.generation_config.guidance_scale
+        latencies = []
+        peak_memory_gb = None
+
+        if self.device == "cuda" or (isinstance(self.device, torch.device) and self.device.type == "cuda"):
+            torch.cuda.reset_peak_memory_stats(self.device)
+
+        for _ in range(max(1, repeats)):
+            if self.device == "cuda" or (isinstance(self.device, torch.device) and self.device.type == "cuda"):
+                torch.cuda.synchronize(self.device)
+            start = time.perf_counter()
+            self(
+                [prompt],
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                output_type="tensor",
+            )
+            if self.device == "cuda" or (isinstance(self.device, torch.device) and self.device.type == "cuda"):
+                torch.cuda.synchronize(self.device)
+                peak_memory_gb = torch.cuda.max_memory_allocated(self.device) / (1024 ** 3)
+            latencies.append(time.perf_counter() - start)
+
+        mean_latency = float(np.mean(latencies))
+        std_latency = float(np.std(latencies))
+        clip_fps = self.model_config.num_frames / max(mean_latency, 1e-6)
+        return {
+            "prompt": prompt,
+            "repeats": repeats,
+            "latency_mean_sec": mean_latency,
+            "latency_std_sec": std_latency,
+            "frames_per_second": clip_fps,
+            "clip_latency_sec": mean_latency,
+            "peak_memory_gb": peak_memory_gb,
+        }
 
 
 def create_pipeline(

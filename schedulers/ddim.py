@@ -122,7 +122,7 @@ class DDIMScheduler:
     def _get_variance(self, timestep: int, prev_timestep: int) -> torch.Tensor:
         """Compute variance for given timestep"""
         alpha_prod_t = self.alphas_cumprod[timestep]
-        alpha_prod_t_prev = self.alphas_cumprod[prev_timestep] if prev_timestep >= 0 else torch.tensor(1.0)
+        alpha_prod_t_prev = self.alphas_cumprod[prev_timestep] if prev_timestep >= 0 else alpha_prod_t.new_tensor(1.0)
         
         beta_prod_t = 1 - alpha_prod_t
         beta_prod_t_prev = 1 - alpha_prod_t_prev
@@ -190,7 +190,7 @@ class DDIMScheduler:
         
         # Get alpha values
         alpha_prod_t = self.alphas_cumprod[timestep]
-        alpha_prod_t_prev = self.alphas_cumprod[prev_timestep] if prev_timestep >= 0 else torch.tensor(1.0)
+        alpha_prod_t_prev = self.alphas_cumprod[prev_timestep] if prev_timestep >= 0 else alpha_prod_t.new_tensor(1.0)
         
         beta_prod_t = 1 - alpha_prod_t
         

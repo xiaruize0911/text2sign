@@ -1,0 +1,130 @@
+============================================================
+Text-to-Sign Language DDIM Diffusion Model - Training
+============================================================
+
+Configuration:
+  Data directory: /teamspace/studios/this_studio/text_to_sign/training_data
+  Image size: 64
+  Num frames: 32
+  Model channels: 96
+  Channel mult: (1, 2, 4, 8)
+  Batch size: 4
+  Grad accumulation: 4
+  Effective batch size: 16
+  Epochs: 60
+  Learning rate: 5e-05
+  Device: cuda
+  Mixed precision: True
+  Precision mode: auto
+  torch.compile: False
+  Compile mode: reduce-overhead
+  TF32: True
+  channels_last_3d: True
+  Gradient checkpointing: True
+  Using CLIP text encoder: True
+  Conditioning mode: normal
+  Train/val split: signer_disjoint
+  CLIP trainable layers: 0
+  Model size preset: large
+  Model size detail: Higher-capacity preset for larger GPUs after the baseline is stable.
+  Timesteps: 1000
+  Beta schedule: cosine
+
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+⚙️ torch.compile disabled
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=15300, warmup_steps=500, steps_per_epoch=255
+   ✅ Config saved to text_to_sign/logs/text2sign_20260319_014227/json/text2sign_20260319_014227_config.json
+📊 Metrics Logger initialized:
+   - Experiment: text2sign_20260319_014227
+   - Log dir: text_to_sign/logs/text2sign_20260319_014227
+   - CSV: text_to_sign/logs/text2sign_20260319_014227/csv
+   - JSON: text_to_sign/logs/text2sign_20260319_014227/json
+📝 Experiment 'text2sign_20260319_014227' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+
+======================================================================
+🚀 Starting Training with Research-Grade Logging
+======================================================================
+Experiment: text2sign_20260319_014227
+Logs: text_to_sign/logs/text2sign_20260319_014227
+Checkpoints: text_to_sign/checkpoints/text2sign_20260319_014227
+======================================================================
+
+Loaded 3683 training samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Starting training for 60 epochs
+Training samples: 3683
+Validation samples: 399
+TensorBoard logs: text_to_sign/logs/text2sign_20260319_014227
+Checkpoints: text_to_sign/checkpoints/text2sign_20260319_014227
+
+======================================================================
+📈 Epoch 1 started at 01:42:28
+======================================================================
+Epoch 1/60:   0%|          | 0/920 [00:00<?, ?it/s]Epoch 1/60:   0%|          | 0/920 [00:45<?, ?it/s]
+❌ Training crashed with error: CUDA out of memory. Tried to allocate 48.00 MiB. GPU 0 has a total capacity of 21.96 GiB of which 8.00 MiB is free. Process 34207 has 13.86 GiB memory in use. Process 35921 has 8.08 GiB memory in use. Of the allocated memory 7.63 GiB is allocated by PyTorch, and 197.33 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Traceback (most recent call last):
+  File "/teamspace/studios/this_studio/text_to_sign/trainer.py", line 901, in train
+    metrics = self.train_step(batch, accumulate_only=is_accumulating)
+  File "/teamspace/studios/this_studio/text_to_sign/trainer.py", line 460, in train_step
+    loss.backward()
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_tensor.py", line 522, in backward
+    torch.autograd.backward(
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/autograd/__init__.py", line 266, in backward
+    Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 1112, in unpack_hook
+    frame.recompute_fn(*args)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 1401, in recompute_fn
+    fn(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 882, in _checkpoint_forward
+    return layer(h, context, t_emb)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 692, in forward
+    x = x + self.ff(x)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/container.py", line 217, in forward
+    input = module(input)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 72, in forward
+    return super().forward(x.float()).type(x.dtype)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/normalization.py", line 287, in forward
+    return F.group_norm(
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/functional.py", line 2561, in group_norm
+    return torch.group_norm(input, num_groups, weight, bias, eps, torch.backends.cudnn.enabled)
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 48.00 MiB. GPU 0 has a total capacity of 21.96 GiB of which 8.00 MiB is free. Process 34207 has 13.86 GiB memory in use. Process 35921 has 8.08 GiB memory in use. Of the allocated memory 7.63 GiB is allocated by PyTorch, and 197.33 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+✅ Atomically saved checkpoint to text_to_sign/checkpoints/text2sign_20260319_014227/emergency_checkpoint.pt
+✅ Atomically saved checkpoint to text_to_sign/checkpoints/text2sign_20260319_014227/final_model.pt
+
+======================================================================
+💾 Training Summary Saved:
+======================================================================
+  Total Duration: 0.07 hours
+  Total Steps: 0
+  Total Epochs: 0
+  Summary: text_to_sign/logs/text2sign_20260319_014227/json/text2sign_20260319_014227_summary.json
+  Steps CSV: text_to_sign/logs/text2sign_20260319_014227/csv/text2sign_20260319_014227_steps.csv
+  Epochs CSV: text_to_sign/logs/text2sign_20260319_014227/csv/text2sign_20260319_014227_epochs.csv
+======================================================================
+
+
+======================================================================
+🎉 Training Shutdown Complete
+======================================================================
+Total training time: 0.07 hours
+======================================================================
+

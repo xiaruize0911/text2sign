@@ -389,12 +389,15 @@ class MultiHeadAttention(nn.Module):
             qkv = self.to_qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
             q, k, v = qkv[0], qkv[1], qkv[2]
         
-        # Scaled dot-product attention
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
+        # Scaled dot-product attention using optimized F.scaled_dot_product_attention
+        # This provides automatic flash attention, memory-efficient attention, and math acceleration
+        out = F.scaled_dot_product_attention(
+            q, k, v, 
+            dropout_p=self.attn_drop.p if self.training else 0.0,
+            is_causal=False
+        )
         
-        out = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        out = out.transpose(1, 2).reshape(B, N, C)
         out = self.proj(out)
         out = self.proj_drop(out)
         
@@ -499,6 +502,7 @@ class TemporalTransformerBlock(nn.Module):
     """
     Transformer block specifically for temporal attention.
     Processes video frames attending to other frames.
+    Enhanced to support text conditioning for motion dynamics.
     """
     def __init__(
         self,
@@ -506,31 +510,62 @@ class TemporalTransformerBlock(nn.Module):
         num_heads: int,
         time_embed_dim: int,
         dropout: float = 0.0,
+        context_dim: Optional[int] = None,
     ):
         super().__init__()
         
-        self.norm = nn.LayerNorm(dim, elementwise_affine=False)
+        self.norm1 = nn.LayerNorm(dim, elementwise_affine=False)
         self.attn = MultiHeadAttention(dim, num_heads, attn_drop=dropout, proj_drop=dropout)
+        
+        # Cross-attention for text conditioning onto temporal dimension
+        self.norm2 = nn.LayerNorm(dim, elementwise_affine=False) if context_dim else None
+        self.cross_attn = MultiHeadAttention(
+            dim, num_heads, 
+            attn_drop=dropout, 
+            proj_drop=dropout,
+            is_cross_attention=True,
+            context_dim=context_dim,
+        ) if context_dim else None
         
         # Adaptive parameters
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(time_embed_dim, dim * 3),
+            nn.Linear(time_embed_dim, dim * (6 if context_dim else 3)),
         )
         nn.init.zeros_(self.adaLN_modulation[-1].weight)
         nn.init.zeros_(self.adaLN_modulation[-1].bias)
     
-    def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, 
+        x: torch.Tensor, 
+        t_emb: torch.Tensor,
+        context: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """
         Args:
             x: (B, T, C) temporal sequence
             t_emb: (B, time_embed_dim) timestep embedding
+            context: (B, seq_len, context_dim) text conditioning
         """
         params = self.adaLN_modulation(t_emb)
-        scale, shift, gate = params.unsqueeze(1).chunk(3, dim=-1)
         
-        x_norm = self.norm(x) * (1 + scale) + shift
-        x = x + gate * self.attn(x_norm)
+        if self.cross_attn is not None and context is not None:
+            (
+                scale1, shift1, gate1,
+                scale2, shift2, gate2,
+            ) = params.unsqueeze(1).chunk(6, dim=-1)
+            
+            # Self-attention
+            x_norm = self.norm1(x) * (1 + scale1) + shift1
+            x = x + gate1 * self.attn(x_norm)
+            
+            # Cross-attention
+            x_norm = self.norm2(x) * (1 + scale2) + shift2
+            x = x + gate2 * self.cross_attn(x_norm, context)
+        else:
+            scale, shift, gate = params.unsqueeze(1).chunk(3, dim=-1)
+            x_norm = self.norm1(x) * (1 + scale) + shift
+            x = x + gate * self.attn(x_norm)
         
         return x
 
@@ -557,7 +592,7 @@ class SpatioTemporalTransformer(nn.Module):
         ])
         
         self.temporal_blocks = nn.ModuleList([
-            TemporalTransformerBlock(dim, num_heads, time_embed_dim, dropout)
+            TemporalTransformerBlock(dim, num_heads, time_embed_dim, dropout, context_dim=context_dim)
             for _ in range(depth)
         ])
     
@@ -585,9 +620,10 @@ class SpatioTemporalTransformer(nn.Module):
         # Reshape to (B*H*W, T, C)
         x_temporal = rearrange(x_spatial, 'b t n c -> (b n) t c', n=H*W)
         t_emb_temporal = repeat(t_emb, 'b d -> (b n) d', n=H*W)
+        context_temporal = repeat(context, 'b n d -> (b m) n d', m=H*W)
         
         for block in self.temporal_blocks:
-            x_temporal = block(x_temporal, t_emb_temporal)
+            x_temporal = block(x_temporal, t_emb_temporal, context_temporal)
         
         # Reshape back to (B, C, T, H, W)
         x_out = rearrange(x_temporal, '(b h w) t c -> b c t h w', b=B, h=H, w=W)

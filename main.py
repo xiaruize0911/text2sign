@@ -13,7 +13,8 @@ import torch
 
 def train(args):
     """Run training"""
-    from config import ModelConfig, TrainingConfig, DDIMConfig
+    from config import ModelConfig, TrainingConfig, DDIMConfig, apply_model_size_preset
+    from ablation_configs import apply_ablation_preset
     from trainer import create_trainer
     
     print("=" * 60)
@@ -22,10 +23,93 @@ def train(args):
     
     # Create configs
     model_config = ModelConfig()
-    
     train_config = TrainingConfig()
-    
     ddim_config = DDIMConfig()
+
+    ablation_description = None
+    model_size_description = None
+    if args.ablation_preset:
+        model_config, train_config, ablation_description = apply_ablation_preset(
+            model_config,
+            train_config,
+            args.ablation_preset,
+        )
+    if args.model_size:
+        model_config, train_config, model_size_description = apply_model_size_preset(
+            model_config,
+            train_config,
+            args.model_size,
+        )
+    
+    # Update configs with command-line arguments
+    if args.data_dir:
+        train_config.data_dir = args.data_dir
+    if args.batch_size:
+        train_config.batch_size = args.batch_size
+    if args.epochs:
+        train_config.num_epochs = args.epochs
+    if args.lr:
+        train_config.learning_rate = args.lr
+    if args.image_size:
+        model_config.image_size = args.image_size
+    if args.num_frames:
+        model_config.num_frames = args.num_frames
+    if args.model_channels:
+        model_config.model_channels = args.model_channels
+    if args.num_heads:
+        model_config.num_heads = args.num_heads
+    if args.timesteps:
+        ddim_config.num_train_timesteps = args.timesteps
+    if args.beta_schedule:
+        ddim_config.beta_schedule = args.beta_schedule
+    if args.prediction_type:
+        ddim_config.prediction_type = args.prediction_type
+    if args.num_workers:
+        train_config.num_workers = args.num_workers
+    if args.grad_accum_steps:
+        train_config.gradient_accumulation_steps = args.grad_accum_steps
+    if args.split_mode:
+        train_config.split_mode = args.split_mode
+    if args.text_conditioning_mode:
+        model_config.text_conditioning_mode = args.text_conditioning_mode
+    if args.clip_trainable_layers is not None:
+        model_config.clip_trainable_layers = args.clip_trainable_layers
+    if args.precision:
+        train_config.precision = args.precision
+    if args.checkpoint_dir:
+        train_config.checkpoint_dir = args.checkpoint_dir
+    if args.log_dir:
+        train_config.log_dir = args.log_dir
+    if args.save_every:
+        train_config.save_every = args.save_every
+    if args.log_every:
+        train_config.log_every = args.log_every
+    if args.sample_every:
+        train_config.sample_every = args.sample_every
+    if args.prefetch_factor is not None:
+        train_config.dataloader_prefetch_factor = args.prefetch_factor
+    if args.no_amp:
+        train_config.use_amp = False
+        train_config.precision = "fp32"
+    if args.no_compile:
+        train_config.enable_compile = False
+    if args.compile_mode:
+        train_config.compile_mode = args.compile_mode
+    if args.compile_fullgraph:
+        train_config.compile_fullgraph = True
+    if args.compile_dynamic:
+        train_config.compile_dynamic = True
+    if args.no_tf32:
+        train_config.allow_tf32 = False
+    if args.no_channels_last:
+        train_config.channels_last_3d = False
+    if args.no_gradient_checkpointing:
+        model_config.use_gradient_checkpointing = False
+    if args.cpu:
+        train_config.device = "cpu"
+        train_config.enable_compile = False
+        train_config.use_amp = False
+        train_config.precision = "fp32"
     
     # Print configuration
     print(f"\nConfiguration:")
@@ -33,12 +117,30 @@ def train(args):
     print(f"  Image size: {model_config.image_size}")
     print(f"  Num frames: {model_config.num_frames}")
     print(f"  Model channels: {model_config.model_channels}")
+    print(f"  Channel mult: {model_config.channel_mult}")
     print(f"  Batch size: {train_config.batch_size}")
+    print(f"  Grad accumulation: {train_config.gradient_accumulation_steps}")
+    print(f"  Effective batch size: {train_config.batch_size * train_config.gradient_accumulation_steps}")
     print(f"  Epochs: {train_config.num_epochs}")
     print(f"  Learning rate: {train_config.learning_rate}")
     print(f"  Device: {train_config.device}")
     print(f"  Mixed precision: {train_config.use_amp}")
+    print(f"  Precision mode: {train_config.precision}")
+    print(f"  torch.compile: {train_config.enable_compile}")
+    print(f"  Compile mode: {train_config.compile_mode}")
+    print(f"  TF32: {train_config.allow_tf32}")
+    print(f"  channels_last_3d: {train_config.channels_last_3d}")
+    print(f"  Gradient checkpointing: {model_config.use_gradient_checkpointing}")
     print(f"  Using CLIP text encoder: {model_config.use_clip_text_encoder}")
+    print(f"  Conditioning mode: {model_config.text_conditioning_mode}")
+    print(f"  Train/val split: {train_config.split_mode}")
+    print(f"  CLIP trainable layers: {model_config.clip_trainable_layers}")
+    if args.model_size:
+        print(f"  Model size preset: {args.model_size}")
+        print(f"  Model size detail: {model_size_description}")
+    if args.ablation_preset:
+        print(f"  Ablation preset: {args.ablation_preset}")
+        print(f"  Ablation detail: {ablation_description}")
     print(f"  Timesteps: {ddim_config.num_train_timesteps}")
     print(f"  Beta schedule: {ddim_config.beta_schedule}")
     print()
@@ -92,6 +194,9 @@ def validate(args):
         data_dir=args.data_dir,
         device=device,
         num_samples=args.num_samples,
+        benchmark_repeats=args.benchmark_repeats,
+        enable_backtranslation=not args.skip_backtranslation,
+        fvd_backbone=args.fvd_backbone,
     )
     
     results = validator.run_full_validation(args.output_dir)
@@ -246,7 +351,7 @@ def test(args):
     
     try:
         scheduler = DDIMScheduler(
-            num_train_timesteps=100,
+            num_train_timesteps=1000,
             beta_schedule="linear",
         )
         
@@ -256,7 +361,9 @@ def test(args):
         
         # Test step
         scheduler.set_timesteps(50, device=device)
-        prev_sample, pred_x0 = scheduler.step(output, 500, noisy)
+        # Use a valid timestep from the scheduler's inference steps
+        test_t = scheduler.timesteps[0].item()
+        prev_sample, pred_x0 = scheduler.step(output, test_t, noisy)
         print(f"   DDIM step successful!")
         
     except Exception as e:
@@ -275,16 +382,16 @@ def main():
         epilog="""
 Examples:
   # Train the model
-  python main.py train --data-dir text2sign/training_data --epochs 100
+    python main.py train --data-dir text_to_sign/training_data --epochs 100
 
   # Generate sign language GIFs
   python main.py generate --checkpoint checkpoints/best_model.pt --prompt "Hello"
 
   # Validate model quality
-  python main.py validate --checkpoint checkpoints/best_model.pt --data-dir text2sign/training_data
+    python main.py validate --checkpoint checkpoints/best_model.pt --data-dir text_to_sign/training_data
 
   # Test data and model
-  python main.py test --data-dir text2sign/training_data
+    python main.py test --data-dir text_to_sign/training_data
         """
     )
     
@@ -292,42 +399,78 @@ Examples:
     
     # Train command
     train_parser = subparsers.add_parser("train", help="Train the model")
-    train_parser.add_argument("--data-dir", type=str, default="/teamspace/studios/this_studio/text2sign/training_data",
+    train_parser.add_argument("--data-dir", type=str, default=None,
                              help="Path to training data directory")
-    train_parser.add_argument("--batch-size", type=int, default=4,
+    train_parser.add_argument("--batch-size", type=int, default=None,
                              help="Batch size for training")
-    train_parser.add_argument("--epochs", type=int, default=100,
+    train_parser.add_argument("--epochs", type=int, default=None,
                              help="Number of training epochs")
-    train_parser.add_argument("--lr", type=float, default=1e-4,
+    train_parser.add_argument("--lr", type=float, default=None,
                              help="Learning rate")
-    train_parser.add_argument("--image-size", type=int, default=64,
+    train_parser.add_argument("--image-size", type=int, default=None,
                              help="Image size to resize to")
-    train_parser.add_argument("--num-frames", type=int, default=16,
+    train_parser.add_argument("--num-frames", type=int, default=None,
                              help="Number of frames per video")
-    train_parser.add_argument("--model-channels", type=int, default=128,
+    train_parser.add_argument("--model-channels", type=int, default=None,
                              help="Base model channels")
-    train_parser.add_argument("--num-heads", type=int, default=8,
+    train_parser.add_argument("--model-size", type=str, default=None,
+                             choices=["small", "base", "large"],
+                             help="Named model/training size preset")
+    train_parser.add_argument("--num-heads", type=int, default=None,
                              help="Number of attention heads")
-    train_parser.add_argument("--timesteps", type=int, default=50,
+    train_parser.add_argument("--timesteps", type=int, default=None,
                              help="Number of diffusion timesteps")
-    train_parser.add_argument("--beta-schedule", type=str, default="cosine",
+    train_parser.add_argument("--beta-schedule", type=str, default=None,
                              choices=["linear", "cosine"],
                              help="Beta schedule type")
-    train_parser.add_argument("--prediction-type", type=str, default="epsilon",
+    train_parser.add_argument("--prediction-type", type=str, default=None,
                              choices=["epsilon", "v_prediction"],
                              help="What the model predicts")
-    train_parser.add_argument("--num-workers", type=int, default=4,
+    train_parser.add_argument("--num-workers", type=int, default=None,
                              help="Number of data loading workers")
-    train_parser.add_argument("--checkpoint-dir", type=str, default="text_to_sign/checkpoints",
+    train_parser.add_argument("--grad-accum-steps", type=int, default=None,
+                             help="Gradient accumulation steps")
+    train_parser.add_argument("--ablation-preset", type=str, default=None,
+                             choices=["frozen_clip", "no_text", "random_text", "clip_finetuned_last2"],
+                             help="Named conditioning ablation preset")
+    train_parser.add_argument("--split-mode", type=str, default=None,
+                             choices=["signer_disjoint", "random"],
+                             help="Dataset split protocol")
+    train_parser.add_argument("--text-conditioning-mode", type=str, default=None,
+                             choices=["normal", "none", "random"],
+                             help="Conditioning ablation mode")
+    train_parser.add_argument("--clip-trainable-layers", type=int, default=None,
+                             help="Unfreeze the last N CLIP encoder layers")
+    train_parser.add_argument("--checkpoint-dir", type=str, default=None,
                              help="Directory to save checkpoints")
-    train_parser.add_argument("--log-dir", type=str, default="text_to_sign/logs",
+    train_parser.add_argument("--log-dir", type=str, default=None,
                              help="Directory for TensorBoard logs")
-    train_parser.add_argument("--save-every", type=int, default=5,
+    train_parser.add_argument("--save-every", type=int, default=None,
                              help="Save checkpoint every N epochs")
-    train_parser.add_argument("--log-every", type=int, default=100,
+    train_parser.add_argument("--log-every", type=int, default=None,
                              help="Log to TensorBoard every N steps")
-    train_parser.add_argument("--sample-every", type=int, default=1024,
+    train_parser.add_argument("--sample-every", type=int, default=None,
                              help="Generate samples every N steps")
+    train_parser.add_argument("--precision", type=str, default=None,
+                             choices=["auto", "fp16", "bf16", "fp32"],
+                             help="Precision mode for training")
+    train_parser.add_argument("--no-compile", action="store_true",
+                             help="Disable torch.compile for the UNet")
+    train_parser.add_argument("--compile-mode", type=str, default=None,
+                             choices=["default", "reduce-overhead", "max-autotune"],
+                             help="torch.compile optimization mode")
+    train_parser.add_argument("--compile-fullgraph", action="store_true",
+                             help="Enable fullgraph torch.compile mode")
+    train_parser.add_argument("--compile-dynamic", action="store_true",
+                             help="Enable dynamic-shape torch.compile mode")
+    train_parser.add_argument("--no-tf32", action="store_true",
+                             help="Disable TF32 matmul/cuDNN acceleration on CUDA")
+    train_parser.add_argument("--no-channels-last", action="store_true",
+                             help="Disable channels_last_3d memory format")
+    train_parser.add_argument("--prefetch-factor", type=int, default=None,
+                             help="DataLoader prefetch factor when num_workers > 0")
+    train_parser.add_argument("--no-gradient-checkpointing", action="store_true",
+                             help="Disable model gradient checkpointing")
     train_parser.add_argument("--resume", type=str, default=None,
                              help="Path to checkpoint to resume from")
     train_parser.add_argument("--no-amp", action="store_true",
@@ -356,7 +499,7 @@ Examples:
     
     # Test command
     test_parser = subparsers.add_parser("test", help="Test data and model")
-    test_parser.add_argument("--data-dir", type=str, default="/teamspace/studios/this_studio/text2sign/training_data",
+    test_parser.add_argument("--data-dir", type=str, default="/teamspace/studios/this_studio/text_to_sign/training_data",
                             help="Path to training data directory")
     test_parser.add_argument("--cpu", action="store_true",
                             help="Force CPU testing")
@@ -365,12 +508,19 @@ Examples:
     val_parser = subparsers.add_parser("validate", help="Validate model quality")
     val_parser.add_argument("--checkpoint", type=str, required=True,
                            help="Path to model checkpoint")
-    val_parser.add_argument("--data-dir", type=str, default="../text2sign/training_data",
+    val_parser.add_argument("--data-dir", type=str, default="/teamspace/studios/this_studio/text_to_sign/training_data",
                            help="Path to training data directory")
     val_parser.add_argument("--output-dir", type=str, default="validation_output",
                            help="Directory to save validation results")
     val_parser.add_argument("--num-samples", type=int, default=50,
                            help="Number of samples for evaluation")
+    val_parser.add_argument("--benchmark-repeats", type=int, default=5,
+                           help="Number of repeated runs for timing benchmark")
+    val_parser.add_argument("--fvd-backbone", type=str, default="videomae",
+                           choices=["videomae", "r3d_18"],
+                           help="Video feature backbone for FVD")
+    val_parser.add_argument("--skip-backtranslation", action="store_true",
+                           help="Skip GloFE back-translation evaluation")
     val_parser.add_argument("--cpu", action="store_true",
                            help="Force CPU validation")
     

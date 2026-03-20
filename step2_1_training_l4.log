@@ -1,0 +1,132 @@
+============================================================
+Text-to-Sign Language DDIM Diffusion Model - Training
+============================================================
+
+Configuration:
+  Data directory: /teamspace/studios/this_studio/text_to_sign/training_data
+  Image size: 64
+  Num frames: 32
+  Model channels: 96
+  Channel mult: (1, 2, 4, 8)
+  Batch size: 4
+  Grad accumulation: 4
+  Effective batch size: 16
+  Epochs: 60
+  Learning rate: 5e-05
+  Device: cuda
+  Mixed precision: True
+  Precision mode: auto
+  torch.compile: True
+  Compile mode: reduce-overhead
+  TF32: True
+  channels_last_3d: True
+  Gradient checkpointing: True
+  Using CLIP text encoder: True
+  Conditioning mode: normal
+  Train/val split: signer_disjoint
+  CLIP trainable layers: 0
+  Model size preset: large
+  Model size detail: Higher-capacity preset for larger GPUs after the baseline is stable.
+  Timesteps: 1000
+  Beta schedule: cosine
+
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+🔥 torch.compile enabled (mode=reduce-overhead)
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=15300, warmup_steps=500, steps_per_epoch=255
+   ✅ Config saved to text_to_sign/logs/text2sign_20260319_014132/json/text2sign_20260319_014132_config.json
+📊 Metrics Logger initialized:
+   - Experiment: text2sign_20260319_014132
+   - Log dir: text_to_sign/logs/text2sign_20260319_014132
+   - CSV: text_to_sign/logs/text2sign_20260319_014132/csv
+   - JSON: text_to_sign/logs/text2sign_20260319_014132/json
+📝 Experiment 'text2sign_20260319_014132' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+
+======================================================================
+🚀 Starting Training with Research-Grade Logging
+======================================================================
+Experiment: text2sign_20260319_014132
+Logs: text_to_sign/logs/text2sign_20260319_014132
+Checkpoints: text_to_sign/checkpoints/text2sign_20260319_014132
+======================================================================
+
+Loaded 3683 training samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Starting training for 60 epochs
+Training samples: 3683
+Validation samples: 399
+TensorBoard logs: text_to_sign/logs/text2sign_20260319_014132
+Checkpoints: text_to_sign/checkpoints/text2sign_20260319_014132
+
+======================================================================
+📈 Epoch 1 started at 01:41:32
+======================================================================
+Epoch 1/60:   0%|          | 0/920 [00:00<?, ?it/s][2026-03-19 01:41:35,276] [0/0] torch._dynamo.variables.higher_order_ops: [WARNING] speculate_subgraph: while introspecting torch.utils.checkpoint.checkpoint, we were unable to trace function `_checkpoint_forward` into a single graph. This means that Dynamo was unable to prove safety for this API and will fall back to eager-mode PyTorch, which could lead to a slowdown.
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR] HigherOrderOperator with body that accepts non-Tensors as input that can't be lifted by tracer.
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR] Traceback (most recent call last):
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR]   File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_dynamo/variables/higher_order_ops.py", line 224, in speculate_subgraph
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR]     args = validate_args_and_maybe_create_graph_inputs(
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR]   File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_dynamo/variables/higher_order_ops.py", line 171, in validate_args_and_maybe_create_graph_inputs
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR]     unimplemented(
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR]   File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_dynamo/exc.py", line 193, in unimplemented
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR]     raise Unsupported(msg)
+[2026-03-19 01:41:35,277] [0/0] torch._dynamo.variables.higher_order_ops: [ERROR] torch._dynamo.exc.Unsupported: HigherOrderOperator with body that accepts non-Tensors as input that can't be lifted by tracer.
+Epoch 1/60:   0%|          | 1/920 [01:22<21:03:40, 82.50s/it]Epoch 1/60:   0%|          | 2/920 [01:29<9:38:39, 37.82s/it] Epoch 1/60:   0%|          | 3/920 [01:35<5:57:36, 23.40s/it]Epoch 1/60:   0%|          | 3/920 [01:41<5:57:36, 23.40s/it, loss=1.0970, lr=1.50e-07, step=1]Epoch 1/60:   0%|          | 4/920 [01:41<4:14:55, 16.70s/it, loss=1.0970, lr=1.50e-07, step=1]Epoch 1/60:   1%|          | 5/920 [01:44<3:00:04, 11.81s/it, loss=1.0970, lr=1.50e-07, step=1]Epoch 1/60:   1%|          | 5/920 [01:45<5:20:45, 21.03s/it, loss=1.0970, lr=1.50e-07, step=1]
+❌ Training crashed with error: CUDA out of memory. Tried to allocate 384.00 MiB. GPU 0 has a total capacity of 21.96 GiB of which 106.00 MiB is free. Process 34207 has 13.76 GiB memory in use. Process 35921 has 8.08 GiB memory in use. Of the allocated memory 11.99 GiB is allocated by PyTorch, and 1.49 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Traceback (most recent call last):
+  File "/teamspace/studios/this_studio/text_to_sign/trainer.py", line 901, in train
+    metrics = self.train_step(batch, accumulate_only=is_accumulating)
+  File "/teamspace/studios/this_studio/text_to_sign/trainer.py", line 402, in train_step
+    noise_pred = self.model(noisy_video, timesteps, text_embeddings)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 489, in _fn
+    return fn(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 950, in forward
+    h = checkpoint(self._checkpoint_forward, layer, h, t_emb, context, use_reentrant=False)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_compile.py", line 24, in inner
+    return torch._dynamo.disable(fn, recursive)(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 489, in _fn
+    return fn(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_dynamo/external_utils.py", line 17, in inner
+    return fn(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 489, in checkpoint
+    ret = function(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 880, in _checkpoint_forward
+    return layer(h, t_emb)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 184, in forward
+    h = self.in_layers(x)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/container.py", line 217, in forward
+    input = module(input)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 72, in forward
+    return super().forward(x.float()).type(x.dtype)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/normalization.py", line 287, in forward
+    return F.group_norm(
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/functional.py", line 2561, in group_norm
+    return torch.group_norm(input, num_groups, weight, bias, eps, torch.backends.cudnn.enabled)
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 384.00 MiB. GPU 0 has a total capacity of 21.96 GiB of which 106.00 MiB is free. Process 34207 has 13.76 GiB memory in use. Process 35921 has 8.08 GiB memory in use. Of the allocated memory 11.99 GiB is allocated by PyTorch, and 1.49 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+✅ Atomically saved checkpoint to text_to_sign/checkpoints/text2sign_20260319_014132/emergency_checkpoint.pt

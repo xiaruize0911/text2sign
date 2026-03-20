@@ -24,6 +24,11 @@ class SignLanguageDataset(Dataset):
         num_frames: int = 16,
         train: bool = True,
         train_ratio: float = 0.9,
+        split_mode: str = "signer_disjoint",
+        random_seed: int = 42,
+        tokenizer: Optional[any] = None,
+        use_length_prefix: bool = False,
+        cache_size: int = 2000,
     ):
         """
         Args:
@@ -32,25 +37,26 @@ class SignLanguageDataset(Dataset):
             num_frames: Number of frames to sample from each GIF
             train: Whether this is training set
             train_ratio: Ratio of data to use for training
+            tokenizer: Optional tokenizer instance to pre-tokenize text
+            use_length_prefix: Whether to prepend word count to text
         """
         self.data_dir = data_dir
         self.image_size = image_size
         self.num_frames = num_frames
         self.train = train
+        self.train_ratio = train_ratio
+        self.split_mode = split_mode
+        self.random_seed = random_seed
+        self.tokenizer = tokenizer
+        self.use_length_prefix = use_length_prefix
+        self.cache_size = cache_size
+        self.cache: Dict[int, Dict[str, torch.Tensor]] = {}
         
         # Find all pairs
         self.pairs = self._find_pairs()
         
         # Split into train/val
-        random.seed(42)
-        indices = list(range(len(self.pairs)))
-        random.shuffle(indices)
-        split_idx = int(len(indices) * train_ratio)
-        
-        if train:
-            self.indices = indices[:split_idx]
-        else:
-            self.indices = indices[split_idx:]
+        self.indices, self.split_stats = self._build_split_indices()
         
         # Image transforms
         self.transform = transforms.Compose([
@@ -59,7 +65,13 @@ class SignLanguageDataset(Dataset):
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])  # [-1, 1]
         ])
         
-        print(f"Loaded {len(self.indices)} {'training' if train else 'validation'} samples")
+        overlap = self.split_stats["overlap_signers"]
+        print(
+            f"Loaded {len(self.indices)} {'training' if train else 'validation'} samples "
+            f"using {self.split_mode} split "
+            f"({self.split_stats['num_train_signers']} train signers, "
+            f"{self.split_stats['num_val_signers']} val signers, overlap={overlap})"
+        )
     
     def _find_pairs(self) -> List[Tuple[str, str]]:
         """Find all GIF-text pairs in the data directory"""
@@ -76,6 +88,68 @@ class SignLanguageDataset(Dataset):
                 pairs.append((gif_path, txt_path))
         
         return pairs
+
+    def _extract_signer_id(self, gif_path: str) -> str:
+        """Extract a signer/video identifier from the file name."""
+        stem = os.path.splitext(os.path.basename(gif_path))[0]
+        return stem.split("_")[0]
+
+    def _build_split_indices(self) -> Tuple[List[int], Dict[str, int]]:
+        """Create either a random or signer-disjoint split."""
+        rng = random.Random(self.random_seed)
+
+        if self.split_mode == "random":
+            indices = list(range(len(self.pairs)))
+            rng.shuffle(indices)
+            split_idx = int(len(indices) * self.train_ratio)
+            selected = indices[:split_idx] if self.train else indices[split_idx:]
+            return selected, {
+                "num_train_signers": -1,
+                "num_val_signers": -1,
+                "overlap_signers": -1,
+            }
+
+        signer_to_indices: Dict[str, List[int]] = {}
+        for idx, (gif_path, _) in enumerate(self.pairs):
+            signer_id = self._extract_signer_id(gif_path)
+            signer_to_indices.setdefault(signer_id, []).append(idx)
+
+        signer_ids = list(signer_to_indices.keys())
+        rng.shuffle(signer_ids)
+
+        target_train_samples = max(1, int(len(self.pairs) * self.train_ratio))
+        train_indices: List[int] = []
+        val_indices: List[int] = []
+        train_signers = set()
+        val_signers = set()
+
+        running_samples = 0
+        for signer_id in signer_ids:
+            signer_indices = signer_to_indices[signer_id]
+            if running_samples < target_train_samples:
+                train_indices.extend(signer_indices)
+                train_signers.add(signer_id)
+                running_samples += len(signer_indices)
+            else:
+                val_indices.extend(signer_indices)
+                val_signers.add(signer_id)
+
+        if not val_indices and train_indices:
+            # Ensure a non-empty validation split by moving the last signer group.
+            last_train_signer = next(reversed(list(train_signers)))
+            moved = signer_to_indices[last_train_signer]
+            train_indices = [idx for idx in train_indices if idx not in moved]
+            val_indices.extend(moved)
+            train_signers.remove(last_train_signer)
+            val_signers.add(last_train_signer)
+
+        selected = sorted(train_indices if self.train else val_indices)
+        stats = {
+            "num_train_signers": len(train_signers),
+            "num_val_signers": len(val_signers),
+            "overlap_signers": len(train_signers.intersection(val_signers)),
+        }
+        return selected, stats
     
     def _load_gif(self, gif_path: str) -> torch.Tensor:
         """Load GIF and sample frames"""
@@ -99,13 +173,25 @@ class SignLanguageDataset(Dataset):
             
             # Sample or pad frames
             if len(frames) >= self.num_frames:
-                # Uniform sampling
-                indices = np.linspace(0, len(frames) - 1, self.num_frames, dtype=int)
+                if self.train:
+                    # Random sampling for training data variability
+                    # This demonstrates robustness to frame rate variations
+                    start_idx = random.randint(0, len(frames) - self.num_frames)
+                    indices = np.arange(start_idx, start_idx + self.num_frames)
+                else:
+                    # Uniform sampling for validation/testing
+                    indices = np.linspace(0, len(frames) - 1, self.num_frames, dtype=int)
+                
                 frames = [frames[i] for i in indices]
             else:
-                # Pad by repeating last frame
+                # Better padding: Symmetric padding or repeating last frame
+                # Symmetric padding looks more natural for sign language
                 while len(frames) < self.num_frames:
-                    frames.append(frames[-1])
+                    # Alternate between padding start and end for centering
+                    if len(frames) % 2 == 0:
+                        frames.append(frames[-1])
+                    else:
+                        frames.insert(0, frames[0])
             
             # Stack frames: (num_frames, C, H, W)
             video = torch.stack(frames)
@@ -132,15 +218,51 @@ class SignLanguageDataset(Dataset):
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         real_idx = self.indices[idx]
+        
+        if real_idx in self.cache:
+            return self.cache[real_idx]
+            
         gif_path, txt_path = self.pairs[real_idx]
         
         video = self._load_gif(gif_path)  # (T, C, H, W)
         text = self._load_text(txt_path)
         
-        return {
+        # Add length prefix if enabled
+        if self.use_length_prefix:
+            word_count = len(text.split())
+            # Normalize word count to bins if it's too high? 
+            # For now, just use the raw count or a capped one
+            safe_count = min(word_count, 30)
+            text = f"[LEN_{safe_count}] {text}"
+        
+        sample = {
             "video": video,
             "text": text,
         }
+        
+        # Pre-tokenize if tokenizer is provided (saves time in forward pass)
+        if self.tokenizer is not None:
+            # Check if it's our SimpleTokenizer or a HuggingFace one
+            # HF tokenizers usually return a dict when called, and have special methods
+            if hasattr(self.tokenizer, 'encode') and not hasattr(self.tokenizer, 'model_max_length'):
+                # SimpleTokenizer
+                sample["tokens"] = self.tokenizer.encode(text)
+            else:
+                # CLIP Tokenizer (HuggingFace)
+                encoded = self.tokenizer(
+                    text,
+                    padding="max_length",
+                    max_length=77,
+                    truncation=True,
+                    return_tensors="pt"
+                )
+                sample["tokens"] = encoded["input_ids"].squeeze(0)
+        
+        # Cache if possible (limit to 2000 samples to avoid OOM)
+        if len(self.cache) < self.cache_size:
+            self.cache[real_idx] = sample
+            
+        return sample
 
 
 class SimpleTokenizer:
@@ -183,11 +305,23 @@ class SimpleTokenizer:
 
 def collate_fn(batch: List[Dict]) -> Dict[str, torch.Tensor]:
     """Custom collate function for batching"""
-    tokenizer = SimpleTokenizer()
-    
     videos = torch.stack([item["video"] for item in batch])
     texts = [item["text"] for item in batch]
-    tokens = tokenizer(texts)
+    
+    # Use pre-tokenized tokens if available
+    if "tokens" in batch[0]:
+        # Safety check: convert to tensor if needed (e.g. if loaded from list-based cache)
+        token_tensors = []
+        for item in batch:
+            t = item["tokens"]
+            if not isinstance(t, torch.Tensor):
+                t = torch.tensor(t, dtype=torch.long)
+            token_tensors.append(t)
+        tokens = torch.stack(token_tensors)
+    else:
+        # Fallback to character-level tokenization
+        tokenizer = SimpleTokenizer()
+        tokens = tokenizer(texts)
     
     return {
         "video": videos,  # (B, T, C, H, W)
@@ -203,6 +337,14 @@ def get_dataloader(
     num_frames: int = 16,
     num_workers: int = 4,
     train: bool = True,
+    train_ratio: float = 0.9,
+    split_mode: str = "signer_disjoint",
+    random_seed: int = 42,
+    tokenizer: Optional[any] = None,
+    use_length_prefix: bool = False,
+    pin_memory: bool = True,
+    persistent_workers: Optional[bool] = None,
+    prefetch_factor: int = 2,
 ) -> DataLoader:
     """Create dataloader for training or validation"""
     
@@ -211,17 +353,28 @@ def get_dataloader(
         image_size=image_size,
         num_frames=num_frames,
         train=train,
+        train_ratio=train_ratio,
+        split_mode=split_mode,
+        random_seed=random_seed,
+        tokenizer=tokenizer,
+        use_length_prefix=use_length_prefix,
     )
     
-    dataloader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=train,
-        num_workers=num_workers,
-        collate_fn=collate_fn,
-        pin_memory=True,
-        drop_last=train,
-    )
+    dataloader_kwargs = {
+        "dataset": dataset,
+        "batch_size": batch_size,
+        "shuffle": train,
+        "num_workers": num_workers,
+        "collate_fn": collate_fn,
+        "pin_memory": pin_memory,
+        "drop_last": train,
+        "persistent_workers": (num_workers > 0) if persistent_workers is None else (persistent_workers and num_workers > 0),
+    }
+
+    if num_workers > 0:
+        dataloader_kwargs["prefetch_factor"] = prefetch_factor
+
+    dataloader = DataLoader(**dataloader_kwargs)
     
     return dataloader
 
@@ -229,7 +382,7 @@ def get_dataloader(
 if __name__ == "__main__":
     # Test dataset
     dataset = SignLanguageDataset(
-        data_dir="text2sign/training_data",
+        data_dir="text_to_sign/training_data",
         image_size=64,
         num_frames=16,
         train=True,
