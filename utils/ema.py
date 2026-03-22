@@ -71,6 +71,8 @@ class EMA:
         """Apply EMA weights to model (for inference/sampling)."""
         for name, param in self.model.named_parameters():
             if param.requires_grad and name in self.shadow:
+                if self.shadow[name].shape != param.data.shape:
+                    continue
                 self.backup[name] = param.data.clone()
                 param.data.copy_(self.shadow[name])
     
@@ -97,6 +99,14 @@ class EMA:
         self.step_counter = state_dict.get('step_counter', 0)
         
         shadow_dict = state_dict.get('shadow', {})
+        loaded = 0
+        skipped = 0
         for name, param in shadow_dict.items():
             if name in self.shadow:
-                self.shadow[name] = param.to(self.device)
+                if self.shadow[name].shape == param.shape:
+                    self.shadow[name] = param.to(self.device)
+                    loaded += 1
+                else:
+                    skipped += 1
+        if skipped > 0:
+            logger.warning("EMA partial load: loaded %s tensors, skipped %s shape-mismatched tensors", loaded, skipped)

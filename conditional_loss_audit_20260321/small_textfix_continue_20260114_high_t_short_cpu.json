@@ -1,0 +1,160 @@
+{
+  "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints_textfix_small/text2sign_20260114_145727/checkpoint_epoch_2.pt",
+  "num_samples": 8,
+  "batch_size": 4,
+  "repeats": 1,
+  "selection": {
+    "max_word_count": 5,
+    "unique_prompts": true,
+    "diverse_batches": true,
+    "min_timestep": 70,
+    "max_timestep": 100
+  },
+  "device": "cpu",
+  "normal_loss": {
+    "mean": 1.1684550791978836,
+    "ci95_low": 1.1658809591084718,
+    "ci95_high": 1.1709901243448257
+  },
+  "none_loss": {
+    "mean": 1.1684550940990448,
+    "ci95_low": 1.1657783567905426,
+    "ci95_high": 1.1708931405097247
+  },
+  "random_loss": {
+    "mean": 1.1684550940990448,
+    "ci95_low": 1.1659759763628244,
+    "ci95_high": 1.1708434224128723
+  },
+  "none_minus_normal": {
+    "mean": 1.4901161193847656e-08,
+    "ci95_low": 0.0,
+    "ci95_high": 4.470348358154297e-08
+  },
+  "random_minus_normal": {
+    "mean": 1.4901161193847656e-08,
+    "ci95_low": 0.0,
+    "ci95_high": 4.470348358154297e-08
+  },
+  "prompt_ranking": {
+    "top1_accuracy": {
+      "mean": 0.25,
+      "ci95_low": 0.0,
+      "ci95_high": 0.625
+    },
+    "top3_accuracy": {
+      "mean": 0.75,
+      "ci95_low": 0.375,
+      "ci95_high": 1.0
+    },
+    "mean_correct_rank": {
+      "mean": 2.5,
+      "ci95_low": 1.75,
+      "ci95_high": 3.25
+    },
+    "mean_best_wrong_minus_correct": {
+      "mean": 1.4901161193847656e-08,
+      "ci95_low": 0.0,
+      "ci95_high": 4.470348358154297e-08
+    },
+    "chance_top1": 0.25
+  },
+  "records": [
+    {
+      "batch_index": 0,
+      "sample_index": 0,
+      "text": "[LEN_3] MICHAEL ROSENGART: Thrusters.",
+      "normal_loss": 1.1691162586212158,
+      "none_loss": 1.1691163778305054,
+      "random_loss": 1.1691163778305054,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 1.1920928955078125e-07
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 1,
+      "text": "[LEN_2] That's good.",
+      "normal_loss": 1.162488341331482,
+      "none_loss": 1.162488341331482,
+      "random_loss": 1.162488341331482,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 2,
+      "text": "[LEN_1] Okay.",
+      "normal_loss": 1.172874093055725,
+      "none_loss": 1.172874093055725,
+      "random_loss": 1.172874093055725,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 3,
+      "text": "[LEN_3] It's not segmented.",
+      "normal_loss": 1.1646339893341064,
+      "none_loss": 1.1646339893341064,
+      "random_loss": 1.1646339893341064,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": 0.0
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 0,
+      "text": "[LEN_1] Good.",
+      "normal_loss": 1.1726948022842407,
+      "none_loss": 1.1726948022842407,
+      "random_loss": 1.1726948022842407,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 1,
+      "text": "[LEN_3] Let's open Access.",
+      "normal_loss": 1.1661494970321655,
+      "none_loss": 1.1661494970321655,
+      "random_loss": 1.1661494970321655,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 2,
+      "text": "[LEN_2] Try it.",
+      "normal_loss": 1.1719204187393188,
+      "none_loss": 1.1719204187393188,
+      "random_loss": 1.1719204187393188,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 3,
+      "text": "[LEN_3] Good work, Jonesy.",
+      "normal_loss": 1.1677632331848145,
+      "none_loss": 1.1677632331848145,
+      "random_loss": 1.1677632331848145,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": 0.0
+    }
+  ]
+}

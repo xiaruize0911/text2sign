@@ -1,0 +1,105 @@
+{
+  "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt",
+  "num_samples": 4,
+  "batch_size": 4,
+  "repeats": 1,
+  "device": "cuda",
+  "normal_loss": {
+    "mean": 1.0189295262098312,
+    "ci95_low": 0.9851029068231583,
+    "ci95_high": 1.0842482447624207
+  },
+  "none_loss": {
+    "mean": 1.0216618478298187,
+    "ci95_low": 0.9868863523006439,
+    "ci95_high": 1.0878179669380188
+  },
+  "random_loss": {
+    "mean": 1.018516182899475,
+    "ci95_low": 0.9853013157844543,
+    "ci95_high": 1.0828299224376678
+  },
+  "none_minus_normal": {
+    "mean": 0.002732321619987488,
+    "ci95_low": 0.0019990503787994385,
+    "ci95_high": 0.003581717610359192
+  },
+  "random_minus_normal": {
+    "mean": -0.00041334331035614014,
+    "ci95_low": -0.001208379864692688,
+    "ci95_high": 0.0003509223461151123
+  },
+  "prompt_ranking": {
+    "top1_accuracy": {
+      "mean": 0.25,
+      "ci95_low": 0.0,
+      "ci95_high": 0.75
+    },
+    "top3_accuracy": {
+      "mean": 0.75,
+      "ci95_low": 0.25,
+      "ci95_high": 1.0
+    },
+    "mean_correct_rank": {
+      "mean": 2.75,
+      "ci95_low": 1.5,
+      "ci95_high": 3.75
+    },
+    "mean_best_wrong_minus_correct": {
+      "mean": -0.0006151646375656128,
+      "ci95_low": -0.0014102011919021606,
+      "ci95_high": 0.0002446472644805908
+    },
+    "chance_top1": 0.25
+  },
+  "records": [
+    {
+      "batch_index": 0,
+      "sample_index": 0,
+      "text": "I hope this becomes very popular, here of late, is the circle hooks. Now, circle hooks has been used by Japanese fishermen and longliners for years and years, but in recent years, they've developed lighter, smaller, in shore type hooks, which are very well suited, particularly to folks that are in to the hook and release type fishing.",
+      "normal_loss": 0.9841729998588562,
+      "none_loss": 0.9861960411071777,
+      "random_loss": 0.9843165874481201,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0006636977195739746
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 1,
+      "text": "This hook, basically is designed, to catch the fish in the corner of the mouth.",
+      "normal_loss": 0.9878926277160645,
+      "none_loss": 0.9907225370407104,
+      "random_loss": 0.9884508848190308,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0005582571029663086
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 2,
+      "text": "Now this type of hook, when you get a bite, you can't jerk the rod to set the hook.",
+      "normal_loss": 1.1166702508926392,
+      "none_loss": 1.1207715272903442,
+      "random_loss": 1.115011215209961,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0016590356826782227
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 3,
+      "text": "You basically just reel down, and get the line tight, and the fish will take off, and when he does, he usually turns, and this hook comes right in the corner of his mouth, and it sort of acts, really like a, kind of like a bottle opener.",
+      "normal_loss": 0.9869822263717651,
+      "none_loss": 0.9889572858810425,
+      "random_loss": 0.9862860441207886,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0006961822509765625
+    }
+  ]
+}

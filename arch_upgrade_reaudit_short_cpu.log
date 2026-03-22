@@ -1,0 +1,181 @@
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder (projection_mode=mlp)
+🔢 Precision mode: fp32 (AMP disabled)
+⚙️ torch.compile disabled
+📈 Scheduler: total_steps=1020, warmup_steps=102, steps_per_epoch=1020
+   ✅ Config saved to text_to_sign/logs_textboost_arch_fast5/conditional_loss_audit/json/conditional_loss_audit_config.json
+📊 Metrics Logger initialized:
+   - Experiment: conditional_loss_audit
+   - Log dir: text_to_sign/logs_textboost_arch_fast5/conditional_loss_audit
+   - CSV: text_to_sign/logs_textboost_arch_fast5/conditional_loss_audit/csv
+   - JSON: text_to_sign/logs_textboost_arch_fast5/conditional_loss_audit/json
+📝 Experiment 'conditional_loss_audit' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+Loading checkpoint from /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints_textboost_arch_fast5/text2sign_20260114_145727/best_model.pt...
+  Loaded model weights (strict, strict)
+  Loaded optimizer state
+  Loaded LR scheduler state
+  ✅ Loaded EMA state
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Conditional loss audit:   0%|          | 0/2 [00:00<?, ?it/s]Conditional loss audit:  50%|█████     | 1/2 [07:13<07:13, 433.61s/it]Conditional loss audit:  50%|█████     | 1/2 [14:22<14:22, 862.87s/it]
+Saved conditional-loss audit to /teamspace/studios/this_studio/text_to_sign/conditional_loss_audit_20260321/arch_upgrade_reaudit_short_cpu.json
+{
+  "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints_textboost_arch_fast5/text2sign_20260114_145727/best_model.pt",
+  "num_samples": 8,
+  "batch_size": 4,
+  "repeats": 1,
+  "selection": {
+    "max_word_count": 5,
+    "unique_prompts": true,
+    "diverse_batches": true,
+    "min_timestep": 70,
+    "max_timestep": 100
+  },
+  "device": "cpu",
+  "normal_loss": {
+    "mean": 1.0568025708198547,
+    "ci95_low": 1.0551259197294711,
+    "ci95_high": 1.0586870163679123
+  },
+  "none_loss": {
+    "mean": 1.0602924823760986,
+    "ci95_low": 1.0586979292333125,
+    "ci95_high": 1.062054768204689
+  },
+  "random_loss": {
+    "mean": 1.0567326247692108,
+    "ci95_low": 1.0549953974783421,
+    "ci95_high": 1.0588550176471472
+  },
+  "none_minus_normal": {
+    "mean": 0.0034899115562438965,
+    "ci95_low": 0.00243985652923584,
+    "ci95_high": 0.004647473990917206
+  },
+  "random_minus_normal": {
+    "mean": -6.99460506439209e-05,
+    "ci95_low": -0.001478627324104309,
+    "ci95_high": 0.0015883207321166987
+  },
+  "prompt_ranking": {
+    "top1_accuracy": {
+      "mean": 0.25,
+      "ci95_low": 0.0,
+      "ci95_high": 0.625
+    },
+    "top3_accuracy": {
+      "mean": 0.75,
+      "ci95_low": 0.375,
+      "ci95_high": 1.0
+    },
+    "mean_correct_rank": {
+      "mean": 2.625,
+      "ci95_low": 1.875,
+      "ci95_high": 3.375
+    },
+    "mean_best_wrong_minus_correct": {
+      "mean": -0.0011227279901504517,
+      "ci95_low": -0.002584114670753479,
+      "ci95_high": 0.0003976672887802124
+    },
+    "chance_top1": 0.25
+  },
+  "records": [
+    {
+      "batch_index": 0,
+      "sample_index": 0,
+      "text": "[LEN_3] MICHAEL ROSENGART: Thrusters.",
+      "normal_loss": 1.0579620599746704,
+      "none_loss": 1.0644582509994507,
+      "random_loss": 1.06277596950531,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.002833127975463867
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 1,
+      "text": "[LEN_2] That's good.",
+      "normal_loss": 1.055871605873108,
+      "none_loss": 1.0577362775802612,
+      "random_loss": 1.0557500123977661,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0027855634689331055
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 2,
+      "text": "[LEN_1] Okay.",
+      "normal_loss": 1.0620254278182983,
+      "none_loss": 1.0644053220748901,
+      "random_loss": 1.0589542388916016,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0030711889266967773
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 3,
+      "text": "[LEN_3] It's not segmented.",
+      "normal_loss": 1.056776523590088,
+      "none_loss": 1.0593557357788086,
+      "random_loss": 1.0544356107711792,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0043860673904418945
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 0,
+      "text": "[LEN_1] Good.",
+      "normal_loss": 1.0581235885620117,
+      "none_loss": 1.0594151020050049,
+      "random_loss": 1.0567498207092285,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0015282630920410156
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 1,
+      "text": "[LEN_3] Let's open Access.",
+      "normal_loss": 1.0548144578933716,
+      "none_loss": 1.0585342645645142,
+      "random_loss": 1.0541404485702515,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0006740093231201172
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 2,
+      "text": "[LEN_2] Try it.",
+      "normal_loss": 1.0559457540512085,
+      "none_loss": 1.0603808164596558,
+      "random_loss": 1.057148814201355,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.00037479400634765625
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 3,
+      "text": "[LEN_3] Good work, Jonesy.",
+      "normal_loss": 1.0529011487960815,
+      "none_loss": 1.0580540895462036,
+      "random_loss": 1.0539060831069946,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.001004934310913086
+    }
+  ]
+}

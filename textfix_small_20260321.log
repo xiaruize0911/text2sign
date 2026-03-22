@@ -1,0 +1,150 @@
+============================================================
+Text-to-Sign Language DDIM Diffusion Model - Training
+============================================================
+Loaded base model/DDIM configs from resume checkpoint
+
+Configuration:
+  Data directory: /teamspace/studios/this_studio/text_to_sign/training_data
+  Image size: 64
+  Num frames: 16
+  Model channels: 128
+  Channel mult: (1, 2, 4)
+  Attention resolutions: (8, 16)
+  Batch size: 2
+  Grad accumulation: 8
+  Effective batch size: 16
+  Max optimizer steps this run: 16
+  Epochs: 1
+  Learning rate: 5e-06
+  Device: cuda
+  Mixed precision: True
+  Precision mode: auto
+  torch.compile: False
+  Compile mode: reduce-overhead
+  TF32: True
+  channels_last_3d: True
+  Gradient checkpointing: True
+  Using CLIP text encoder: True
+  Conditioning mode: normal
+  Train/val split: signer_disjoint
+  CLIP trainable layers: 0
+  Text projection mode: mlp
+  Length prefix conditioning: True
+  Partial load on resume: True
+  Motion loss weight: 0.05
+  Motion loss start timestep: 50
+  Text discrimination loss weight: 1.0
+  Text discrimination margin: 0.0005
+  Text discrimination start timestep: 50
+  Text presence loss weight: 0.5
+  Text presence margin: 0.0005
+  Timestep curriculum: True
+  Sample inference steps: 8
+  Sample guidance scale: 5.0
+  Timesteps: 100
+  Beta schedule: cosine
+
+Detected run name from checkpoint: text2sign_20260114_145727
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder (projection_mode=mlp)
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+⚙️ torch.compile disabled
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=255, warmup_steps=25, steps_per_epoch=255
+   ✅ Config saved to text_to_sign/logs_textfix_small/text2sign_20260114_145727/json/text2sign_20260114_145727_config.json
+📊 Metrics Logger initialized:
+   - Experiment: text2sign_20260114_145727
+   - Log dir: text_to_sign/logs_textfix_small/text2sign_20260114_145727
+   - CSV: text_to_sign/logs_textfix_small/text2sign_20260114_145727/csv
+   - JSON: text_to_sign/logs_textfix_small/text2sign_20260114_145727/json
+📝 Experiment 'text2sign_20260114_145727' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+
+============================================================
+RESUMING TRAINING
+============================================================
+Loading checkpoint from /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260114_145727/best_model.pt...
+  ⚠️ Flexible partial load for UNet: loaded 236/238 keys; skipped 2 incompatible keys
+  ⚠️ Flexible partial load for text encoder: loaded 196/198 keys; skipped 2 incompatible keys
+  Loaded model weights (partial, partial)
+  Using fresh optimizer/scheduler progress for fine-tuning
+
+Initialized fine-tuning from checkpoint weights:
+  Epoch: 0
+  Global step: 0
+  Best loss reset to: inf
+  Epoch: 0
+  Global step: 0
+  Best loss: inf
+============================================================
+
+
+======================================================================
+🚀 Starting Training with Research-Grade Logging
+======================================================================
+Experiment: text2sign_20260114_145727
+Logs: text_to_sign/logs_textfix_small/text2sign_20260114_145727
+Checkpoints: text_to_sign/checkpoints_textfix_small/text2sign_20260114_145727
+======================================================================
+
+Loaded 3683 training samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Starting training for 1 epochs
+Training samples: 3683
+Validation samples: 399
+TensorBoard logs: text_to_sign/logs_textfix_small/text2sign_20260114_145727
+Checkpoints: text_to_sign/checkpoints_textfix_small/text2sign_20260114_145727
+
+======================================================================
+📈 Epoch 1 started at 08:44:09
+======================================================================
+Epoch 1/1:   0%|          | 0/1841 [00:00<?, ?it/s]Epoch 1/1:   0%|          | 1/1841 [00:17<9:06:44, 17.83s/it]Epoch 1/1:   0%|          | 2/1841 [00:21<4:55:02,  9.63s/it]Epoch 1/1:   0%|          | 3/1841 [00:26<3:50:32,  7.53s/it]Epoch 1/1:   0%|          | 4/1841 [00:28<2:40:08,  5.23s/it]Epoch 1/1:   0%|          | 5/1841 [00:33<2:38:22,  5.18s/it]Epoch 1/1:   0%|          | 6/1841 [00:35<2:02:24,  4.00s/it]Epoch 1/1:   0%|          | 7/1841 [00:36<1:39:46,  3.26s/it]Epoch 1/1:   0%|          | 7/1841 [00:40<1:39:46,  3.26s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   0%|          | 8/1841 [00:40<1:42:48,  3.37s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   0%|          | 9/1841 [00:45<1:58:29,  3.88s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   1%|          | 10/1841 [00:48<1:48:15,  3.55s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   1%|          | 11/1841 [00:49<1:23:18,  2.73s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   1%|          | 12/1841 [00:54<1:44:26,  3.43s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   1%|          | 13/1841 [00:56<1:28:35,  2.91s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   1%|          | 14/1841 [01:01<1:48:20,  3.56s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   1%|          | 15/1841 [01:02<1:31:28,  3.01s/it, loss=0.0031, lr=2.05e-07, step=1]Epoch 1/1:   1%|          | 15/1841 [01:06<1:31:28,  3.01s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 16/1841 [01:06<1:36:27,  3.17s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 17/1841 [01:08<1:23:05,  2.73s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 18/1841 [01:13<1:44:36,  3.44s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 19/1841 [01:16<1:42:25,  3.37s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 20/1841 [01:19<1:41:29,  3.34s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 21/1841 [01:24<1:57:40,  3.88s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 22/1841 [01:26<1:38:02,  3.23s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 23/1841 [01:31<1:54:37,  3.78s/it, loss=0.0056, lr=4.05e-07, step=2]Epoch 1/1:   1%|          | 23/1841 [01:38<1:54:37,  3.78s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   1%|▏         | 24/1841 [01:38<2:23:15,  4.73s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   1%|▏         | 25/1841 [01:43<2:25:54,  4.82s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   1%|▏         | 26/1841 [01:44<1:51:09,  3.67s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   1%|▏         | 27/1841 [01:47<1:43:10,  3.41s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   2%|▏         | 28/1841 [01:51<1:53:36,  3.76s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   2%|▏         | 29/1841 [01:56<2:05:04,  4.14s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   2%|▏         | 30/1841 [02:02<2:13:39,  4.43s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   2%|▏         | 31/1841 [02:07<2:19:21,  4.62s/it, loss=0.0030, lr=6.04e-07, step=3]Epoch 1/1:   2%|▏         | 31/1841 [02:13<2:19:21,  4.62s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 32/1841 [02:13<2:35:47,  5.17s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 33/1841 [02:16<2:14:03,  4.45s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 34/1841 [02:21<2:16:40,  4.54s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 35/1841 [02:26<2:21:10,  4.69s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 36/1841 [02:31<2:23:57,  4.79s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 37/1841 [02:36<2:26:11,  4.86s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 38/1841 [02:41<2:27:34,  4.91s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 39/1841 [02:44<2:15:57,  4.53s/it, loss=0.0053, lr=8.04e-07, step=4]Epoch 1/1:   2%|▏         | 39/1841 [02:46<2:15:57,  4.53s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   2%|▏         | 40/1841 [02:46<1:47:10,  3.57s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   2%|▏         | 41/1841 [02:51<2:00:23,  4.01s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   2%|▏         | 42/1841 [02:56<2:09:23,  4.32s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   2%|▏         | 43/1841 [03:01<2:16:07,  4.54s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   2%|▏         | 44/1841 [03:06<2:20:15,  4.68s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   2%|▏         | 45/1841 [03:08<1:53:37,  3.80s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   2%|▏         | 46/1841 [03:13<2:04:23,  4.16s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   3%|▎         | 47/1841 [03:15<1:52:36,  3.77s/it, loss=0.0054, lr=1.00e-06, step=5]Epoch 1/1:   3%|▎         | 47/1841 [03:18<1:52:36,  3.77s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 48/1841 [03:18<1:41:21,  3.39s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 49/1841 [03:23<1:55:30,  3.87s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 50/1841 [03:28<2:06:03,  4.22s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 51/1841 [03:33<2:13:28,  4.47s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 52/1841 [03:38<2:18:29,  4.64s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 53/1841 [03:42<2:15:23,  4.54s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 54/1841 [03:43<1:42:40,  3.45s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 55/1841 [03:46<1:39:50,  3.35s/it, loss=0.0058, lr=1.20e-06, step=6]Epoch 1/1:   3%|▎         | 55/1841 [03:53<1:39:50,  3.35s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 56/1841 [03:53<2:10:57,  4.40s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 57/1841 [03:58<2:15:37,  4.56s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 58/1841 [04:03<2:20:08,  4.72s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 59/1841 [04:05<1:53:24,  3.82s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 60/1841 [04:07<1:34:38,  3.19s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 61/1841 [04:11<1:47:36,  3.63s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 62/1841 [04:12<1:23:13,  2.81s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 63/1841 [04:15<1:23:06,  2.80s/it, loss=0.0067, lr=1.40e-06, step=7]Epoch 1/1:   3%|▎         | 63/1841 [04:22<1:23:06,  2.80s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   3%|▎         | 64/1841 [04:22<1:59:19,  4.03s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   4%|▎         | 65/1841 [04:24<1:38:43,  3.34s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   4%|▎         | 66/1841 [04:29<1:53:51,  3.85s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   4%|▎         | 67/1841 [04:34<2:04:21,  4.21s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   4%|▎         | 68/1841 [04:39<2:11:42,  4.46s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   4%|▎         | 69/1841 [04:42<2:00:33,  4.08s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   4%|▍         | 70/1841 [04:45<1:52:23,  3.81s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   4%|▍         | 71/1841 [04:47<1:34:03,  3.19s/it, loss=0.0030, lr=1.60e-06, step=8]Epoch 1/1:   4%|▍         | 71/1841 [04:51<1:34:03,  3.19s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 72/1841 [04:51<1:38:36,  3.34s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 73/1841 [04:56<1:53:22,  3.85s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 74/1841 [04:57<1:34:17,  3.20s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 75/1841 [04:59<1:21:16,  2.76s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 76/1841 [05:04<1:41:01,  3.43s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 77/1841 [05:06<1:26:09,  2.93s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 78/1841 [05:07<1:15:16,  2.56s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 79/1841 [05:11<1:23:14,  2.83s/it, loss=0.0076, lr=1.80e-06, step=9]Epoch 1/1:   4%|▍         | 79/1841 [05:16<1:23:14,  2.83s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   4%|▍         | 80/1841 [05:16<1:39:45,  3.40s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   4%|▍         | 81/1841 [05:17<1:24:53,  2.89s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   4%|▍         | 82/1841 [05:22<1:44:04,  3.55s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   5%|▍         | 83/1841 [05:28<1:57:07,  4.00s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   5%|▍         | 84/1841 [05:29<1:37:08,  3.32s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   5%|▍         | 85/1841 [05:31<1:23:12,  2.84s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   5%|▍         | 86/1841 [05:36<1:42:24,  3.50s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   5%|▍         | 87/1841 [05:40<1:46:17,  3.64s/it, loss=0.0031, lr=2.00e-06, step=10]Epoch 1/1:   5%|▍         | 87/1841 [05:41<1:46:17,  3.64s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▍         | 88/1841 [05:41<1:26:23,  2.96s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▍         | 89/1841 [05:46<1:44:21,  3.57s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▍         | 90/1841 [05:51<1:57:03,  4.01s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▍         | 91/1841 [05:56<2:05:46,  4.31s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▍         | 92/1841 [05:58<1:43:00,  3.53s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▌         | 93/1841 [06:03<1:55:58,  3.98s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▌         | 94/1841 [06:08<2:04:54,  4.29s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▌         | 95/1841 [06:09<1:35:08,  3.27s/it, loss=0.0072, lr=2.20e-06, step=11]Epoch 1/1:   5%|▌         | 95/1841 [06:13<1:35:08,  3.27s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   5%|▌         | 96/1841 [06:13<1:43:13,  3.55s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   5%|▌         | 97/1841 [06:18<1:55:51,  3.99s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   5%|▌         | 98/1841 [06:23<2:05:03,  4.30s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   5%|▌         | 99/1841 [06:28<2:11:30,  4.53s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   5%|▌         | 100/1841 [06:33<2:16:02,  4.69s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   5%|▌         | 101/1841 [06:35<1:50:04,  3.80s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   6%|▌         | 102/1841 [06:39<1:48:51,  3.76s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   6%|▌         | 103/1841 [06:42<1:40:24,  3.47s/it, loss=0.0041, lr=2.40e-06, step=12]Epoch 1/1:   6%|▌         | 103/1841 [06:48<1:40:24,  3.47s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 104/1841 [06:48<2:05:33,  4.34s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 105/1841 [06:53<2:11:08,  4.53s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 106/1841 [06:58<2:15:44,  4.69s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 107/1841 [07:00<1:49:49,  3.80s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 108/1841 [07:05<2:00:30,  4.17s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 109/1841 [07:06<1:39:15,  3.44s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 110/1841 [07:09<1:34:45,  3.28s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 111/1841 [07:13<1:37:17,  3.37s/it, loss=0.0076, lr=2.60e-06, step=13]Epoch 1/1:   6%|▌         | 111/1841 [07:20<1:37:17,  3.37s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▌         | 112/1841 [07:20<2:07:12,  4.41s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▌         | 113/1841 [07:22<1:43:38,  3.60s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▌         | 114/1841 [07:27<1:55:56,  4.03s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▌         | 115/1841 [07:32<2:04:39,  4.33s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▋         | 116/1841 [07:37<2:10:02,  4.52s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▋         | 117/1841 [07:39<1:55:36,  4.02s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▋         | 118/1841 [07:44<1:58:25,  4.12s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▋         | 119/1841 [07:49<2:06:23,  4.40s/it, loss=0.0061, lr=2.80e-06, step=14]Epoch 1/1:   6%|▋         | 119/1841 [07:56<2:06:23,  4.40s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 120/1841 [07:56<2:27:00,  5.13s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 121/1841 [07:57<1:57:38,  4.10s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 122/1841 [08:02<2:05:36,  4.38s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 123/1841 [08:06<2:02:36,  4.28s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 124/1841 [08:07<1:33:28,  3.27s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 125/1841 [08:11<1:35:18,  3.33s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 126/1841 [08:16<1:49:59,  3.85s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 127/1841 [08:21<2:00:05,  4.20s/it, loss=0.0044, lr=3.00e-06, step=15]Epoch 1/1:   7%|▋         | 127/1841 [08:28<2:00:05,  4.20s/it, loss=0.0051, lr=3.20e-06, step=16]
+⏹️ Reached max_run_optimizer_steps=16; stopping this training invocation early.
+Epoch 1/1:   7%|▋         | 127/1841 [08:28<1:54:19,  4.00s/it, loss=0.0051, lr=3.20e-06, step=16]
+Validating:   0%|          | 0/200 [00:00<?, ?it/s]                                                   
+======================================================================
+📊 Epoch 1 Summary:
+======================================================================
+  Duration: 8.48 minutes
+  Total Runtime: 0.14 hours
+  train_loss_mean: 0.041950
+  train_loss_std: 0.001769
+  train_loss_min: 0.001588
+  train_loss_max: 0.009788
+  val_loss: 1.000000
+  learning_rate: 0.000003
+  grad_norm_avg: 0.110577
+  grad_norm_max: 0.192652
+  num_batches: 16
+  samples_processed: 32
+  ema_step_counter: 16
+======================================================================
+
+Epoch 1 - Train Loss: 0.0420, Val Loss: 1.0000
+✅ Atomically saved checkpoint to text_to_sign/checkpoints_textfix_small/text2sign_20260114_145727/checkpoint_epoch_1.pt
+Saved checkpoint to text_to_sign/checkpoints_textfix_small/text2sign_20260114_145727/checkpoint_epoch_1.pt
+✅ Atomically saved checkpoint to text_to_sign/checkpoints_textfix_small/text2sign_20260114_145727/best_model.pt
+Saved best model (val_loss: 1.0000)
+✅ Atomically saved checkpoint to text_to_sign/checkpoints_textfix_small/text2sign_20260114_145727/interrupted_checkpoint.pt
+
+======================================================================
+💾 Training Summary Saved:
+======================================================================
+  Total Duration: 0.15 hours
+  Total Steps: 16
+  Total Epochs: 1
+  Summary: text_to_sign/logs_textfix_small/text2sign_20260114_145727/json/text2sign_20260114_145727_summary.json
+  Steps CSV: text_to_sign/logs_textfix_small/text2sign_20260114_145727/csv/text2sign_20260114_145727_steps.csv
+  Epochs CSV: text_to_sign/logs_textfix_small/text2sign_20260114_145727/csv/text2sign_20260114_145727_epochs.csv
+======================================================================
+
+
+======================================================================
+🎉 Training Shutdown Complete
+======================================================================
+Total training time: 0.15 hours
+======================================================================
+

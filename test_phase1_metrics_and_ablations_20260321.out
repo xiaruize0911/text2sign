@@ -1,0 +1,33 @@
+..EMA partial load: loaded 3 tensors, skipped 1 shape-mismatched tensors
+.  ⚠️ Flexible partial load for linear: loaded 2/3 keys; skipped 1 incompatible keys
+.Loading checkpoint from /tmp/tmpjq5v6jaa/dummy.pt...
+  Loaded model weights (strict, strict)
+  Using fresh optimizer/scheduler progress for fine-tuning
+...Loaded 3 training samples using random split (-1 train signers, -1 val signers, overlap=-1)
+Enabled short-text oversampling: <= 2 words, factor=3.00, short_samples=2/3
+..
+============================================================
+Benchmarking Inference...
+============================================================
+
+Inference Benchmark:
+  Mean clip latency: 1.250 s ± 0.100
+  Effective frame throughput: 25.60 FPS
+  Saved benchmark artifact: /tmp/tmprhyznfhq/benchmark_results.json
+
+============================================================
+Evaluating Back-Translation Faithfulness...
+============================================================
+Back-translation:   0%|          | 0/2 [00:00<?, ?it/s]Back-translation: 100%|██████████| 2/2 [00:00<00:00, 1793.97it/s]
+
+Back-Translation Results:
+  Exact match: 0.5000
+  BLEU: 0.0001
+  Token F1: 0.5000
+  Sequence similarity: 0.8333
+  Saved back-translation artifact: /tmp/tmprhyznfhq/backtranslation_results.json
+.
+----------------------------------------------------------------------
+Ran 10 tests in 0.125s
+
+OK

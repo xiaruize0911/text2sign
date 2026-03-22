@@ -8,7 +8,7 @@ import random
 from typing import Dict, List, Optional, Tuple
 
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from PIL import Image
 import numpy as np
 from torchvision import transforms
@@ -72,6 +72,10 @@ class SignLanguageDataset(Dataset):
             f"({self.split_stats['num_train_signers']} train signers, "
             f"{self.split_stats['num_val_signers']} val signers, overlap={overlap})"
         )
+
+    @staticmethod
+    def count_words(text: str) -> int:
+        return len(text.split()) if text else 0
     
     def _find_pairs(self) -> List[Tuple[str, str]]:
         """Find all GIF-text pairs in the data directory"""
@@ -342,6 +346,8 @@ def get_dataloader(
     random_seed: int = 42,
     tokenizer: Optional[any] = None,
     use_length_prefix: bool = False,
+    short_text_max_words: Optional[int] = None,
+    short_text_oversample_factor: float = 1.0,
     pin_memory: bool = True,
     persistent_workers: Optional[bool] = None,
     prefetch_factor: int = 2,
@@ -359,11 +365,41 @@ def get_dataloader(
         tokenizer=tokenizer,
         use_length_prefix=use_length_prefix,
     )
+
+    sampler = None
+    use_short_text_oversampling = (
+        train
+        and short_text_max_words is not None
+        and short_text_oversample_factor is not None
+        and short_text_oversample_factor > 1.0
+    )
+
+    if use_short_text_oversampling:
+        weights: List[float] = []
+        num_short = 0
+        for real_idx in dataset.indices:
+            _, txt_path = dataset.pairs[real_idx]
+            word_count = dataset.count_words(dataset._load_text(txt_path))
+            is_short = word_count <= short_text_max_words
+            if is_short:
+                num_short += 1
+            weights.append(float(short_text_oversample_factor if is_short else 1.0))
+
+        sampler = WeightedRandomSampler(
+            weights=torch.tensor(weights, dtype=torch.double),
+            num_samples=len(weights),
+            replacement=True,
+        )
+        print(
+            f"Enabled short-text oversampling: <= {short_text_max_words} words, "
+            f"factor={short_text_oversample_factor:.2f}, short_samples={num_short}/{len(weights)}"
+        )
     
     dataloader_kwargs = {
         "dataset": dataset,
         "batch_size": batch_size,
-        "shuffle": train,
+        "shuffle": train and sampler is None,
+        "sampler": sampler,
         "num_workers": num_workers,
         "collate_fn": collate_fn,
         "pin_memory": pin_memory,

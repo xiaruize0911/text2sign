@@ -1,0 +1,136 @@
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+⚙️ torch.compile disabled
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=7620, warmup_steps=500, steps_per_epoch=127
+   ✅ Config saved to text_to_sign/logs/conditional_loss_audit/json/conditional_loss_audit_config.json
+📊 Metrics Logger initialized:
+   - Experiment: conditional_loss_audit
+   - Log dir: text_to_sign/logs/conditional_loss_audit
+   - CSV: text_to_sign/logs/conditional_loss_audit/csv
+   - JSON: text_to_sign/logs/conditional_loss_audit/json
+📝 Experiment 'conditional_loss_audit' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+Loading checkpoint from /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt...
+  Loaded model weights
+  Loaded optimizer state
+  Loaded LR scheduler state
+  ✅ Loaded EMA state
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Conditional loss audit:   0%|          | 0/1 [00:00<?, ?it/s]Conditional loss audit:   0%|          | 0/1 [00:12<?, ?it/s]
+Saved conditional-loss audit to /teamspace/studios/this_studio/text_to_sign/conditional_loss_audit_20260321/high_t_short_smoke.json
+{
+  "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt",
+  "num_samples": 4,
+  "batch_size": 4,
+  "repeats": 1,
+  "selection": {
+    "max_word_count": 5,
+    "unique_prompts": true,
+    "min_timestep": 700,
+    "max_timestep": 1000
+  },
+  "device": "cuda",
+  "normal_loss": {
+    "mean": 0.9868142753839493,
+    "ci95_low": 0.9849814474582672,
+    "ci95_high": 0.9879820197820663
+  },
+  "none_loss": {
+    "mean": 0.9885394871234894,
+    "ci95_low": 0.9868170619010925,
+    "ci95_high": 0.9896262884140015
+  },
+  "random_loss": {
+    "mean": 0.9868413805961609,
+    "ci95_low": 0.9852011501789093,
+    "ci95_high": 0.9879768192768097
+  },
+  "none_minus_normal": {
+    "mean": 0.0017252117395401,
+    "ci95_low": 0.0014835000038146973,
+    "ci95_high": 0.00196056067943573
+  },
+  "random_minus_normal": {
+    "mean": 2.7105212211608887e-05,
+    "ci95_low": -0.00013318657875061035,
+    "ci95_high": 0.00022707879543304443
+  },
+  "prompt_ranking": {
+    "top1_accuracy": {
+      "mean": 0.25,
+      "ci95_low": 0.0,
+      "ci95_high": 0.75
+    },
+    "top3_accuracy": {
+      "mean": 0.75,
+      "ci95_low": 0.25,
+      "ci95_high": 1.0
+    },
+    "mean_correct_rank": {
+      "mean": 2.75,
+      "ci95_low": 1.5,
+      "ci95_high": 3.75
+    },
+    "mean_best_wrong_minus_correct": {
+      "mean": -0.000155523419380188,
+      "ci95_low": -0.00047087669372558594,
+      "ci95_high": 0.00019721686840057373
+    },
+    "chance_top1": 0.25
+  },
+  "records": [
+    {
+      "batch_index": 0,
+      "sample_index": 0,
+      "text": "MICHAEL ROSENGART: Thrusters.",
+      "normal_loss": 0.9841086864471436,
+      "none_loss": 0.9861814379692078,
+      "random_loss": 0.9844509363174438,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.00034224987030029297
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 1,
+      "text": "Good.",
+      "normal_loss": 0.988189697265625,
+      "none_loss": 0.9898136854171753,
+      "random_loss": 0.9882222414016724,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0005785226821899414
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 2,
+      "text": "That's good.",
+      "normal_loss": 0.9875997304916382,
+      "none_loss": 0.9894388914108276,
+      "random_loss": 0.9874517917633057,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.00014793872833251953
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 3,
+      "text": "Good work, Jonesy.",
+      "normal_loss": 0.9873589873313904,
+      "none_loss": 0.9887239336967468,
+      "random_loss": 0.9872405529022217,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.00023788213729858398
+    }
+  ]
+}

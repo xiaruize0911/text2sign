@@ -7,6 +7,7 @@ import argparse
 import os
 import sys
 from datetime import datetime
+from dataclasses import asdict
 
 import torch
 
@@ -25,6 +26,22 @@ def train(args):
     model_config = ModelConfig()
     train_config = TrainingConfig()
     ddim_config = DDIMConfig()
+
+    if args.resume:
+        checkpoint = torch.load(args.resume, map_location="cpu")
+        resume_model_config = checkpoint.get("model_config")
+        resume_ddim_config = checkpoint.get("ddim_config")
+        if resume_model_config is not None:
+            if isinstance(resume_model_config, dict):
+                model_config = ModelConfig(**resume_model_config)
+            else:
+                model_config = ModelConfig(**asdict(resume_model_config))
+        if resume_ddim_config is not None:
+            if isinstance(resume_ddim_config, dict):
+                ddim_config = DDIMConfig(**resume_ddim_config)
+            else:
+                ddim_config = DDIMConfig(**asdict(resume_ddim_config))
+        print("Loaded base model/DDIM configs from resume checkpoint")
 
     ablation_description = None
     model_size_description = None
@@ -58,6 +75,8 @@ def train(args):
         model_config.model_channels = args.model_channels
     if args.num_heads:
         model_config.num_heads = args.num_heads
+    if args.attention_resolutions:
+        model_config.attention_resolutions = tuple(sorted({int(x) for x in args.attention_resolutions.split(',') if x.strip()}))
     if args.timesteps:
         ddim_config.num_train_timesteps = args.timesteps
     if args.beta_schedule:
@@ -72,12 +91,30 @@ def train(args):
         train_config.max_run_optimizer_steps = args.max_optimizer_steps
     if args.split_mode:
         train_config.split_mode = args.split_mode
+    if args.short_text_max_words is not None:
+        train_config.short_text_max_words = args.short_text_max_words
+    if args.short_text_oversample_factor is not None:
+        train_config.short_text_oversample_factor = args.short_text_oversample_factor
     if args.text_conditioning_mode:
         model_config.text_conditioning_mode = args.text_conditioning_mode
     if args.use_length_prefix:
         model_config.use_length_prefix = True
     if args.clip_trainable_layers is not None:
         model_config.clip_trainable_layers = args.clip_trainable_layers
+    if args.text_projection_mode:
+        model_config.text_projection_mode = args.text_projection_mode
+    if args.text_projection_hidden_mult is not None:
+        model_config.text_projection_hidden_mult = args.text_projection_hidden_mult
+    if args.disable_text_global_conditioning:
+        model_config.use_text_global_conditioning = False
+    if args.text_time_fusion_weight is not None:
+        model_config.text_time_fusion_weight = args.text_time_fusion_weight
+    if args.disable_text_feature_modulation:
+        model_config.use_text_feature_modulation = False
+    if args.text_feature_modulation_scale is not None:
+        model_config.text_feature_modulation_scale = args.text_feature_modulation_scale
+    if args.no_partial_load:
+        model_config.partial_load_on_resume = False
     if args.precision:
         train_config.precision = args.precision
     if args.checkpoint_dir:
@@ -96,6 +133,30 @@ def train(args):
         train_config.sample_guidance_scale = args.sample_guidance_scale
     if args.prefetch_factor is not None:
         train_config.dataloader_prefetch_factor = args.prefetch_factor
+    if args.motion_loss_weight is not None:
+        train_config.motion_loss_weight = args.motion_loss_weight
+    if args.motion_loss_start_timestep is not None:
+        train_config.motion_loss_start_timestep = args.motion_loss_start_timestep
+    if args.text_discrimination_loss_weight is not None:
+        train_config.text_discrimination_loss_weight = args.text_discrimination_loss_weight
+    if args.text_discrimination_margin is not None:
+        train_config.text_discrimination_margin = args.text_discrimination_margin
+    if args.text_discrimination_start_timestep is not None:
+        train_config.text_discrimination_start_timestep = args.text_discrimination_start_timestep
+    if args.text_presence_loss_weight is not None:
+        train_config.text_presence_loss_weight = args.text_presence_loss_weight
+    if args.text_presence_margin is not None:
+        train_config.text_presence_margin = args.text_presence_margin
+    if args.use_timestep_curriculum:
+        train_config.use_timestep_curriculum = True
+    if args.timestep_curriculum_start_frac is not None:
+        train_config.timestep_curriculum_start_frac = args.timestep_curriculum_start_frac
+    if args.timestep_curriculum_min is not None:
+        train_config.timestep_curriculum_min = args.timestep_curriculum_min
+    if args.timestep_curriculum_max is not None:
+        train_config.timestep_curriculum_max = args.timestep_curriculum_max
+    if args.timestep_curriculum_weight is not None:
+        train_config.timestep_curriculum_weight = args.timestep_curriculum_weight
     if args.no_amp:
         train_config.use_amp = False
         train_config.precision = "fp32"
@@ -126,6 +187,7 @@ def train(args):
     print(f"  Num frames: {model_config.num_frames}")
     print(f"  Model channels: {model_config.model_channels}")
     print(f"  Channel mult: {model_config.channel_mult}")
+    print(f"  Attention resolutions: {model_config.attention_resolutions}")
     print(f"  Batch size: {train_config.batch_size}")
     print(f"  Grad accumulation: {train_config.gradient_accumulation_steps}")
     print(f"  Effective batch size: {train_config.batch_size * train_config.gradient_accumulation_steps}")
@@ -143,8 +205,24 @@ def train(args):
     print(f"  Using CLIP text encoder: {model_config.use_clip_text_encoder}")
     print(f"  Conditioning mode: {model_config.text_conditioning_mode}")
     print(f"  Train/val split: {train_config.split_mode}")
+    print(f"  Short-text oversample max words: {train_config.short_text_max_words}")
+    print(f"  Short-text oversample factor: {train_config.short_text_oversample_factor}")
     print(f"  CLIP trainable layers: {model_config.clip_trainable_layers}")
+    print(f"  Text projection mode: {model_config.text_projection_mode}")
+    print(f"  Text global conditioning: {model_config.use_text_global_conditioning}")
+    print(f"  Text-time fusion weight: {model_config.text_time_fusion_weight}")
+    print(f"  Text feature modulation: {model_config.use_text_feature_modulation}")
+    print(f"  Text feature modulation scale: {model_config.text_feature_modulation_scale}")
     print(f"  Length prefix conditioning: {model_config.use_length_prefix}")
+    print(f"  Partial load on resume: {model_config.partial_load_on_resume}")
+    print(f"  Motion loss weight: {train_config.motion_loss_weight}")
+    print(f"  Motion loss start timestep: {train_config.motion_loss_start_timestep}")
+    print(f"  Text discrimination loss weight: {train_config.text_discrimination_loss_weight}")
+    print(f"  Text discrimination margin: {train_config.text_discrimination_margin}")
+    print(f"  Text discrimination start timestep: {train_config.text_discrimination_start_timestep}")
+    print(f"  Text presence loss weight: {train_config.text_presence_loss_weight}")
+    print(f"  Text presence margin: {train_config.text_presence_margin}")
+    print(f"  Timestep curriculum: {train_config.use_timestep_curriculum}")
     print(f"  Sample inference steps: {train_config.sample_inference_steps}")
     print(f"  Sample guidance scale: {train_config.sample_guidance_scale}")
     if args.model_size:
@@ -174,11 +252,20 @@ def train(args):
         print(f"\n{'='*60}")
         print("RESUMING TRAINING")
         print(f"{'='*60}")
-        trainer.load_checkpoint(args.resume, resume_training=True)
-        print(f"\nResuming from:")
+        trainer.load_checkpoint(args.resume, resume_training=not args.resume_weights_only)
+        if args.resume_weights_only:
+            print(f"\nInitialized fine-tuning from checkpoint weights:")
+            print(f"  Epoch: {trainer.epoch}")
+            print(f"  Global step: {trainer.global_step}")
+            print(f"  Best loss reset to: {trainer.best_loss}")
+        else:
+            print(f"\nResuming from:")
         print(f"  Epoch: {trainer.epoch}")
         print(f"  Global step: {trainer.global_step}")
-        print(f"  Best loss: {trainer.best_loss:.6f}")
+        if trainer.best_loss == float('inf'):
+            print(f"  Best loss: inf")
+        else:
+            print(f"  Best loss: {trainer.best_loss:.6f}")
         print(f"{'='*60}\n")
     
     # Start training
@@ -428,10 +515,12 @@ Examples:
     train_parser.add_argument("--model-channels", type=int, default=None,
                              help="Base model channels")
     train_parser.add_argument("--model-size", type=str, default=None,
-                             choices=["small", "base", "large"],
+                             choices=["small", "base", "semantic_v2", "large"],
                              help="Named model/training size preset")
     train_parser.add_argument("--num-heads", type=int, default=None,
                              help="Number of attention heads")
+    train_parser.add_argument("--attention-resolutions", type=str, default=None,
+                             help="Comma-separated downsample factors that receive attention, e.g. 4,8")
     train_parser.add_argument("--timesteps", type=int, default=None,
                              help="Number of diffusion timesteps")
     train_parser.add_argument("--beta-schedule", type=str, default=None,
@@ -452,13 +541,56 @@ Examples:
     train_parser.add_argument("--split-mode", type=str, default=None,
                              choices=["signer_disjoint", "random"],
                              help="Dataset split protocol")
+    train_parser.add_argument("--short-text-max-words", type=int, default=None,
+                             help="If set, oversample training prompts with <= this many words")
+    train_parser.add_argument("--short-text-oversample-factor", type=float, default=None,
+                             help="Sampling multiplier for short prompts when short-text oversampling is enabled")
     train_parser.add_argument("--text-conditioning-mode", type=str, default=None,
                              choices=["normal", "none", "random"],
                              help="Conditioning ablation mode")
     train_parser.add_argument("--clip-trainable-layers", type=int, default=None,
                              help="Unfreeze the last N CLIP encoder layers")
+    train_parser.add_argument("--text-projection-mode", type=str, default=None,
+                             choices=["identity", "linear", "mlp"],
+                             help="Projection applied to CLIP hidden states before cross-attention")
+    train_parser.add_argument("--text-projection-hidden-mult", type=int, default=None,
+                             help="Hidden multiplier for MLP text projection")
+    train_parser.add_argument("--disable-text-global-conditioning", action="store_true",
+                             help="Disable global pooled-text fusion into the timestep embedding")
+    train_parser.add_argument("--text-time-fusion-weight", type=float, default=None,
+                             help="Strength multiplier for global text-to-time fusion")
+    train_parser.add_argument("--disable-text-feature-modulation", action="store_true",
+                             help="Disable FiLM-style feature modulation from pooled text")
+    train_parser.add_argument("--text-feature-modulation-scale", type=float, default=None,
+                             help="Strength multiplier for pooled-text feature modulation")
     train_parser.add_argument("--use-length-prefix", action="store_true",
                              help="Prefix prompts with a discretized word-count token")
+    train_parser.add_argument("--motion-loss-weight", type=float, default=None,
+                             help="Auxiliary temporal-difference loss weight")
+    train_parser.add_argument("--motion-loss-start-timestep", type=int, default=None,
+                             help="Minimum timestep for applying motion regularization")
+    train_parser.add_argument("--text-discrimination-loss-weight", type=float, default=None,
+                             help="Margin-loss weight encouraging correct prompts to beat shuffled prompts")
+    train_parser.add_argument("--text-discrimination-margin", type=float, default=None,
+                             help="Margin for correct-vs-shuffled prompt loss")
+    train_parser.add_argument("--text-discrimination-start-timestep", type=int, default=None,
+                             help="Minimum timestep for applying prompt-discrimination loss")
+    train_parser.add_argument("--text-presence-loss-weight", type=float, default=None,
+                             help="Margin-loss weight encouraging text-conditioned predictions to beat null conditioning")
+    train_parser.add_argument("--text-presence-margin", type=float, default=None,
+                             help="Margin for correct-vs-null text-conditioning loss")
+    train_parser.add_argument("--use-timestep-curriculum", action="store_true",
+                             help="Upweight a timestep band after warmup")
+    train_parser.add_argument("--timestep-curriculum-start-frac", type=float, default=None,
+                             help="Training progress fraction to activate timestep curriculum")
+    train_parser.add_argument("--timestep-curriculum-min", type=int, default=None,
+                             help="Minimum timestep for curriculum upweighting")
+    train_parser.add_argument("--timestep-curriculum-max", type=int, default=None,
+                             help="Maximum timestep for curriculum upweighting")
+    train_parser.add_argument("--timestep-curriculum-weight", type=float, default=None,
+                             help="Multiplier applied inside the curriculum timestep band")
+    train_parser.add_argument("--no-partial-load", action="store_true",
+                             help="Disable shape-matched partial loading when resuming into a modified v2 model")
     train_parser.add_argument("--checkpoint-dir", type=str, default=None,
                              help="Directory to save checkpoints")
     train_parser.add_argument("--log-dir", type=str, default=None,
@@ -495,6 +627,8 @@ Examples:
                              help="Disable model gradient checkpointing")
     train_parser.add_argument("--resume", type=str, default=None,
                              help="Path to checkpoint to resume from")
+    train_parser.add_argument("--resume-weights-only", action="store_true",
+                             help="Load checkpoint model weights but reset optimizer, LR schedule, epoch, and best-loss tracking for a fresh fine-tune")
     train_parser.add_argument("--no-amp", action="store_true",
                              help="Disable mixed precision training")
     train_parser.add_argument("--cpu", action="store_true",

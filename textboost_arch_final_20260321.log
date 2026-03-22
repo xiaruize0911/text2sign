@@ -1,0 +1,154 @@
+============================================================
+Text-to-Sign Language DDIM Diffusion Model - Training
+============================================================
+Loaded base model/DDIM configs from resume checkpoint
+
+Configuration:
+  Data directory: /teamspace/studios/this_studio/text_to_sign/training_data
+  Image size: 64
+  Num frames: 16
+  Model channels: 128
+  Channel mult: (1, 2, 4)
+  Attention resolutions: (8, 16)
+  Batch size: 2
+  Grad accumulation: 1
+  Effective batch size: 2
+  Max optimizer steps this run: 2
+  Epochs: 1
+  Learning rate: 5e-05
+  Device: cuda
+  Mixed precision: True
+  Precision mode: auto
+  torch.compile: False
+  Compile mode: reduce-overhead
+  TF32: True
+  channels_last_3d: True
+  Gradient checkpointing: True
+  Using CLIP text encoder: True
+  Conditioning mode: normal
+  Train/val split: signer_disjoint
+  Short-text oversample max words: 5
+  Short-text oversample factor: 3.0
+  CLIP trainable layers: 0
+  Text projection mode: mlp
+  Text global conditioning: True
+  Text-time fusion weight: 1.5
+  Text feature modulation: True
+  Text feature modulation scale: 1.25
+  Length prefix conditioning: True
+  Partial load on resume: True
+  Motion loss weight: 0.0
+  Motion loss start timestep: 500
+  Text discrimination loss weight: 0.45
+  Text discrimination margin: 0.001
+  Text discrimination start timestep: 70
+  Text presence loss weight: 0.2
+  Text presence margin: 0.001
+  Timestep curriculum: True
+  Sample inference steps: 20
+  Sample guidance scale: 5.0
+  Timesteps: 100
+  Beta schedule: cosine
+
+Detected run name from checkpoint: text2sign_20260114_145727
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder (projection_mode=mlp)
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+⚙️ torch.compile disabled
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=2041, warmup_steps=204, steps_per_epoch=2041
+   ✅ Config saved to text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727/json/text2sign_20260114_145727_config.json
+📊 Metrics Logger initialized:
+   - Experiment: text2sign_20260114_145727
+   - Log dir: text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727
+   - CSV: text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727/csv
+   - JSON: text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727/json
+📝 Experiment 'text2sign_20260114_145727' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+
+============================================================
+RESUMING TRAINING
+============================================================
+Loading checkpoint from /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints_textfix_small_stage3/text2sign_20260114_145727/best_model.pt...
+  ⚠️ Flexible partial load for UNet: loaded 273/273 keys; skipped 0 incompatible keys
+  Loaded model weights (partial, strict)
+  Using fresh optimizer/scheduler progress for fine-tuning
+
+Initialized fine-tuning from checkpoint weights:
+  Epoch: 0
+  Global step: 0
+  Best loss reset to: inf
+  Epoch: 0
+  Global step: 0
+  Best loss: inf
+============================================================
+
+
+======================================================================
+🚀 Starting Training with Research-Grade Logging
+======================================================================
+Experiment: text2sign_20260114_145727
+Logs: text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727
+Checkpoints: text_to_sign/checkpoints_textboost_arch_final/text2sign_20260114_145727
+======================================================================
+
+Loaded 3683 training samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Enabled short-text oversampling: <= 5 words, factor=3.00, short_samples=423/3683
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Starting training for 1 epochs
+Training samples: 3683
+Validation samples: 399
+TensorBoard logs: text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727
+Checkpoints: text_to_sign/checkpoints_textboost_arch_final/text2sign_20260114_145727
+
+======================================================================
+📈 Epoch 1 started at 10:29:54
+======================================================================
+Epoch 1/1:   0%|          | 0/1841 [00:00<?, ?it/s]Epoch 1/1:   0%|          | 0/1841 [00:28<?, ?it/s, loss=0.0024, lr=2.95e-07, step=1]Epoch 1/1:   0%|          | 1/1841 [00:28<14:32:55, 28.46s/it, loss=0.0024, lr=2.95e-07, step=1]Epoch 1/1:   0%|          | 1/1841 [00:33<14:32:55, 28.46s/it, loss=0.0024, lr=5.40e-07, step=2]
+⏹️ Reached max_run_optimizer_steps=2; stopping this training invocation early.
+Epoch 1/1:   0%|          | 1/1841 [00:33<17:22:15, 33.99s/it, loss=0.0024, lr=5.40e-07, step=2]
+Validating:   0%|          | 0/200 [00:00<?, ?it/s]                                                   
+======================================================================
+📊 Epoch 1 Summary:
+======================================================================
+  Duration: 0.58 minutes
+  Total Runtime: 0.01 hours
+  train_loss_mean: 0.002366
+  train_loss_std: 0.000016
+  train_loss_min: 0.002351
+  train_loss_max: 0.002382
+  val_loss: 1.000000
+  learning_rate: 0.000001
+  grad_norm_avg: 0.052561
+  grad_norm_max: 0.077612
+  num_batches: 2
+  samples_processed: 4
+  ema_step_counter: 2
+======================================================================
+
+Epoch 1 - Train Loss: 0.0024, Val Loss: 1.0000
+✅ Atomically saved checkpoint to text_to_sign/checkpoints_textboost_arch_final/text2sign_20260114_145727/best_model.pt
+Saved best model (val_loss: 1.0000)
+✅ Atomically saved checkpoint to text_to_sign/checkpoints_textboost_arch_final/text2sign_20260114_145727/interrupted_checkpoint.pt
+
+======================================================================
+💾 Training Summary Saved:
+======================================================================
+  Total Duration: 0.02 hours
+  Total Steps: 2
+  Total Epochs: 1
+  Summary: text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727/json/text2sign_20260114_145727_summary.json
+  Steps CSV: text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727/csv/text2sign_20260114_145727_steps.csv
+  Epochs CSV: text_to_sign/logs_textboost_arch_final/text2sign_20260114_145727/csv/text2sign_20260114_145727_epochs.csv
+======================================================================
+
+
+======================================================================
+🎉 Training Shutdown Complete
+======================================================================
+Total training time: 0.02 hours
+======================================================================
+

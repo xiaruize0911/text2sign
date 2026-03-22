@@ -1,0 +1,165 @@
+============================================================
+Text-to-Sign Language DDIM Diffusion Model - Training
+============================================================
+
+Configuration:
+  Data directory: /teamspace/studios/this_studio/text_to_sign/training_data
+  Image size: 64
+  Num frames: 32
+  Model channels: 96
+  Channel mult: (1, 2, 4, 8)
+  Attention resolutions: (4, 8)
+  Batch size: 1
+  Grad accumulation: 16
+  Effective batch size: 16
+  Max optimizer steps this run: 32
+  Epochs: 2
+  Learning rate: 5e-06
+  Device: cuda
+  Mixed precision: True
+  Precision mode: auto
+  torch.compile: False
+  Compile mode: reduce-overhead
+  TF32: True
+  channels_last_3d: True
+  Gradient checkpointing: True
+  Using CLIP text encoder: True
+  Conditioning mode: normal
+  Train/val split: signer_disjoint
+  CLIP trainable layers: 0
+  Text projection mode: mlp
+  Length prefix conditioning: True
+  Partial load on resume: True
+  Motion loss weight: 0.1
+  Motion loss start timestep: 500
+  Timestep curriculum: True
+  Sample inference steps: 8
+  Sample guidance scale: 5.0
+  Model size preset: large
+  Model size detail: Higher-capacity preset for larger GPUs after the baseline is stable.
+  Timesteps: 1000
+  Beta schedule: cosine
+
+Detected run name from checkpoint: text2sign_20260319_015042
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder (projection_mode=mlp)
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+⚙️ torch.compile disabled
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=510, warmup_steps=51, steps_per_epoch=255
+   ✅ Config saved to text_to_sign/logs_v2_adapter/text2sign_20260319_015042/json/text2sign_20260319_015042_config.json
+📊 Metrics Logger initialized:
+   - Experiment: text2sign_20260319_015042
+   - Log dir: text_to_sign/logs_v2_adapter/text2sign_20260319_015042
+   - CSV: text_to_sign/logs_v2_adapter/text2sign_20260319_015042/csv
+   - JSON: text_to_sign/logs_v2_adapter/text2sign_20260319_015042/json
+📝 Experiment 'text2sign_20260319_015042' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+
+============================================================
+RESUMING TRAINING
+============================================================
+Loading checkpoint from /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt...
+  ⚠️ Flexible partial load for text encoder: loaded 196/196 keys; skipped 0 incompatible keys
+  Loaded model weights (strict, partial)
+  Using fresh optimizer/scheduler progress for fine-tuning
+
+Initialized fine-tuning from checkpoint weights:
+  Epoch: 0
+  Global step: 0
+  Best loss reset to: inf
+  Epoch: 0
+  Global step: 0
+  Best loss: inf
+============================================================
+
+
+======================================================================
+🚀 Starting Training with Research-Grade Logging
+======================================================================
+Experiment: text2sign_20260319_015042
+Logs: text_to_sign/logs_v2_adapter/text2sign_20260319_015042
+Checkpoints: text_to_sign/checkpoints_v2_adapter/text2sign_20260319_015042
+======================================================================
+
+Loaded 3683 training samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Starting training for 2 epochs
+Training samples: 3683
+Validation samples: 399
+TensorBoard logs: text_to_sign/logs_v2_adapter/text2sign_20260319_015042
+Checkpoints: text_to_sign/checkpoints_v2_adapter/text2sign_20260319_015042
+
+======================================================================
+📈 Epoch 1 started at 08:25:01
+======================================================================
+Epoch 1/2:   0%|          | 0/3683 [00:00<?, ?it/s]Epoch 1/2:   0%|          | 1/3683 [00:19<20:11:38, 19.74s/it]Epoch 1/2:   0%|          | 2/3683 [00:21<9:19:58,  9.13s/it] Epoch 1/2:   0%|          | 3/3683 [00:23<5:51:01,  5.72s/it]Epoch 1/2:   0%|          | 4/3683 [00:24<4:13:46,  4.14s/it]Epoch 1/2:   0%|          | 5/3683 [00:26<3:19:15,  3.25s/it]Epoch 1/2:   0%|          | 6/3683 [00:28<2:46:53,  2.72s/it]Epoch 1/2:   0%|          | 7/3683 [00:29<2:26:07,  2.38s/it]Epoch 1/2:   0%|          | 8/3683 [00:31<2:12:47,  2.17s/it]Epoch 1/2:   0%|          | 9/3683 [00:33<2:03:25,  2.02s/it]Epoch 1/2:   0%|          | 10/3683 [00:34<1:57:39,  1.92s/it]Epoch 1/2:   0%|          | 11/3683 [00:36<1:52:52,  1.84s/it]Epoch 1/2:   0%|          | 12/3683 [00:38<1:50:17,  1.80s/it]Epoch 1/2:   0%|          | 13/3683 [00:39<1:34:36,  1.55s/it]Epoch 1/2:   0%|          | 14/3683 [00:40<1:22:03,  1.34s/it]Epoch 1/2:   0%|          | 15/3683 [00:41<1:17:12,  1.26s/it]Epoch 1/2:   0%|          | 15/3683 [00:46<1:17:12,  1.26s/it, loss=0.0018, lr=1.03e-07, step=1]Epoch 1/2:   0%|          | 16/3683 [00:46<2:22:00,  2.32s/it, loss=0.0018, lr=1.03e-07, step=1]Epoch 1/2:   0%|          | 17/3683 [00:47<2:09:38,  2.12s/it, loss=0.0018, lr=1.03e-07, step=1]Epoch 1/2:   0%|          | 17/3683 [00:48<2:53:14,  2.84s/it, loss=0.0018, lr=1.03e-07, step=1]
+❌ Training crashed with error: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 21.96 GiB of which 6.00 MiB is free. Process 274149 has 12.43 GiB memory in use. Process 292209 has 9.52 GiB memory in use. Of the allocated memory 9.21 GiB is allocated by PyTorch, and 53.95 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Traceback (most recent call last):
+  File "/teamspace/studios/this_studio/text_to_sign/trainer.py", line 996, in train
+    metrics = self.train_step(batch, accumulate_only=is_accumulating)
+  File "/teamspace/studios/this_studio/text_to_sign/trainer.py", line 454, in train_step
+    noise_pred = self.model(noisy_video, timesteps, text_embeddings)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 950, in forward
+    h = checkpoint(self._checkpoint_forward, layer, h, t_emb, context, use_reentrant=False)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_compile.py", line 24, in inner
+    return torch._dynamo.disable(fn, recursive)(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 489, in _fn
+    return fn(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/_dynamo/external_utils.py", line 17, in inner
+    return fn(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 489, in checkpoint
+    ret = function(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 882, in _checkpoint_forward
+    return layer(h, context, t_emb)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 688, in forward
+    x = self.spatial_attn(x)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 213, in forward
+    x_norm = self.norm(x_flat.view(b * t, c, h, w)).view(b * t, c, h * w)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/teamspace/studios/this_studio/text_to_sign/models/unet3d.py", line 72, in forward
+    return super().forward(x.float()).type(x.dtype)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/normalization.py", line 287, in forward
+    return F.group_norm(
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/functional.py", line 2561, in group_norm
+    return torch.group_norm(input, num_groups, weight, bias, eps, torch.backends.cudnn.enabled)
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 21.96 GiB of which 6.00 MiB is free. Process 274149 has 12.43 GiB memory in use. Process 292209 has 9.52 GiB memory in use. Of the allocated memory 9.21 GiB is allocated by PyTorch, and 53.95 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+✅ Atomically saved checkpoint to text_to_sign/checkpoints_v2_adapter/text2sign_20260319_015042/emergency_checkpoint.pt
+✅ Atomically saved checkpoint to text_to_sign/checkpoints_v2_adapter/text2sign_20260319_015042/final_model.pt
+
+======================================================================
+💾 Training Summary Saved:
+======================================================================
+  Total Duration: 0.03 hours
+  Total Steps: 1
+  Total Epochs: 0
+  Summary: text_to_sign/logs_v2_adapter/text2sign_20260319_015042/json/text2sign_20260319_015042_summary.json
+  Steps CSV: text_to_sign/logs_v2_adapter/text2sign_20260319_015042/csv/text2sign_20260319_015042_steps.csv
+  Epochs CSV: text_to_sign/logs_v2_adapter/text2sign_20260319_015042/csv/text2sign_20260319_015042_epochs.csv
+======================================================================
+
+
+======================================================================
+🎉 Training Shutdown Complete
+======================================================================
+Total training time: 0.03 hours
+======================================================================
+

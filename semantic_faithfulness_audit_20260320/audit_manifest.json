@@ -1,0 +1,308 @@
+{
+  "checkpoint_path": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt",
+  "output_dir": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320",
+  "selection": {
+    "max_samples": 8,
+    "filters": {
+      "max_word_count": 5,
+      "exclude_colon_prompts": true,
+      "unique_prompts": true
+    }
+  },
+  "generation": {
+    "modes": [
+      "real",
+      "normal",
+      "none",
+      "random"
+    ],
+    "batch_size": 4,
+    "num_inference_steps": 8,
+    "guidance_scale": 5.0,
+    "seed": 1234
+  },
+  "samples": [
+    {
+      "sample_id": "sample_00",
+      "reference": "Good.",
+      "gif_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_12-1-rgb_front.gif",
+      "txt_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_12-1-rgb_front.txt",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_01",
+      "reference": "That's good.",
+      "gif_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_15-1-rgb_front.gif",
+      "txt_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_15-1-rgb_front.txt",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_02",
+      "reference": "Good work, Jonesy.",
+      "gif_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_16-1-rgb_front.gif",
+      "txt_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_16-1-rgb_front.txt",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_03",
+      "reference": "It's not segmented.",
+      "gif_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_20-1-rgb_front.gif",
+      "txt_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_20-1-rgb_front.txt",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_04",
+      "reference": "It's one smooth movement.",
+      "gif_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_22-1-rgb_front.gif",
+      "txt_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_22-1-rgb_front.txt",
+      "word_count": 4
+    },
+    {
+      "sample_id": "sample_05",
+      "reference": "Try it.",
+      "gif_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_23-1-rgb_front.gif",
+      "txt_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_23-1-rgb_front.txt",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_06",
+      "reference": "Okay.",
+      "gif_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_4-1-rgb_front.gif",
+      "txt_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_4-1-rgb_front.txt",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_07",
+      "reference": "It's not segmented like that.",
+      "gif_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_9-1-rgb_front.gif",
+      "txt_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_9-1-rgb_front.txt",
+      "word_count": 5
+    }
+  ],
+  "records": [
+    {
+      "sample_id": "sample_00",
+      "mode": "real",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_12-1-rgb_front.gif",
+      "reference": "Good.",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_01",
+      "mode": "real",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_15-1-rgb_front.gif",
+      "reference": "That's good.",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_02",
+      "mode": "real",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_16-1-rgb_front.gif",
+      "reference": "Good work, Jonesy.",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_03",
+      "mode": "real",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_20-1-rgb_front.gif",
+      "reference": "It's not segmented.",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_04",
+      "mode": "real",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_22-1-rgb_front.gif",
+      "reference": "It's one smooth movement.",
+      "word_count": 4
+    },
+    {
+      "sample_id": "sample_05",
+      "mode": "real",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_23-1-rgb_front.gif",
+      "reference": "Try it.",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_06",
+      "mode": "real",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_4-1-rgb_front.gif",
+      "reference": "Okay.",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_07",
+      "mode": "real",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/training_data/0oGfy530AuI_9-1-rgb_front.gif",
+      "reference": "It's not segmented like that.",
+      "word_count": 5
+    },
+    {
+      "sample_id": "sample_00",
+      "mode": "normal",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/normal/sample_00.mp4",
+      "reference": "Good.",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_01",
+      "mode": "normal",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/normal/sample_01.mp4",
+      "reference": "That's good.",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_02",
+      "mode": "normal",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/normal/sample_02.mp4",
+      "reference": "Good work, Jonesy.",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_03",
+      "mode": "normal",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/normal/sample_03.mp4",
+      "reference": "It's not segmented.",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_04",
+      "mode": "normal",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/normal/sample_04.mp4",
+      "reference": "It's one smooth movement.",
+      "word_count": 4
+    },
+    {
+      "sample_id": "sample_05",
+      "mode": "normal",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/normal/sample_05.mp4",
+      "reference": "Try it.",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_06",
+      "mode": "normal",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/normal/sample_06.mp4",
+      "reference": "Okay.",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_07",
+      "mode": "normal",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/normal/sample_07.mp4",
+      "reference": "It's not segmented like that.",
+      "word_count": 5
+    },
+    {
+      "sample_id": "sample_00",
+      "mode": "none",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/none/sample_00.mp4",
+      "reference": "Good.",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_01",
+      "mode": "none",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/none/sample_01.mp4",
+      "reference": "That's good.",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_02",
+      "mode": "none",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/none/sample_02.mp4",
+      "reference": "Good work, Jonesy.",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_03",
+      "mode": "none",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/none/sample_03.mp4",
+      "reference": "It's not segmented.",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_04",
+      "mode": "none",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/none/sample_04.mp4",
+      "reference": "It's one smooth movement.",
+      "word_count": 4
+    },
+    {
+      "sample_id": "sample_05",
+      "mode": "none",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/none/sample_05.mp4",
+      "reference": "Try it.",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_06",
+      "mode": "none",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/none/sample_06.mp4",
+      "reference": "Okay.",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_07",
+      "mode": "none",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/none/sample_07.mp4",
+      "reference": "It's not segmented like that.",
+      "word_count": 5
+    },
+    {
+      "sample_id": "sample_00",
+      "mode": "random",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/random/sample_00.mp4",
+      "reference": "Good.",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_01",
+      "mode": "random",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/random/sample_01.mp4",
+      "reference": "That's good.",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_02",
+      "mode": "random",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/random/sample_02.mp4",
+      "reference": "Good work, Jonesy.",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_03",
+      "mode": "random",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/random/sample_03.mp4",
+      "reference": "It's not segmented.",
+      "word_count": 3
+    },
+    {
+      "sample_id": "sample_04",
+      "mode": "random",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/random/sample_04.mp4",
+      "reference": "It's one smooth movement.",
+      "word_count": 4
+    },
+    {
+      "sample_id": "sample_05",
+      "mode": "random",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/random/sample_05.mp4",
+      "reference": "Try it.",
+      "word_count": 2
+    },
+    {
+      "sample_id": "sample_06",
+      "mode": "random",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/random/sample_06.mp4",
+      "reference": "Okay.",
+      "word_count": 1
+    },
+    {
+      "sample_id": "sample_07",
+      "mode": "random",
+      "video_path": "/teamspace/studios/this_studio/text_to_sign/semantic_faithfulness_audit_20260320/random/sample_07.mp4",
+      "reference": "It's not segmented like that.",
+      "word_count": 5
+    }
+  ]
+}

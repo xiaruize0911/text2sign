@@ -1,0 +1,473 @@
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+⚙️ torch.compile disabled
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=7620, warmup_steps=500, steps_per_epoch=127
+   ✅ Config saved to text_to_sign/logs/conditional_loss_audit/json/conditional_loss_audit_config.json
+📊 Metrics Logger initialized:
+   - Experiment: conditional_loss_audit
+   - Log dir: text_to_sign/logs/conditional_loss_audit
+   - CSV: text_to_sign/logs/conditional_loss_audit/csv
+   - JSON: text_to_sign/logs/conditional_loss_audit/json
+📝 Experiment 'conditional_loss_audit' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+Loading checkpoint from /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt...
+  Loaded model weights
+  Loaded optimizer state
+  Loaded LR scheduler state
+  ✅ Loaded EMA state
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Conditional loss audit:   0%|          | 0/8 [00:00<?, ?it/s]Conditional loss audit:  12%|█▎        | 1/8 [00:18<02:07, 18.16s/it]Conditional loss audit:  25%|██▌       | 2/8 [00:30<01:27, 14.55s/it]Conditional loss audit:  38%|███▊      | 3/8 [00:42<01:07, 13.42s/it]Conditional loss audit:  50%|█████     | 4/8 [00:54<00:51, 12.85s/it]Conditional loss audit:  62%|██████▎   | 5/8 [01:06<00:37, 12.52s/it]Conditional loss audit:  75%|███████▌  | 6/8 [01:18<00:24, 12.31s/it]Conditional loss audit:  88%|████████▊ | 7/8 [01:29<00:12, 12.17s/it]Conditional loss audit:  88%|████████▊ | 7/8 [01:41<00:14, 14.55s/it]
+Saved conditional-loss audit to /teamspace/studios/this_studio/text_to_sign/conditional_loss_audit_20260321/high_t_short_32.json
+{
+  "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt",
+  "num_samples": 32,
+  "batch_size": 4,
+  "repeats": 2,
+  "selection": {
+    "max_word_count": 5,
+    "unique_prompts": true,
+    "diverse_batches": false,
+    "min_timestep": 700,
+    "max_timestep": 1000
+  },
+  "device": "cuda",
+  "normal_loss": {
+    "mean": 0.9876613561064005,
+    "ci95_low": 0.9864727521780878,
+    "ci95_high": 0.9889488871674985
+  },
+  "none_loss": {
+    "mean": 0.9891609735786915,
+    "ci95_low": 0.988030815962702,
+    "ci95_high": 0.9904497162438929
+  },
+  "random_loss": {
+    "mean": 0.9877186343073845,
+    "ci95_low": 0.9864455624483526,
+    "ci95_high": 0.9890240785200148
+  },
+  "none_minus_normal": {
+    "mean": 0.0014996174722909927,
+    "ci95_low": 0.0013353681191802026,
+    "ci95_high": 0.0016619666013866663
+  },
+  "random_minus_normal": {
+    "mean": 5.727820098400116e-05,
+    "ci95_low": -0.00018074414692819117,
+    "ci95_high": 0.00029651741497218584
+  },
+  "prompt_ranking": {
+    "top1_accuracy": {
+      "mean": 0.28125,
+      "ci95_low": 0.125,
+      "ci95_high": 0.4375
+    },
+    "top3_accuracy": {
+      "mean": 0.78125,
+      "ci95_low": 0.625,
+      "ci95_high": 0.90625
+    },
+    "mean_correct_rank": {
+      "mean": 2.4375,
+      "ci95_low": 2.0625,
+      "ci95_high": 2.84375
+    },
+    "mean_best_wrong_minus_correct": {
+      "mean": -0.00041716359555721283,
+      "ci95_low": -0.0006559086963534355,
+      "ci95_high": -0.00015617460012435936
+    },
+    "chance_top1": 0.25
+  },
+  "records": [
+    {
+      "batch_index": 0,
+      "sample_index": 0,
+      "text": "MICHAEL ROSENGART: Thrusters.",
+      "normal_loss": 0.9836727976799011,
+      "none_loss": 0.9857214689254761,
+      "random_loss": 0.9841790795326233,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.00039136409759521484
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 1,
+      "text": "Good.",
+      "normal_loss": 0.9881969690322876,
+      "none_loss": 0.990027666091919,
+      "random_loss": 0.9883260130882263,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.000470578670501709
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 2,
+      "text": "That's good.",
+      "normal_loss": 0.9877150654792786,
+      "none_loss": 0.9896767139434814,
+      "random_loss": 0.9878923892974854,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0001773238182067871
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 3,
+      "text": "Good work, Jonesy.",
+      "normal_loss": 0.9868893623352051,
+      "none_loss": 0.988369345664978,
+      "random_loss": 0.9867491722106934,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.00032198429107666016
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 0,
+      "text": "It's not segmented.",
+      "normal_loss": 0.9877532720565796,
+      "none_loss": 0.9891574382781982,
+      "random_loss": 0.9880719780921936,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.00040328502655029297
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 1,
+      "text": "It's one smooth movement.",
+      "normal_loss": 0.9844514727592468,
+      "none_loss": 0.9864373207092285,
+      "random_loss": 0.9846820831298828,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.00010699033737182617
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 2,
+      "text": "Try it.",
+      "normal_loss": 0.99415123462677,
+      "none_loss": 0.9959803819656372,
+      "random_loss": 0.9940868616104126,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -6.437301635742188e-05
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 3,
+      "text": "Okay.",
+      "normal_loss": 0.9858649969100952,
+      "none_loss": 0.9872407913208008,
+      "random_loss": 0.985395610332489,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0007645487785339355
+    },
+    {
+      "batch_index": 2,
+      "sample_index": 0,
+      "text": "It's not segmented like that.",
+      "normal_loss": 0.9878916144371033,
+      "none_loss": 0.9889746904373169,
+      "random_loss": 0.9868960380554199,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0009955763816833496
+    },
+    {
+      "batch_index": 2,
+      "sample_index": 1,
+      "text": "I really like that.",
+      "normal_loss": 0.9855202436447144,
+      "none_loss": 0.9870727062225342,
+      "random_loss": 0.9860495924949646,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.00041496753692626953
+    },
+    {
+      "batch_index": 2,
+      "sample_index": 2,
+      "text": "Click on your office button.",
+      "normal_loss": 0.9870100021362305,
+      "none_loss": 0.9885677099227905,
+      "random_loss": 0.9878325462341309,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0004506111145019531
+    },
+    {
+      "batch_index": 2,
+      "sample_index": 3,
+      "text": "Go to save as.",
+      "normal_loss": 0.9897215366363525,
+      "none_loss": 0.9908382296562195,
+      "random_loss": 0.9894092082977295,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0010983943939208984
+    },
+    {
+      "batch_index": 3,
+      "sample_index": 0,
+      "text": "Let's open Access.",
+      "normal_loss": 0.9873940944671631,
+      "none_loss": 0.9894184470176697,
+      "random_loss": 0.9880903959274292,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.00034677982330322266
+    },
+    {
+      "batch_index": 3,
+      "sample_index": 1,
+      "text": "Here's our new database.",
+      "normal_loss": 0.9853414297103882,
+      "none_loss": 0.9872199296951294,
+      "random_loss": 0.9854048490524292,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0001882314682006836
+    },
+    {
+      "batch_index": 3,
+      "sample_index": 2,
+      "text": "Press F11.",
+      "normal_loss": 0.9869451522827148,
+      "none_loss": 0.988564133644104,
+      "random_loss": 0.9869029521942139,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.00037384033203125
+    },
+    {
+      "batch_index": 3,
+      "sample_index": 3,
+      "text": "Go to the top.",
+      "normal_loss": 0.9914888143539429,
+      "none_loss": 0.9925076961517334,
+      "random_loss": 0.9908121824264526,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0009006857872009277
+    },
+    {
+      "batch_index": 4,
+      "sample_index": 0,
+      "text": "Say insert.",
+      "normal_loss": 0.9797488451004028,
+      "none_loss": 0.9824488162994385,
+      "random_loss": 0.9809445142745972,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0009032487869262695
+    },
+    {
+      "batch_index": 4,
+      "sample_index": 1,
+      "text": "We're going to say module.",
+      "normal_loss": 0.9888896346092224,
+      "none_loss": 0.9906566143035889,
+      "random_loss": 0.9889830350875854,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0006478428840637207
+    },
+    {
+      "batch_index": 4,
+      "sample_index": 2,
+      "text": "That's what it's all about.",
+      "normal_loss": 0.9873813986778259,
+      "none_loss": 0.9892113208770752,
+      "random_loss": 0.987048864364624,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0007980465888977051
+    },
+    {
+      "batch_index": 4,
+      "sample_index": 3,
+      "text": "This is Dr. Paul.",
+      "normal_loss": 0.9828460812568665,
+      "none_loss": 0.9839193820953369,
+      "random_loss": 0.9819493293762207,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0014173388481140137
+    },
+    {
+      "batch_index": 5,
+      "sample_index": 0,
+      "text": "It's a vicious cycle.",
+      "normal_loss": 0.9885259866714478,
+      "none_loss": 0.9895338416099548,
+      "random_loss": 0.9887111186981201,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0013512969017028809
+    },
+    {
+      "batch_index": 5,
+      "sample_index": 1,
+      "text": "RICHARD BUCCOLA: Hi.",
+      "normal_loss": 0.9872297048568726,
+      "none_loss": 0.9884860515594482,
+      "random_loss": 0.9868496060371399,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0011252164840698242
+    },
+    {
+      "batch_index": 5,
+      "sample_index": 2,
+      "text": "So come on back.",
+      "normal_loss": 0.9909074306488037,
+      "none_loss": 0.9918972253799438,
+      "random_loss": 0.9903493523597717,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0012578964233398438
+    },
+    {
+      "batch_index": 5,
+      "sample_index": 3,
+      "text": "It also is leather hard.",
+      "normal_loss": 0.9980751872062683,
+      "none_loss": 0.999968409538269,
+      "random_loss": 0.9997832775115967,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0012152791023254395
+    },
+    {
+      "batch_index": 6,
+      "sample_index": 0,
+      "text": "And next, we'll trim it.",
+      "normal_loss": 0.9919160008430481,
+      "none_loss": 0.9938585758209229,
+      "random_loss": 0.9932348132133484,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0005685687065124512
+    },
+    {
+      "batch_index": 6,
+      "sample_index": 1,
+      "text": "Looks Russian to me.",
+      "normal_loss": 0.9938724040985107,
+      "none_loss": 0.9945409297943115,
+      "random_loss": 0.9925369620323181,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0015918612480163574
+    },
+    {
+      "batch_index": 6,
+      "sample_index": 2,
+      "text": "She thanked me.",
+      "normal_loss": 0.9868757724761963,
+      "none_loss": 0.9884608387947083,
+      "random_loss": 0.9872016906738281,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0005301237106323242
+    },
+    {
+      "batch_index": 6,
+      "sample_index": 3,
+      "text": "That was my first job.",
+      "normal_loss": 0.9822514653205872,
+      "none_loss": 0.9834129810333252,
+      "random_loss": 0.9817774295806885,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0007233619689941406
+    },
+    {
+      "batch_index": 7,
+      "sample_index": 0,
+      "text": "Put your jewelry in there.",
+      "normal_loss": 0.9843606352806091,
+      "none_loss": 0.9855774641036987,
+      "random_loss": 0.9842401742935181,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.00012046098709106445
+    },
+    {
+      "batch_index": 7,
+      "sample_index": 1,
+      "text": "I like this one.",
+      "normal_loss": 0.9865716695785522,
+      "none_loss": 0.9884916543960571,
+      "random_loss": 0.9870851039886475,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.00016313791275024414
+    },
+    {
+      "batch_index": 7,
+      "sample_index": 2,
+      "text": "And just pull it through.",
+      "normal_loss": 0.9893180131912231,
+      "none_loss": 0.989638090133667,
+      "random_loss": 0.9881451725959778,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0016100406646728516
+    },
+    {
+      "batch_index": 7,
+      "sample_index": 3,
+      "text": "And you have a coil.",
+      "normal_loss": 0.9863851070404053,
+      "none_loss": 0.9872742891311646,
+      "random_loss": 0.9873749017715454,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0005025863647460938
+    }
+  ]
+}

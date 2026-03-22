@@ -19,6 +19,22 @@ from schedulers import DDIMScheduler
 from dataset import SimpleTokenizer
 
 
+def load_state_dict_flexible(module: nn.Module, state_dict: dict, label: str) -> None:
+    try:
+        module.load_state_dict(state_dict)
+    except RuntimeError:
+        current = module.state_dict()
+        compatible = {
+            key: value
+            for key, value in state_dict.items()
+            if key in current and current[key].shape == value.shape
+        }
+        module.load_state_dict(compatible, strict=False)
+        print(
+            f"  ⚠️ Flexible partial load for {label}: loaded {len(compatible)}/{len(state_dict)} compatible keys"
+        )
+
+
 class Text2SignPipeline:
     """
     End-to-end pipeline for text-to-sign language GIF generation
@@ -162,8 +178,12 @@ class Text2SignPipeline:
         )
         
         # Load weights
-        model.load_state_dict(checkpoint["model_state_dict"])
-        text_encoder.load_state_dict(checkpoint["text_encoder_state_dict"])
+        if getattr(model_config, "partial_load_on_resume", True):
+            load_state_dict_flexible(model, checkpoint["model_state_dict"], "UNet")
+            load_state_dict_flexible(text_encoder, checkpoint["text_encoder_state_dict"], "text encoder")
+        else:
+            model.load_state_dict(checkpoint["model_state_dict"])
+            text_encoder.load_state_dict(checkpoint["text_encoder_state_dict"])
         
         return cls(
             model=model,

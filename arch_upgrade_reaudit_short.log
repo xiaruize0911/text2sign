@@ -1,0 +1,27 @@
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder (projection_mode=mlp)
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+Traceback (most recent call last):
+  File "/teamspace/studios/this_studio/text_to_sign/conditional_loss_audit.py", line 341, in <module>
+    main()
+  File "/teamspace/studios/this_studio/text_to_sign/conditional_loss_audit.py", line 145, in main
+    trainer = create_trainer(model_config, train_config, ddim_config, run_name="conditional_loss_audit")
+  File "/teamspace/studios/this_studio/text_to_sign/trainer.py", line 1280, in create_trainer
+    return Trainer(
+  File "/teamspace/studios/this_studio/text_to_sign/trainer.py", line 126, in __init__
+    self.base_model = self.base_model.to(self.device)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  [Previous line repeated 2 more times]
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 21.96 GiB of which 15.75 MiB is free. Process 481845 has 7.98 GiB memory in use. Process 491943 has 7.60 GiB memory in use. Process 536800 has 6.13 GiB memory in use. Process 540256 has 228.00 MiB memory in use. Of the allocated memory 30.76 MiB is allocated by PyTorch, and 13.24 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

@@ -16,6 +16,15 @@ import torch.nn.functional as F
 from einops import rearrange, repeat
 
 
+def pool_text_context(context: torch.Tensor) -> torch.Tensor:
+    """Pool token-level text context into a robust global representation."""
+    if context.dim() != 3:
+        raise ValueError(f"Expected context to have shape (B, N, D), got {tuple(context.shape)}")
+    cls_token = context[:, 0]
+    mean_token = context.mean(dim=1)
+    return torch.cat([cls_token, mean_token], dim=-1)
+
+
 def get_timestep_embedding(timesteps: torch.Tensor, embedding_dim: int) -> torch.Tensor:
     """
     Create sinusoidal timestep embeddings.
@@ -644,10 +653,19 @@ class TransformerBlock3D(nn.Module):
         num_heads: int = 8,
         transformer_depth: int = 1,
         use_spatio_temporal: bool = True,
+        use_text_feature_modulation: bool = True,
+        text_feature_modulation_scale: float = 1.0,
     ):
         super().__init__()
         
         self.use_spatio_temporal = use_spatio_temporal
+        self.use_text_feature_modulation = use_text_feature_modulation
+        self.text_feature_modulation_scale = text_feature_modulation_scale
+
+        if self.use_text_feature_modulation:
+            pooled_dim = context_dim * 2
+            self.text_mod_norm = nn.LayerNorm(pooled_dim)
+            self.text_mod_proj = nn.Linear(pooled_dim, channels * 2)
         
         if use_spatio_temporal:
             # Use the new SpatioTemporalTransformer
@@ -682,6 +700,15 @@ class TransformerBlock3D(nn.Module):
         context: torch.Tensor,
         t_emb: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        if self.use_text_feature_modulation and context is not None:
+            text_global = pool_text_context(context)
+            text_global = self.text_mod_norm(text_global)
+            scale_shift = self.text_mod_proj(text_global)
+            scale, shift = scale_shift.chunk(2, dim=-1)
+            scale = torch.tanh(scale) * self.text_feature_modulation_scale
+            shift = shift * self.text_feature_modulation_scale
+            x = x * (1 + scale[:, :, None, None, None]) + shift[:, :, None, None, None]
+
         if self.use_spatio_temporal and t_emb is not None:
             x = self.transformer(x, t_emb, context)
         else:
@@ -757,6 +784,10 @@ class UNet3D(nn.Module):
         transformer_depth: int = 1,  # Depth of transformer blocks
         use_gradient_checkpointing: bool = False,  # Enable gradient checkpointing for memory
         num_frames: int = 16,  # Number of frames for temporal positional encoding
+        use_text_global_conditioning: bool = True,  # Fuse global text into timestep embedding
+        text_time_fusion_weight: float = 1.0,  # Strength of global text -> timestep fusion
+        use_text_feature_modulation: bool = True,  # FiLM-style feature modulation from pooled text
+        text_feature_modulation_scale: float = 1.0,  # Strength of feature modulation
     ):
         super().__init__()
         
@@ -770,6 +801,10 @@ class UNet3D(nn.Module):
         self.use_transformer = use_transformer
         self.use_gradient_checkpointing = use_gradient_checkpointing
         self.num_frames = num_frames
+        self.use_text_global_conditioning = use_text_global_conditioning
+        self.text_time_fusion_weight = text_time_fusion_weight
+        self.use_text_feature_modulation = use_text_feature_modulation
+        self.text_feature_modulation_scale = text_feature_modulation_scale
         
         time_embed_dim = model_channels * 4
         self.time_embed_dim = time_embed_dim
@@ -780,6 +815,15 @@ class UNet3D(nn.Module):
             nn.SiLU(),
             nn.Linear(time_embed_dim, time_embed_dim),
         )
+
+        if self.use_text_global_conditioning:
+            pooled_dim = context_dim * 2
+            self.text_time_proj = nn.Sequential(
+                nn.LayerNorm(pooled_dim),
+                nn.Linear(pooled_dim, time_embed_dim),
+                nn.SiLU(),
+                nn.Linear(time_embed_dim, time_embed_dim),
+            )
         
         # Temporal positional embedding (frame position in sequence)
         # This is critical for temporal consistency!
@@ -813,6 +857,8 @@ class UNet3D(nn.Module):
                             num_heads=num_heads,
                             transformer_depth=transformer_depth,
                             use_spatio_temporal=use_transformer,
+                            use_text_feature_modulation=use_text_feature_modulation,
+                            text_feature_modulation_scale=text_feature_modulation_scale,
                         )
                     )
                 
@@ -834,6 +880,8 @@ class UNet3D(nn.Module):
                 num_heads=num_heads,
                 transformer_depth=transformer_depth,
                 use_spatio_temporal=use_transformer,
+                use_text_feature_modulation=use_text_feature_modulation,
+                text_feature_modulation_scale=text_feature_modulation_scale,
             ),
             ResBlock3D(ch, ch, time_embed_dim, dropout),
         ])
@@ -858,6 +906,8 @@ class UNet3D(nn.Module):
                             num_heads=num_heads,
                             transformer_depth=transformer_depth,
                             use_spatio_temporal=use_transformer,
+                            use_text_feature_modulation=use_text_feature_modulation,
+                            text_feature_modulation_scale=text_feature_modulation_scale,
                         )
                     )
                 
@@ -904,6 +954,12 @@ class UNet3D(nn.Module):
         # Diffusion timestep embedding (noise level)
         t_emb = get_timestep_embedding(timesteps, self.model_channels)
         t_emb = self.time_embed(t_emb)
+
+        # Global text -> timestep fusion to increase conditioning signal strength.
+        if self.use_text_global_conditioning and context is not None:
+            text_global = pool_text_context(context)
+            text_time = self.text_time_proj(text_global)
+            t_emb = t_emb + self.text_time_fusion_weight * text_time
         
         # Add temporal positional encoding for frame position awareness
         # This ensures the model knows which frame is which in the sequence
@@ -969,6 +1025,10 @@ def create_unet(config) -> UNet3D:
         transformer_depth=getattr(config, 'transformer_depth', 1),
         use_gradient_checkpointing=getattr(config, 'use_gradient_checkpointing', False),
         num_frames=getattr(config, 'num_frames', 16),  # Add num_frames for temporal pos encoding
+        use_text_global_conditioning=getattr(config, 'use_text_global_conditioning', True),
+        text_time_fusion_weight=getattr(config, 'text_time_fusion_weight', 1.0),
+        use_text_feature_modulation=getattr(config, 'use_text_feature_modulation', True),
+        text_feature_modulation_scale=getattr(config, 'text_feature_modulation_scale', 1.0),
     )
 
 

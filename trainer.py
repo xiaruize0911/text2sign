@@ -38,6 +38,50 @@ from utils.metrics_logger import MetricsLogger, ExperimentTracker
 from torchvision.utils import make_grid
 
 
+def _sample_derangement(size: int, device: torch.device) -> torch.Tensor:
+    """Return a permutation with no fixed points when possible."""
+    if size <= 1:
+        return torch.arange(size, device=device)
+    base = torch.arange(size, device=device)
+    perm = torch.randperm(size, device=device)
+    while torch.any(perm == base):
+        perm = torch.randperm(size, device=device)
+    return perm
+
+
+def load_state_dict_flexible(module: nn.Module, state_dict: Dict[str, torch.Tensor], label: str) -> Dict[str, object]:
+    """Load a state dict, falling back to shape-matched partial loading when needed."""
+    try:
+        result = module.load_state_dict(state_dict)
+        return {
+            "mode": "strict",
+            "missing_keys": list(result.missing_keys),
+            "unexpected_keys": list(result.unexpected_keys),
+            "loaded_keys": len(state_dict),
+        }
+    except RuntimeError as exc:
+        module_state = module.state_dict()
+        compatible = {
+            key: value
+            for key, value in state_dict.items()
+            if key in module_state and module_state[key].shape == value.shape
+        }
+        skipped = sorted(set(state_dict.keys()) - set(compatible.keys()))
+        result = module.load_state_dict(compatible, strict=False)
+        print(
+            f"  ⚠️ Flexible partial load for {label}: loaded {len(compatible)}/{len(state_dict)} keys; "
+            f"skipped {len(skipped)} incompatible keys"
+        )
+        return {
+            "mode": "partial",
+            "missing_keys": list(result.missing_keys),
+            "unexpected_keys": list(result.unexpected_keys),
+            "loaded_keys": len(compatible),
+            "skipped_keys": skipped,
+            "error": str(exc),
+        }
+
+
 class Trainer:
     """Trainer for text-to-sign language diffusion model"""
     
@@ -195,6 +239,25 @@ class Trainer:
         self.epoch = 0
         self.best_loss = float('inf')
         self._interrupted = False
+
+    def _apply_timestep_curriculum(self, weights: torch.Tensor, timesteps: torch.Tensor) -> torch.Tensor:
+        """Optionally upweight a chosen timestep band after warmup progress."""
+        if not getattr(self.train_config, "use_timestep_curriculum", False):
+            return weights
+
+        total_steps = max(1, self.train_config.num_epochs)
+        progress = self.epoch / total_steps
+        if progress < getattr(self.train_config, "timestep_curriculum_start_frac", 0.1):
+            return weights
+
+        t_min = getattr(self.train_config, "timestep_curriculum_min", 300)
+        t_max = getattr(self.train_config, "timestep_curriculum_max", 700)
+        band_weight = getattr(self.train_config, "timestep_curriculum_weight", 1.5)
+        band_mask = (timesteps >= t_min) & (timesteps < t_max)
+        if band_mask.any():
+            weights = weights.clone()
+            weights[band_mask] = weights[band_mask] * band_weight
+        return weights
 
     def _configure_backend_flags(self):
         """Enable backend-level training accelerators when available."""
@@ -416,9 +479,56 @@ class Trainer:
             # Also clamp SNR to avoid extreme values that might explode weights
             snr = torch.clamp(snr, min=1e-7, max=1000.0)
             mse_loss_weights = torch.stack([snr, 5.0 * torch.ones_like(snr)], dim=1).min(dim=1)[0] / snr
+            mse_loss_weights = self._apply_timestep_curriculum(mse_loss_weights, timesteps)
             
-            loss = F.mse_loss(noise_pred, target, reduction="none")
-            loss = loss.mean(dim=(1, 2, 3, 4)) * mse_loss_weights
+            base_sample_loss = F.mse_loss(noise_pred, target, reduction="none").mean(dim=(1, 2, 3, 4))
+            loss = base_sample_loss * mse_loss_weights
+
+            motion_loss_weight = getattr(self.train_config, "motion_loss_weight", 0.0)
+            if motion_loss_weight > 0:
+                motion_start = getattr(self.train_config, "motion_loss_start_timestep", 500)
+                motion_mask = timesteps >= motion_start
+                if motion_mask.any() and noise_pred.shape[2] > 1:
+                    noise_pred_diffs = noise_pred[:, :, 1:] - noise_pred[:, :, :-1]
+                    target_diffs = target[:, :, 1:] - target[:, :, :-1]
+                    motion_loss = F.mse_loss(noise_pred_diffs, target_diffs, reduction="none")
+                    motion_loss = motion_loss.mean(dim=(1, 2, 3, 4))
+                    motion_loss = motion_loss * motion_mask.float()
+                    loss = loss + motion_loss_weight * motion_loss
+
+            text_disc_weight = getattr(self.train_config, "text_discrimination_loss_weight", 0.0)
+            text_presence_weight = getattr(self.train_config, "text_presence_loss_weight", 0.0)
+            text_disc_metrics = {}
+            if (
+                (text_disc_weight > 0 or text_presence_weight > 0)
+                and self.model_config.text_conditioning_mode == "normal"
+            ):
+                start_timestep = getattr(self.train_config, "text_discrimination_start_timestep", 0)
+                text_mask = (timesteps >= start_timestep).float()
+                active_count = text_mask.sum().clamp_min(1.0)
+
+                if text_disc_weight > 0 and batch_size > 1 and text_mask.any():
+                    shuffled_embeddings = text_embeddings[_sample_derangement(batch_size, self.device)]
+                    shuffled_pred = self.model(noisy_video, timesteps, shuffled_embeddings)
+                    shuffled_sample_loss = F.mse_loss(shuffled_pred, target, reduction="none").mean(dim=(1, 2, 3, 4))
+                    disc_margin = getattr(self.train_config, "text_discrimination_margin", 0.001)
+                    disc_term = F.relu(disc_margin + base_sample_loss - shuffled_sample_loss)
+                    disc_term = (disc_term * text_mask).sum() / active_count
+                    loss = loss + text_disc_weight * disc_term
+                    text_disc_metrics["text_disc_loss"] = disc_term.detach().item()
+                    text_disc_metrics["shuffled_loss_mean"] = shuffled_sample_loss.detach().mean().item()
+
+                if text_presence_weight > 0 and text_mask.any():
+                    null_embeddings = torch.zeros_like(text_embeddings)
+                    null_pred = self.model(noisy_video, timesteps, null_embeddings)
+                    null_sample_loss = F.mse_loss(null_pred, target, reduction="none").mean(dim=(1, 2, 3, 4))
+                    presence_margin = getattr(self.train_config, "text_presence_margin", 0.001)
+                    presence_term = F.relu(presence_margin + base_sample_loss - null_sample_loss)
+                    presence_term = (presence_term * text_mask).sum() / active_count
+                    loss = loss + text_presence_weight * presence_term
+                    text_disc_metrics["text_presence_loss"] = presence_term.detach().item()
+                    text_disc_metrics["null_loss_mean"] = null_sample_loss.detach().mean().item()
+
             loss = loss.mean()
             
             # REMOVED: loss = torch.clamp(loss, max=10.0)
@@ -461,6 +571,7 @@ class Trainer:
             
         # Optimization step
         metrics = {"loss": loss.item() * self.train_config.gradient_accumulation_steps}
+        metrics.update(text_disc_metrics)
         
         if not accumulate_only:
             # Unscale gradients for clipping and manual checking
@@ -758,15 +869,22 @@ class Trainer:
         Args:
             path: Path to checkpoint file
             resume_training: If True, restore optimizer and scheduler state for resuming training.
-                           If False, only load model weights (for inference or fine-tuning).
+                           If False, only load model weights and keep a fresh training state
+                           (for inference or fine-tuning).
         """
         print(f"Loading checkpoint from {path}...")
         checkpoint = torch.load(path, map_location="cpu")
         
         # Load model weights
-        self.base_model.load_state_dict(checkpoint["model_state_dict"])
-        self.base_text_encoder.load_state_dict(checkpoint["text_encoder_state_dict"])
-        print(f"  Loaded model weights")
+        allow_partial = getattr(self.model_config, "partial_load_on_resume", True)
+        if allow_partial:
+            model_load = load_state_dict_flexible(self.base_model, checkpoint["model_state_dict"], "UNet")
+            text_load = load_state_dict_flexible(self.base_text_encoder, checkpoint["text_encoder_state_dict"], "text encoder")
+            print(f"  Loaded model weights ({model_load['mode']}, {text_load['mode']})")
+        else:
+            self.base_model.load_state_dict(checkpoint["model_state_dict"])
+            self.base_text_encoder.load_state_dict(checkpoint["text_encoder_state_dict"])
+            print(f"  Loaded model weights")
         
         if resume_training:
             # Load optimizer and scheduler state
@@ -800,10 +918,16 @@ class Trainer:
                 except Exception as e:
                     print(f"  Warning: Could not load EMA state: {e}")
         
-        # Always restore training progress
-        self.global_step = checkpoint.get("global_step", 0)
-        self.epoch = checkpoint.get("epoch", 0) + 1  # Start from next epoch
-        self.best_loss = checkpoint.get("best_loss", float('inf'))
+        if resume_training:
+            self.global_step = checkpoint.get("global_step", 0)
+            self.epoch = checkpoint.get("epoch", 0) + 1  # Start from next epoch
+            self.best_loss = checkpoint.get("best_loss", float('inf'))
+        else:
+            self.global_step = 0
+            self.epoch = 0
+            self.best_loss = float('inf')
+            self.optimizer.zero_grad(set_to_none=True)
+            print("  Using fresh optimizer/scheduler progress for fine-tuning")
     
     def train(self):
         """Main training loop with comprehensive research-grade logging"""
@@ -836,6 +960,8 @@ class Trainer:
             random_seed=self.train_config.split_seed,
             tokenizer=self.text_encoder.tokenizer if hasattr(self.text_encoder, "tokenizer") else self.tokenizer,
             use_length_prefix=getattr(self.model_config, 'use_length_prefix', False),
+            short_text_max_words=getattr(self.train_config, "short_text_max_words", None),
+            short_text_oversample_factor=getattr(self.train_config, "short_text_oversample_factor", 1.0),
             pin_memory=self.train_config.dataloader_pin_memory and self.device.type == "cuda",
             persistent_workers=self.train_config.dataloader_persistent_workers,
             prefetch_factor=self.train_config.dataloader_prefetch_factor,
@@ -1131,6 +1257,10 @@ def create_trainer(
         transformer_depth=getattr(model_config, 'transformer_depth', 1),
         use_gradient_checkpointing=getattr(model_config, 'use_gradient_checkpointing', False),
         num_frames=getattr(model_config, 'num_frames', 16),
+        use_text_global_conditioning=getattr(model_config, 'use_text_global_conditioning', True),
+        text_time_fusion_weight=getattr(model_config, 'text_time_fusion_weight', 1.0),
+        use_text_feature_modulation=getattr(model_config, 'use_text_feature_modulation', True),
+        text_feature_modulation_scale=getattr(model_config, 'text_feature_modulation_scale', 1.0),
     )
     
     text_encoder = create_text_encoder(

@@ -1,0 +1,157 @@
+{
+  "checkpoint": "/teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt",
+  "num_samples": 8,
+  "batch_size": 4,
+  "repeats": 1,
+  "selection": {
+    "max_word_count": 5,
+    "unique_prompts": true
+  },
+  "device": "cuda",
+  "normal_loss": {
+    "mean": 1.0742150619626045,
+    "ci95_low": 1.0133999213576317,
+    "ci95_high": 1.1363552063703537
+  },
+  "none_loss": {
+    "mean": 1.0753601044416428,
+    "ci95_low": 1.012784419208765,
+    "ci95_high": 1.1367466526105998
+  },
+  "random_loss": {
+    "mean": 1.0742099657654762,
+    "ci95_low": 1.0122154673561454,
+    "ci95_high": 1.1392528723925353
+  },
+  "none_minus_normal": {
+    "mean": 0.0011450424790382385,
+    "ci95_low": 0.00022729095071554186,
+    "ci95_high": 0.0018310269340872764
+  },
+  "random_minus_normal": {
+    "mean": -5.0961971282958984e-06,
+    "ci95_low": -0.0005084173753857613,
+    "ci95_high": 0.0004759468138217923
+  },
+  "prompt_ranking": {
+    "top1_accuracy": {
+      "mean": 0.25,
+      "ci95_low": 0.0,
+      "ci95_high": 0.5
+    },
+    "top3_accuracy": {
+      "mean": 0.625,
+      "ci95_low": 0.25,
+      "ci95_high": 0.875
+    },
+    "mean_correct_rank": {
+      "mean": 2.75,
+      "ci95_low": 1.875,
+      "ci95_high": 3.5
+    },
+    "mean_best_wrong_minus_correct": {
+      "mean": -0.0004903003573417664,
+      "ci95_low": -0.0010428886860609054,
+      "ci95_high": -3.95068898797037e-05
+    },
+    "chance_top1": 0.25
+  },
+  "records": [
+    {
+      "batch_index": 0,
+      "sample_index": 0,
+      "text": "MICHAEL ROSENGART: Thrusters.",
+      "normal_loss": 0.9841117858886719,
+      "none_loss": 0.986184298992157,
+      "random_loss": 0.9844628572463989,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.0003510713577270508
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 1,
+      "text": "Good.",
+      "normal_loss": 0.9895901679992676,
+      "none_loss": 0.9909953474998474,
+      "random_loss": 0.9894126653671265,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0005718469619750977
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 2,
+      "text": "That's good.",
+      "normal_loss": 1.1030967235565186,
+      "none_loss": 1.1048738956451416,
+      "random_loss": 1.1033070087432861,
+      "correct_rank": 2,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0002529621124267578
+    },
+    {
+      "batch_index": 0,
+      "sample_index": 3,
+      "text": "Good work, Jonesy.",
+      "normal_loss": 0.98735511302948,
+      "none_loss": 0.9887498617172241,
+      "random_loss": 0.9872562289237976,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.0002187490463256836
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 0,
+      "text": "It's not segmented.",
+      "normal_loss": 1.19480299949646,
+      "none_loss": 1.1939265727996826,
+      "random_loss": 1.1934194564819336,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.0013835430145263672
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 1,
+      "text": "It's one smooth movement.",
+      "normal_loss": 0.9902822375297546,
+      "none_loss": 0.9923833608627319,
+      "random_loss": 0.9900928735733032,
+      "correct_rank": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "best_wrong_minus_correct": -0.00018936395645141602
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 2,
+      "text": "Try it.",
+      "normal_loss": 1.1771392822265625,
+      "none_loss": 1.1791102886199951,
+      "random_loss": 1.1783864498138428,
+      "correct_rank": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "best_wrong_minus_correct": 0.00018227100372314453
+    },
+    {
+      "batch_index": 1,
+      "sample_index": 3,
+      "text": "Okay.",
+      "normal_loss": 1.167342185974121,
+      "none_loss": 1.1666572093963623,
+      "random_loss": 1.167342185974121,
+      "correct_rank": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "best_wrong_minus_correct": -0.001839280128479004
+    }
+  ]
+}

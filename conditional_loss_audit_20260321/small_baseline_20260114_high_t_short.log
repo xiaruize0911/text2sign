@@ -1,0 +1,33 @@
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder (projection_mode=identity)
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+⚙️ torch.compile disabled
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=12700, warmup_steps=500, steps_per_epoch=127
+   ✅ Config saved to text_to_sign/logs/conditional_loss_audit/json/conditional_loss_audit_config.json
+📊 Metrics Logger initialized:
+   - Experiment: conditional_loss_audit
+   - Log dir: text_to_sign/logs/conditional_loss_audit
+   - CSV: text_to_sign/logs/conditional_loss_audit/csv
+   - JSON: text_to_sign/logs/conditional_loss_audit/json
+📝 Experiment 'conditional_loss_audit' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+Loading checkpoint from /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260114_145727/best_model.pt...
+  ⚠️ Flexible partial load for UNet: loaded 236/238 keys; skipped 2 incompatible keys
+  Loaded model weights (partial, strict)
+  Warning: Could not load optimizer state: loaded state dict contains a parameter group that doesn't match the size of optimizer's group
+  Starting with fresh optimizer
+  Loaded LR scheduler state
+  ✅ Loaded EMA state
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Traceback (most recent call last):
+  File "/teamspace/studios/this_studio/text_to_sign/conditional_loss_audit.py", line 341, in <module>
+    main()
+  File "/teamspace/studios/this_studio/text_to_sign/conditional_loss_audit.py", line 214, in main
+    trainer.ema.apply_shadow()
+  File "/teamspace/studios/this_studio/text_to_sign/utils/ema.py", line 75, in apply_shadow
+    param.data.copy_(self.shadow[name])
+RuntimeError: The size of tensor a (3072) must match the size of tensor b (1536) at non-singleton dimension 0

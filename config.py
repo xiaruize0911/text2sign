@@ -40,6 +40,13 @@ class ModelConfig:
     use_length_prefix: bool = False  # Prepends [WORD_COUNT] to text for density control
     text_conditioning_mode: str = "normal"  # normal | none | random
     clip_trainable_layers: int = 0  # 0 keeps CLIP frozen, >0 unfreezes last N encoder layers
+    text_projection_mode: str = "identity"  # identity | linear | mlp
+    text_projection_hidden_mult: int = 2  # hidden multiplier for MLP projection
+    partial_load_on_resume: bool = True  # allow shape-matched partial loading for v2 upgrades
+    use_text_global_conditioning: bool = True  # fuse pooled text into timestep embedding
+    text_time_fusion_weight: float = 1.0  # strength of global text->time fusion
+    use_text_feature_modulation: bool = True  # FiLM-style modulation of UNet features from pooled text
+    text_feature_modulation_scale: float = 1.0  # strength of text feature modulation
 
 
 @dataclass
@@ -64,6 +71,8 @@ class TrainingConfig:
     train_ratio: float = 0.9
     split_mode: str = "signer_disjoint"  # signer_disjoint | random
     split_seed: int = 42
+    short_text_max_words: Optional[int] = None  # optionally oversample prompts with <= this many words
+    short_text_oversample_factor: float = 1.0  # multiplier for short-prompt sampling probability
     
     # Training
     num_epochs: int = 100  
@@ -73,6 +82,18 @@ class TrainingConfig:
     gradient_accumulation_steps: int = 8  # Keep effective batch size healthy without VRAM spikes
     max_run_optimizer_steps: Optional[int] = None  # Stop after this many optimizer steps in the current invocation
     max_grad_norm: float = 0.5  # Reduced from 1.0 for better stability
+    motion_loss_weight: float = 0.0  # auxiliary temporal-difference loss for smoother motion
+    motion_loss_start_timestep: int = 500  # only apply motion regularization for sufficiently noisy steps
+    text_discrimination_loss_weight: float = 0.0  # margin loss encouraging correct prompts to beat shuffled prompts
+    text_discrimination_margin: float = 0.001
+    text_discrimination_start_timestep: int = 0
+    text_presence_loss_weight: float = 0.0  # optional margin loss encouraging text to beat null conditioning
+    text_presence_margin: float = 0.001
+    use_timestep_curriculum: bool = False  # emphasize mid/late timesteps after warmup
+    timestep_curriculum_start_frac: float = 0.1
+    timestep_curriculum_min: int = 300
+    timestep_curriculum_max: int = 700
+    timestep_curriculum_weight: float = 1.5
     
     # EMA (Exponential Moving Average) - Critical for quality!
     use_ema: bool = True
@@ -155,6 +176,34 @@ MODEL_SIZE_PRESETS: Dict[str, Dict[str, object]] = {
             "batch_size": 2,
             "gradient_accumulation_steps": 8,
             "num_workers": 4,
+        },
+    },
+    "semantic_v2": {
+        "description": "Conditioning-focused v2 preset with multi-scale attention on a single GPU.",
+        "model": {
+            "image_size": 64,
+            "num_frames": 24,
+            "model_channels": 64,
+            "channel_mult": (1, 2, 4),
+            "attention_resolutions": (2, 4),
+            "num_heads": 4,
+            "use_gradient_checkpointing": True,
+            "clip_trainable_layers": 2,
+            "text_projection_mode": "mlp",
+            "text_projection_hidden_mult": 2,
+            "use_text_global_conditioning": True,
+            "text_time_fusion_weight": 1.25,
+            "use_text_feature_modulation": True,
+            "text_feature_modulation_scale": 1.0,
+        },
+        "training": {
+            "batch_size": 2,
+            "gradient_accumulation_steps": 8,
+            "num_workers": 4,
+            "learning_rate": 1e-5,
+            "motion_loss_weight": 0.1,
+            "motion_loss_start_timestep": 500,
+            "use_timestep_curriculum": True,
         },
     },
     "large": {

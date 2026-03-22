@@ -6,6 +6,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 python -u main.py train \
   --resume /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt \
+  --resume-weights-only \
   --model-size large \
   --num-frames 32 \
   --batch-size 2 \

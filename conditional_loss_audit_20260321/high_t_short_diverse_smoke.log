@@ -1,0 +1,31 @@
+uintx feature requires torch 2.3+, please upgrade pytorch
+Using frozen pretrained CLIP text encoder
+🚀 CuDNN benchmarking enabled for speed
+⚡ TF32 matmul/cuDNN enabled
+🧠 Using channels_last_3d memory format for the UNet
+🔢 Precision mode: bf16
+⚙️ torch.compile disabled
+⚡ Using Fused AdamW optimizer for increased speed
+📈 Scheduler: total_steps=7620, warmup_steps=500, steps_per_epoch=127
+   ✅ Config saved to text_to_sign/logs/conditional_loss_audit/json/conditional_loss_audit_config.json
+📊 Metrics Logger initialized:
+   - Experiment: conditional_loss_audit
+   - Log dir: text_to_sign/logs/conditional_loss_audit
+   - CSV: text_to_sign/logs/conditional_loss_audit/csv
+   - JSON: text_to_sign/logs/conditional_loss_audit/json
+📝 Experiment 'conditional_loss_audit' registered
+✅ EMA initialized with decay=0.9999, update_every=10
+Loading checkpoint from /teamspace/studios/this_studio/text_to_sign/text_to_sign/checkpoints/text2sign_20260319_015042/best_model.pt...
+  Loaded model weights
+  Loaded optimizer state
+  Loaded LR scheduler state
+  ✅ Loaded EMA state
+Loaded 399 validation samples using signer_disjoint split (231 train signers, 24 val signers, overlap=0)
+Traceback (most recent call last):
+  File "/teamspace/studios/this_studio/text_to_sign/conditional_loss_audit.py", line 341, in <module>
+    main()
+  File "/teamspace/studios/this_studio/text_to_sign/conditional_loss_audit.py", line 214, in main
+    trainer.ema.apply_shadow()
+  File "/teamspace/studios/this_studio/text_to_sign/utils/ema.py", line 74, in apply_shadow
+    self.backup[name] = param.data.clone()
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 24.00 MiB. GPU 0 has a total capacity of 21.96 GiB of which 18.00 MiB is free. Process 222735 has 13.37 GiB memory in use. Process 223849 has 8.57 GiB memory in use. Of the allocated memory 8.32 GiB is allocated by PyTorch, and 36.88 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

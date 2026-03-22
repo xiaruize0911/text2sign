@@ -166,12 +166,16 @@ class FrozenCLIPTextEncoder(nn.Module):
         embed_dim: int = 512,
         max_length: int = 77,
         trainable_layers: int = 0,
+        projection_mode: str = "identity",
+        projection_hidden_mult: int = 2,
     ):
         super().__init__()
         
         self.embed_dim = embed_dim
         self.max_length = max_length
         self.trainable_layers = max(0, trainable_layers)
+        self.projection_mode = projection_mode
+        self.projection_hidden_mult = max(1, projection_hidden_mult)
         
         try:
             from transformers import CLIPTextModel, CLIPTokenizer
@@ -191,18 +195,28 @@ class FrozenCLIPTextEncoder(nn.Module):
                 for param in self.model.text_model.final_layer_norm.parameters():
                     param.requires_grad = True
             
-            # Project to target dim if needed
+            # Project/adapt CLIP hidden states to target conditioning space
             clip_dim = self.model.config.hidden_size
-            if clip_dim != embed_dim:
+            if projection_mode == "mlp":
+                hidden_dim = max(embed_dim, clip_dim) * self.projection_hidden_mult
+                self.proj = nn.Sequential(
+                    nn.Linear(clip_dim, hidden_dim),
+                    nn.GELU(),
+                    nn.Linear(hidden_dim, embed_dim),
+                )
+            elif projection_mode == "linear" or clip_dim != embed_dim:
                 self.proj = nn.Linear(clip_dim, embed_dim)
             else:
                 self.proj = nn.Identity()
             
             self.use_clip = True
             if self.trainable_layers > 0:
-                print(f"Using CLIP text encoder with last {self.trainable_layers} layers trainable")
+                print(
+                    f"Using CLIP text encoder with last {self.trainable_layers} layers trainable "
+                    f"and projection_mode={projection_mode}"
+                )
             else:
-                print("Using frozen pretrained CLIP text encoder")
+                print(f"Using frozen pretrained CLIP text encoder (projection_mode={projection_mode})")
             
         except Exception as e:
             print(f"CLIP not available ({e}), using custom text encoder")
@@ -263,6 +277,8 @@ def create_text_encoder(config, use_clip: bool = True):
             embed_dim=config.text_embed_dim,
             max_length=config.max_text_length,
             trainable_layers=getattr(config, "clip_trainable_layers", 0),
+            projection_mode=getattr(config, "text_projection_mode", "identity"),
+            projection_hidden_mult=getattr(config, "text_projection_hidden_mult", 2),
         )
     else:
         return TextEncoder(
